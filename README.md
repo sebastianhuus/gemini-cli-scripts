@@ -37,4 +37,8 @@ Run this script on a feature branch to generate and create a pull request. It wi
 - Gemini command-line tool (configured with access to Gemini models)
 - GitHub CLI (`gh`) (for `auto_pr.zsh` functionality)
 
+## How to Use
+
+[Placeholder for detailed guide on how to use the CLI tools, including setup, configuration, and examples of common workflows.]
+
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
