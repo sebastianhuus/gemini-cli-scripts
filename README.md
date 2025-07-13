@@ -2,6 +2,10 @@
 
 This project provides a set of Zsh scripts designed to automate common Git workflows using the power of the Gemini AI.
 
+## Why?
+
+I ran out of Claude Code usage for the next few hours and figured I'd stop wasting tokens on getting it to commit its changes when Gemini CLI is free :) Both LLMs generate better commit messages and PRs much faster than what I could do. 
+
 ## Features
 
 ### `auto_commit.zsh`
@@ -14,6 +18,9 @@ This project provides a set of Zsh scripts designed to automate common Git workf
 - **Automated Pull Request Creation**: Generates pull request titles and descriptions based on the commit history between the current branch and the base branch (main/master) using Gemini.
 - **Issue Reference Inclusion**: Automatically includes relevant issue references (e.g., `resolves #123`, `fixes #456`) found in commit messages.
 - **GitHub CLI Integration**: Integrates with the GitHub CLI (`gh`) to create pull requests directly from the command line.
+
+### Optional parameters
+Both scripts allow you to pass an optional prompt to tell Gemini what to do. E.g "This commit resolves #55" will tell it to include that comment in its commit message.
 
 ## Usage
 
