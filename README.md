@@ -39,8 +39,6 @@ Run this script on a feature branch to generate and create a pull request. It wi
 
 ## How to Use
 
-## How to Use
-
 To run the scripts, simply drag the `.zsh` file into your terminal window (e.g., in VS Code or iTerm2) and press Enter. This will execute the script directly.
 
 ### Example Usage: `auto_commit.zsh`
@@ -79,6 +77,45 @@ remote: Resolving deltas: 100% (1/1), completed with 1 local object.
 To https://github.com/sebastianhuus/gemini-cli-scripts.git
    1dccbc5..60caa4e  main -> main
 Changes pushed successfully!
+```
+
+### Example Usage: `auto_pr.zsh`
+
+```
+sebastian.huus@Mac gemini-cli-scripts % '/Users/sebastian.huus/Documents/Github/gemini-cli-scripts/auto_pr.zsh'
+Found commits to include in PR:
+bda4e61 docs: Detail auto_commit.zsh usage in README
+
+Generated PR content:
+TITLE: docs: Detail auto_commit.zsh usage in README
+
+DESCRIPTION:
+- Provide a detailed example of `auto_commit.zsh` usage.
+- Include a full terminal session output to illustrate script interaction.
+- Clarify how to run Zsh scripts by dragging them into the terminal.
+
+Do you want to create the PR with this content? [y/N]
+y
+Pushing current branch to remote...
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 12 threads
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 1.29 KiB | 1.29 MiB/s, done.
+Total 3 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+remote: 
+remote: Create a pull request for 'demonstrate-auto-pr' on GitHub by visiting:
+remote:      https://github.com/sebastianhuus/gemini-cli-scripts/pull/new/demonstrate-auto-pr
+remote: 
+To https://github.com/sebastianhuus/gemini-cli-scripts.git
+ * [new branch]      demonstrate-auto-pr -> demonstrate-auto-pr
+branch 'demonstrate-auto-pr' set up to track 'origin/demonstrate-auto-pr'.
+
+Creating pull request for demonstrate-auto-pr into main in sebastianhuus/gemini-cli-scripts
+
+https://github.com/sebastianhuus/gemini-cli-scripts/pull/1
+Pull request created successfully!
 ```
 
 [Placeholder for detailed guide on how to use the CLI tools, including setup, configuration, and examples of common workflows.]
