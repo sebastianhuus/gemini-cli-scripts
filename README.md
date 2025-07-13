@@ -118,6 +118,10 @@ https://github.com/sebastianhuus/gemini-cli-scripts/pull/1
 Pull request created successfully!
 ```
 
-[Placeholder for detailed guide on how to use the CLI tools, including setup, configuration, and examples of common workflows.]
+### Known Issue: Gemini Response Trimming
+
+Occasionally, the Gemini model might include an extraneous line (e.g., related to authentication methods) at the beginning of its response. To mitigate this, our scripts trim the first line of every Gemini output. In cases where Gemini *does not* include this extra line, the trimming might result in an empty or truncated message.
+
+**Workaround**: If you encounter an empty or incomplete message, simply choose the 'regenerate with feedback' option (`r`) and Gemini will typically provide a complete response on the next attempt. You can also explicitly ask Gemini to add a new line at the start of its response if this issue persists.
 
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
