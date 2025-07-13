@@ -17,29 +17,29 @@ This project provides a set of Zsh scripts designed to automate common Git workf
 
 ## Usage
 
-To use these scripts, ensure you have the `gemini` command-line tool installed and configured, as well as the GitHub CLI (`gh`) for `auto_pr.zsh`.
+To use these scripts, ensure you have the necessary tools installed and configured.
 
-### `auto_commit.zsh`
-```bash
-./auto_commit.zsh [optional_additional_context]
-```
-Run this script in your Git repository when you have staged changes. It will propose a commit message and guide you through the commit process.
-
-### `auto_pr.zsh`
-```bash
-./auto_pr.zsh [optional_additional_context]
-```
-Run this script on a feature branch to generate and create a pull request. It will analyze your commit history and suggest a PR title and description.
-
-## Requirements
+### Requirements
 - Zsh shell
 - Git
 - Gemini command-line tool (configured with access to Gemini models)
 - GitHub CLI (`gh`) (for `auto_pr.zsh` functionality)
 
-## How to Use
+### Running the Scripts
 
 To run the scripts, simply drag the `.zsh` file into your terminal window (e.g., in VS Code or iTerm2) and press Enter. This will execute the script directly.
+
+#### `auto_commit.zsh`
+```bash
+./auto_commit.zsh [optional_additional_context]
+```
+Run this script in your Git repository when you have staged changes. It will propose a commit message and guide you through the commit process.
+
+#### `auto_pr.zsh`
+```bash
+./auto_pr.zsh [optional_additional_context]
+```
+Run this script on a feature branch to generate and create a pull request. It will analyze your commit history and suggest a PR title and description.
 
 ### Example Usage: `auto_commit.zsh`
 
