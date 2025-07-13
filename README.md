@@ -6,6 +6,14 @@ This project provides a set of Zsh scripts designed to automate common Git workf
 
 I ran out of Claude Code usage for the next few hours and figured I'd stop wasting tokens on getting it to commit its changes when Gemini CLI is free :) Both LLMs generate better commit messages and PRs much faster than what I could do. 
 
+### Why is it hard coded to use 2.5 Flash?
+I was enjoying Gemini CLI in my Claude Code downtime and was notified that I had hit my 2.5 Pro usage limits after ~5 messages - but how? 
+
+> 🥁🥁🥁🥁🥁
+
+All these commit messages and PRs I had made with Gemini had drained my usage quota!
+So I opted for using Flash instead. It is still a very capable model with a good context window, so explaining code diffs should not be an issue for it even if it does not have project specific knowledge.
+
 ## Features
 
 ### `auto_commit.zsh`
