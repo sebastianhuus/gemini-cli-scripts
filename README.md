@@ -39,6 +39,48 @@ Run this script on a feature branch to generate and create a pull request. It wi
 
 ## How to Use
 
+## How to Use
+
+To run the scripts, simply drag the `.zsh` file into your terminal window (e.g., in VS Code or iTerm2) and press Enter. This will execute the script directly.
+
+### Example Usage: `auto_commit.zsh`
+
+```
+sebastian.huus@Mac gemini-cli-scripts % '/Users/sebastian.huus/Documents/Github/gemini-cli-scripts/auto_commit.zsh'
+Staged files to be shown to Gemini:
+README.md
+Generated commit message:
+docs: Add 'How to Use' section to README
+
+- Introduce a new section for detailed usage instructions.
+- Include a placeholder for future content on setup, configuration, and workflows.
+
+ Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+
+Accept and commit? [y/r/q] (yes / regenerate with feedback / quit)
+
+>y
+
+[main 60caa4e] docs: Add 'How to Use' section to README
+ 1 file changed, 4 insertions(+)
+Changes committed successfully!
+
+Do you want to push the changes now? [y/N]
+
+>y
+
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 12 threads
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 672 bytes | 672.00 KiB/s, done.
+Total 3 (delta 1), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (1/1), completed with 1 local object.
+To https://github.com/sebastianhuus/gemini-cli-scripts.git
+   1dccbc5..60caa4e  main -> main
+Changes pushed successfully!
+```
+
 [Placeholder for detailed guide on how to use the CLI tools, including setup, configuration, and examples of common workflows.]
 
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
