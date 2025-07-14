@@ -51,11 +51,15 @@ DESCRIPTION:
 Commit history:
 $commit_details"
 
-# Generate PR title and description using Gemini
-pr_content=$(echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$gemini_prompt" | tail -n +2)
+# Generate raw PR content from Gemini
+pr_content_raw=$(echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$gemini_prompt" | tail -n +2)
 
 
-if [ $? -eq 0 ] && [ -n "$pr_content" ]; then
+if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
+    # Create the final PR content with attribution for display, just like in auto_commit.zsh
+    pr_content="$pr_content_raw"
+    pr_content+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
+
     echo "Generated PR content:"
     echo "$pr_content"
     echo ""
@@ -65,11 +69,8 @@ if [ $? -eq 0 ] && [ -n "$pr_content" ]; then
     if [[ "$response" =~ ^[Yy]$ ]]; then
         # Extract title and description
         pr_title=$(echo "$pr_content" | grep "^TITLE:" | sed 's/^TITLE: //')
-        pr_description=$(echo "$pr_content" | sed '/^TITLE:/d' | sed '/^DESCRIPTION:/d' | sed '/^$/d')
-        pr_description+="
+        pr_description=$(echo "$pr_content" | sed '1,/^DESCRIPTION:/d')
 
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
-        
         # Push current branch to remote
         echo "Pushing current branch to remote..."
         git push -u origin "$current_branch"
@@ -88,7 +89,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content" ]; then
     else
         echo "PR creation cancelled. You can create it manually with:"
         echo "Title: $(echo "$pr_content" | grep "^TITLE:" | sed 's/^TITLE: //')"
-        echo "Description: $(echo "$pr_content" | sed '/^TITLE:/d' | sed '/^DESCRIPTION:/d' | sed '/^$/d')"
+        echo "Description: $(echo "$pr_content" | sed '1,/^DESCRIPTION:/d')"
     fi
 else
     echo "Failed to generate PR content. Please create PR manually."
