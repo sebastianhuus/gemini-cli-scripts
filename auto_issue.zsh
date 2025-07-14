@@ -1,5 +1,13 @@
 #!/usr/bin/env zsh
 
+# Load context utility if available
+script_dir="${0:A:h}"
+gemini_context=""
+if [ -f "${script_dir}/gemini_context.zsh" ]; then
+    source "${script_dir}/gemini_context.zsh"
+    gemini_context=$(load_gemini_context)
+fi
+
 # GitHub Issue Natural Language Assistant with LLM Enhancement
 # 
 # Usage:
@@ -159,7 +167,16 @@ edit_issue() {
 Current issue:
 $current_issue
 
-User's edit request: $edit_prompt
+User's edit request: $edit_prompt"
+    
+    if [ -n "$gemini_context" ]; then
+        llm_prompt+="
+
+Repository context from GEMINI.md:
+$gemini_context"
+    fi
+    
+    llm_prompt+="
 
 Please provide the exact gh issue edit command(s) needed to apply these changes. Only output the command(s), one per line, without any additional text or explanation. Use the issue number $issue_number in your commands.
 
@@ -227,7 +244,16 @@ parse_intent() {
     # Create prompt for LLM to parse intent
     local parser_prompt="Analyze this GitHub issue request and determine the operation, issue number, and content.
 
-User input: $input
+User input: $input"
+    
+    if [ -n "$gemini_context" ]; then
+        parser_prompt+="
+
+Repository context from GEMINI.md:
+$gemini_context"
+    fi
+    
+    parser_prompt+="
 
 Respond with ONLY these lines in this exact format:
 OPERATION: [create|edit|comment|view|close|reopen]
@@ -373,7 +399,16 @@ comment_issue() {
 Current issue context:
 $current_issue
 
-User's comment request: $comment_prompt
+User's comment request: $comment_prompt"
+    
+    if [ -n "$gemini_context" ]; then
+        llm_prompt+="
+
+Repository context from GEMINI.md:
+$gemini_context"
+    fi
+    
+    llm_prompt+="
 
 Please provide a well-structured, professional comment that addresses the user's request. The comment should be:
 - Clear and concise
@@ -463,7 +498,16 @@ IMPORTANT: Only use information from the user's description. Do not make assumpt
 Repository Context (use this to select appropriate labels, milestones, and assignees):
 $labels_context
 $milestones_context
-$collaborators_context
+$collaborators_context"
+    
+    if [ -n "$gemini_context" ]; then
+        base_prompt+="
+
+Additional repository context from GEMINI.md:
+$gemini_context"
+    fi
+    
+    base_prompt+="
 
 User's description: $user_description"
 
