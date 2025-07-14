@@ -82,6 +82,33 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
+# Function to display repository information
+display_repository_info() {
+    local repo_url=$(git remote get-url origin 2>/dev/null)
+    local current_branch=$(git branch --show-current 2>/dev/null)
+    
+    if [ -n "$repo_url" ]; then
+        # Extract repository name from different URL formats
+        local repo_name
+        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
+            repo_name="${match[1]}"
+        else
+            # Fallback: use the URL as is
+            repo_name="$repo_url"
+        fi
+        
+        echo "🏗️  Repository: $repo_name"
+    else
+        echo "🏗️  Repository: (unable to detect remote)"
+    fi
+    
+    if [ -n "$current_branch" ]; then
+        echo "🌿 Branch: $current_branch"
+    fi
+    
+    echo ""
+}
+
 # Function to validate that quotes are properly closed in a string
 validate_quotes() {
     local input="$1"
@@ -641,6 +668,9 @@ handle_natural_language() {
         echo "Example: ./auto_issue.zsh \"add comment to issue 8 about login fix\""
         return 1
     fi
+    
+    # Display repository information
+    display_repository_info
     
     echo "Processing natural language request..."
     

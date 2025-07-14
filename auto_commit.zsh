@@ -1,7 +1,37 @@
 #!/usr/bin/env zsh
 
+# Function to display repository information
+display_repository_info() {
+    local repo_url=$(git remote get-url origin 2>/dev/null)
+    local current_branch=$(git branch --show-current 2>/dev/null)
+    
+    if [ -n "$repo_url" ]; then
+        # Extract repository name from different URL formats
+        local repo_name
+        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
+            repo_name="${match[1]}"
+        else
+            # Fallback: use the URL as is
+            repo_name="$repo_url"
+        fi
+        
+        echo "🏗️  Repository: $repo_name"
+    else
+        echo "🏗️  Repository: (unable to detect remote)"
+    fi
+    
+    if [ -n "$current_branch" ]; then
+        echo "🌿 Branch: $current_branch"
+    fi
+    
+    echo ""
+}
+
 # Check if there are staged changes
 if ! git diff --cached --quiet; then
+    # Display repository information
+    display_repository_info
+    
     # Get the diff for context
     staged_diff=$(git diff --cached)
     
