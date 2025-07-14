@@ -5,6 +5,7 @@ This project provides a set of Zsh scripts designed to automate common Git workf
 ## Why?
 
 I ran out of Claude Code usage for the next few hours and figured I'd stop wasting tokens on getting it to commit its changes when Gemini CLI is free :) Both LLMs generate better commit messages and PRs much faster than what I could do. 
+Telling Gemini to check files and commit changes on its own tends to be very slow compared to CC, so I figured it was faster to just pipe all the relevant info into Gemini and have it generate directly instead of wasting time (and tokens) on letting it find discover context by itself.
 
 ### Why is it hard coded to use 2.5 Flash?
 I was enjoying Gemini CLI in my Claude Code downtime and was notified that I had hit my 2.5 Pro usage limits after ~5 messages - but how? 
@@ -40,9 +41,20 @@ To use these scripts, ensure you have the necessary tools installed and configur
 - Gemini command-line tool (configured with access to Gemini models)
 - GitHub CLI (`gh`) (for `auto_pr.zsh` functionality)
 
+### Installation
+I recommend installing this repository as a git submodule in your own project. 
+
+`git submodule add https://github.com/sebastianhuus/gemini-cli-scripts.git <path_to_your_scripts>`
+
+This lets you keep these out of your main repo code and reuse it elsewhere.
+
+To pull updates from this repo, run
+
+`git submodule update --remote`
+
 ### Running the Scripts
 
-To run the scripts, simply drag the `.zsh` file into your terminal window (e.g., in VS Code or iTerm2) and press Enter. This will execute the script directly.
+To run the scripts, simply drag the `.zsh` file into your terminal window (e.g., in VS Code or iTerm2) and press Enter. This will execute the script directly. They use git and Github CLI under the hood, so commands will be called on your repository based on your terminal's current working directory. 
 
 #### `auto_commit.zsh`
 ```bash
