@@ -27,6 +27,135 @@ display_repository_info() {
     echo ""
 }
 
+# Check if we're on main/master branch and handle staging/branch creation
+current_branch=$(git branch --show-current)
+if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+    echo "⚠️  You're currently on the '$current_branch' branch."
+    echo "It's recommended to create a feature branch for your changes."
+    echo ""
+    
+    # First, handle staging if needed
+    staged_diff=""
+    if ! git diff --cached --quiet; then
+        # Already have staged changes
+        staged_diff=$(git diff --cached)
+        echo "✅ Found staged changes for branch name generation."
+    elif ! git diff --quiet; then
+        # Have unstaged changes, ask to stage them
+        echo "Found unstaged changes. Stage all changes? [y/N]"
+        read -r stage_response
+        if [[ "$stage_response" =~ ^[Yy]$ ]]; then
+            git add .
+            if ! git diff --cached --quiet; then
+                staged_diff=$(git diff --cached)
+                echo "✅ Changes staged successfully."
+            else
+                echo "❌ No changes to stage."
+                exit 1
+            fi
+        else
+            echo "Cannot generate branch name without staged changes."
+            echo "Either stage changes first or create branch manually."
+            exit 0
+        fi
+    else
+        echo "No changes found (staged or unstaged)."
+        echo "Create empty branch anyway? [y/N]"
+        read -r empty_branch_response
+        if [[ "$empty_branch_response" =~ ^[Yy]$ ]]; then
+            echo "Enter branch name:"
+            read -r manual_branch_name
+            if [ -n "$manual_branch_name" ]; then
+                if git switch -c "$manual_branch_name"; then
+                    echo "✅ Created and switched to branch '$manual_branch_name'"
+                    echo ""
+                    exit 0
+                else
+                    echo "❌ Failed to create branch. Exiting."
+                    exit 1
+                fi
+            else
+                echo "No branch name provided. Staying on '$current_branch'."
+                exit 0
+            fi
+        else
+            echo "Staying on '$current_branch' branch."
+            exit 0
+        fi
+    fi
+    
+    # Now ask about branch creation
+    echo ""
+    echo "Create a new branch? [y/N]"
+    read -r create_branch_response
+    
+    if [[ "$create_branch_response" =~ ^[Yy]$ ]]; then
+        # Generate branch name based on staged changes
+        echo "Generating branch name based on staged changes..."
+        
+        # Create full prompt with embedded diff (like commit message generation)
+        branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:
+
+Current staged changes:
+$staged_diff"
+        
+        # Generate branch name with Gemini (using prompt embedding, not pipe)
+        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tail -n +2 | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
+            echo "Failed to generate branch name. Enter manually:"
+            read -r manual_branch_name
+            generated_branch_name="$manual_branch_name"
+        fi
+        
+        # Branch name confirmation loop
+        while true; do
+            echo ""
+            echo "Generated branch name: $generated_branch_name"
+            echo ""
+            echo "Create branch '$generated_branch_name'? [y/e/r/q] (yes / edit / regenerate / quit)"
+            read -r branch_response
+            
+            case "$branch_response" in
+                [Yy]* )
+                    if git switch -c "$generated_branch_name"; then
+                        echo "✅ Created and switched to branch '$generated_branch_name'"
+                        echo ""
+                    else
+                        echo "❌ Failed to create branch. Exiting."
+                        exit 1
+                    fi
+                    break
+                    ;;
+                [Ee]* )
+                    echo "Enter new branch name:"
+                    read -r manual_branch_name
+                    if [ -n "$manual_branch_name" ]; then
+                        generated_branch_name="$manual_branch_name"
+                    fi
+                    ;;
+                [Rr]* )
+                    echo "Regenerating branch name..."
+                    generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tail -n +2 | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
+                        echo "Failed to regenerate branch name."
+                    fi
+                    ;;
+                [Qq]* )
+                    echo "Branch creation cancelled. Staying on '$current_branch'."
+                    exit 0
+                    ;;
+                * )
+                    echo "Invalid option. Please choose 'y', 'e', 'r', or 'q'."
+                    ;;
+            esac
+        done
+    else
+        echo "Continuing on '$current_branch' branch."
+        echo ""
+    fi
+fi
+
 # Check if there are staged changes
 if ! git diff --cached --quiet; then
     # Display repository information
