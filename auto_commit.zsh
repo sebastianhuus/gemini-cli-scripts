@@ -1,5 +1,43 @@
 #!/usr/bin/env zsh
 
+# Default options
+auto_stage=false
+
+# Usage function
+usage() {
+    echo "Usage: $0 [-s|--stage] [optional_context]"
+    echo ""
+    echo "Options:"
+    echo "  -s, --stage    Automatically stage all changes before generating commit"
+    echo "  -h, --help     Show this help message"
+    echo ""
+    echo "Arguments:"
+    echo "  optional_context    Additional context for commit message generation"
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -s|--stage)
+            auto_stage=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            # First non-option argument is the optional context
+            break
+            ;;
+    esac
+done
+
 # Load context utility if available
 script_dir="${0:A:h}"
 gemini_context=""
@@ -49,11 +87,10 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         staged_diff=$(git diff --cached)
         echo "✅ Found staged changes for branch name generation."
     elif ! git diff --quiet; then
-        # Have unstaged changes, ask to stage them
-        echo "Found unstaged changes. Stage all changes? [y/N]"
-        read -r stage_response
-        if [[ "$stage_response" =~ ^[Yy]$ ]]; then
-            git add .
+        # Have unstaged changes, auto-stage if flag is set or ask user
+        if [[ "$auto_stage" == true ]]; then
+            echo "Auto-staging all changes..."
+            git add -A
             if ! git diff --cached --quiet; then
                 staged_diff=$(git diff --cached)
                 echo "✅ Changes staged successfully."
@@ -62,9 +99,22 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                 exit 1
             fi
         else
-            echo "Cannot generate branch name without staged changes."
-            echo "Either stage changes first or create branch manually."
-            exit 0
+            echo "Found unstaged changes. Stage all changes? [y/N]"
+            read -r stage_response
+            if [[ "$stage_response" =~ ^[Yy]$ ]]; then
+                git add .
+                if ! git diff --cached --quiet; then
+                    staged_diff=$(git diff --cached)
+                    echo "✅ Changes staged successfully."
+                else
+                    echo "❌ No changes to stage."
+                    exit 1
+                fi
+            else
+                echo "Cannot generate branch name without staged changes."
+                echo "Either stage changes first or create branch manually."
+                exit 0
+            fi
         fi
     else
         echo "No changes found (staged or unstaged)."
@@ -311,16 +361,30 @@ if ! git diff --cached --quiet; then
         esac
     done
 else
-    echo "No staged changes found."
-    echo "Do you want to stage all changes? [y/N]"
-    read -r stage_response
-
-    if [[ "$stage_response" =~ ^[Yy]$ ]]; then
-        git add .
-        echo "All changes staged."
-        # Re-run the script to proceed with commit message generation
-        exec "$0" "$@"
+    if [[ "$auto_stage" == true ]]; then
+        echo "No staged changes found. Auto-staging all changes..."
+        git add -A
+        if ! git diff --cached --quiet; then
+            echo "✅ All changes staged successfully."
+            # Re-run the script to proceed with commit message generation
+            exec "$0" "$@"
+        else
+            echo "❌ No changes to stage."
+            exit 1
+        fi
     else
-        echo "No changes staged. Commit cancelled."
+        echo "No staged changes found."
+        echo "Do you want to stage all changes? [y/N]"
+        read -r stage_response
+
+        if [[ "$stage_response" =~ ^[Yy]$ ]]; then
+            git add .
+            echo "All changes staged."
+            # Re-run the script to proceed with commit message generation
+            exec "$0" "$@"
+        else
+            echo "No changes staged. Commit cancelled."
+            exit 0
+        fi
     fi
 fi
