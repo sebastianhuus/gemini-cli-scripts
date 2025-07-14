@@ -1,5 +1,13 @@
 #!/usr/bin/env zsh
 
+# Load context utility if available
+script_dir="${0:A:h}"
+gemini_context=""
+if [ -f "${script_dir}/gemini_context.zsh" ]; then
+    source "${script_dir}/gemini_context.zsh"
+    gemini_context=$(load_gemini_context)
+fi
+
 # Function to display repository information
 display_repository_info() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -76,7 +84,16 @@ TITLE: [concise, descriptive title]
 
 DESCRIPTION:
 [detailed description with bullet points of changes]
-[Optional: List of issue references, e.g., 'Resolves #123', 'Contributes to #456']
+[Optional: List of issue references, e.g., 'Resolves #123', 'Contributes to #456']"
+    
+    if [ -n "$gemini_context" ]; then
+        base_prompt+="
+
+Repository context from GEMINI.md:
+$gemini_context"
+    fi
+    
+    base_prompt+="
 
 Commit history:
 $commit_details"

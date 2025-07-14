@@ -1,5 +1,13 @@
 #!/usr/bin/env zsh
 
+# Load context utility if available
+script_dir="${0:A:h}"
+gemini_context=""
+if [ -f "${script_dir}/gemini_context.zsh" ]; then
+    source "${script_dir}/gemini_context.zsh"
+    gemini_context=$(load_gemini_context)
+fi
+
 # Function to display repository information
 display_repository_info() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -94,7 +102,16 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         echo "Generating branch name based on staged changes..."
         
         # Create full prompt with embedded diff (like commit message generation)
-        branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:
+        branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
+        
+        if [ -n "$gemini_context" ]; then
+            branch_name_prompt+="
+
+Repository context from GEMINI.md:
+$gemini_context"
+        fi
+        
+        branch_name_prompt+="
 
 Current staged changes:
 $staged_diff"
@@ -136,6 +153,21 @@ $staged_diff"
                     ;;
                 [Rr]* )
                     echo "Regenerating branch name..."
+                    # Rebuild prompt for regeneration
+                    branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
+                    
+                    if [ -n "$gemini_context" ]; then
+                        branch_name_prompt+="
+
+Repository context from GEMINI.md:
+$gemini_context"
+                    fi
+                    
+                    branch_name_prompt+="
+
+Current staged changes:
+$staged_diff"
+                    
                     generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tail -n +2 | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                     if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
                         echo "Failed to regenerate branch name."
@@ -181,7 +213,13 @@ if ! git diff --cached --quiet; then
 
         optional_prompt="$1"
 
-        full_prompt="$base_prompt$feedback_prompt\n\nRecent commits for context:\n$recent_commits\n\nCurrent staged changes:\n$staged_diff\n\n"
+        full_prompt="$base_prompt$feedback_prompt"
+        
+        if [ -n "$gemini_context" ]; then
+            full_prompt+="\n\nRepository context from GEMINI.md:\n$gemini_context"
+        fi
+        
+        full_prompt+="\n\nRecent commits for context:\n$recent_commits\n\nCurrent staged changes:\n$staged_diff\n\n"
         if [ -n "$optional_prompt" ]; then
             full_prompt+="Additional context from user: $optional_prompt\n\n"
         fi
