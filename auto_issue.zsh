@@ -238,6 +238,10 @@ Make the body detailed, professional, and actionable. Use proper markdown format
 
 CRITICAL: Do not assume or specify file paths, directory structures, or implementation details not mentioned in the user's description. Keep implementation details generic unless explicitly provided.
 
+IMPORTANT: Always end the --body content with this attribution line: 
+
+🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+
 Available parameters you can use:
 - --title \"Issue Title\" (required)
 - --body \"Issue body content\" (required)
@@ -264,8 +268,8 @@ Make sure to include appropriate labels and assignees based on the issue type an
         return 1
     fi
     
-    # Add attribution to the body parameter
-    enhanced_command=$(echo "$create_command" | sed 's/--body "\([^"]*\)"/--body "\1\n\n🤖 Generated with [Gemini CLI](https:\/\/github.com\/google-gemini\/gemini-cli)"/')
+    # The LLM now includes attribution directly in the body, so no post-processing needed
+    enhanced_command="$create_command"
     
     echo "Generated create command:"
     echo "------------------------"
