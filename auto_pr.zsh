@@ -66,7 +66,9 @@ if [ $? -eq 0 ] && [ -n "$pr_content" ]; then
         # Extract title and description
         pr_title=$(echo "$pr_content" | grep "^TITLE:" | sed 's/^TITLE: //')
         pr_description=$(echo "$pr_content" | sed '/^TITLE:/d' | sed '/^DESCRIPTION:/d' | sed '/^$/d')
-        pr_description+="\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
+        pr_description+="
+
+🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
         
         # Push current branch to remote
         echo "Pushing current branch to remote..."
