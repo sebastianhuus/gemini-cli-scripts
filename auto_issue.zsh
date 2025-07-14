@@ -7,7 +7,101 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Get optional prompt argument
+# Function to handle issue editing
+edit_issue() {
+    local issue_number="$1"
+    local edit_prompt="$2"
+    
+    if [ -z "$issue_number" ] || [ -z "$edit_prompt" ]; then
+        echo "Usage: $0 edit <issue_number> <edit_prompt>"
+        echo "Example: $0 edit 42 \"change the title to 'Bug: Login button not working'\""
+        exit 1
+    fi
+    
+    echo "Fetching current issue details..."
+    
+    # Get current issue details as readable text
+    current_issue=$(gh issue view "$issue_number")
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+        exit 1
+    fi
+    
+    echo "Current issue:"
+    echo "=========================="
+    echo "$current_issue"
+    echo "=========================="
+    echo ""
+    
+    # Create prompt for LLM
+    llm_prompt="You are helping to edit a GitHub issue. Based on the user's request, generate the appropriate gh issue edit command(s) to modify the issue.
+
+Current issue:
+$current_issue
+
+User's edit request: $edit_prompt
+
+Please provide the exact gh issue edit command(s) needed to apply these changes. Only output the command(s), one per line, without any additional text or explanation. Use the issue number $issue_number in your commands.
+
+Examples of valid commands:
+- gh issue edit $issue_number --title \"New Title\"
+- gh issue edit $issue_number --body \"New body content\"
+- gh issue edit $issue_number --add-label \"bug,enhancement\"
+- gh issue edit $issue_number --remove-label \"wontfix\"
+- gh issue edit $issue_number --add-assignee \"username\"
+- gh issue edit $issue_number --remove-assignee \"username\"
+
+For body edits, if the user wants to append or prepend text, combine it with the existing body content."
+    
+    echo "Generating edit commands with Gemini..."
+    
+    # Generate edit commands from Gemini
+    edit_commands=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt" | tail -n +2)
+    
+    if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
+        echo "Failed to generate edit commands. Please try again."
+        exit 1
+    fi
+    
+    echo "Generated edit commands:"
+    echo "------------------------"
+    echo "$edit_commands"
+    echo "------------------------"
+    echo ""
+    echo "Execute these commands? [y/N]"
+    read -r response
+    
+    case "$response" in
+        [Yy]* )
+            echo "Executing edit commands..."
+            # Execute each command
+            echo "$edit_commands" | while IFS= read -r cmd; do
+                if [ -n "$cmd" ]; then
+                    echo "Running: $cmd"
+                    eval "$cmd"
+                    if [ $? -eq 0 ]; then
+                        echo "✓ Command executed successfully"
+                    else
+                        echo "✗ Command failed"
+                    fi
+                fi
+            done
+            echo "Issue edit completed!"
+            ;;
+        * )
+            echo "Edit cancelled."
+            ;;
+    esac
+}
+
+# Check for edit subcommand
+if [ "$1" = "edit" ]; then
+    edit_issue "$2" "$3"
+    exit 0
+fi
+
+# Original functionality - Get optional prompt argument
 initial_description="$1"
 
 # Prompt for a description if not provided
