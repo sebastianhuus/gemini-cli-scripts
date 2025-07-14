@@ -103,3 +103,6 @@ git submodule update --remote  # For updates
 
 ### Attribution Pattern
 All generated content includes attribution footer for transparency and compliance with LLM usage policies.
+
+## Zsh Scripting Tips
+- If you are going to use ``` inside of zsh scripts, remember to escape it like \``` so that it doesnt accidentally open a quote block
