@@ -62,8 +62,22 @@ if ! git diff --cached --quiet; then
                 read -r push_response
 
                 if [[ "$push_response" =~ ^[Yy]$ ]]; then
-                    git push
-                    echo "Changes pushed successfully!"
+                    current_branch=$(git branch --show-current)
+                    # Check if upstream branch is set
+                    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                        # Upstream is set, a simple push is enough
+                        git push
+                    else
+                        # Upstream is not set, so we need to publish the branch
+                        echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                        git push --set-upstream origin "$current_branch"
+                    fi
+
+                    if [ $? -eq 0 ]; then
+                        echo "Changes pushed successfully!"
+                    else
+                        echo "Failed to push changes."
+                    fi
                 else
                     echo "Push cancelled. You can push manually later with 'git push'."
                 fi
