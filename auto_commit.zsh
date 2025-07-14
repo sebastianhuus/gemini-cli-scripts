@@ -26,7 +26,7 @@ if ! git diff --cached --quiet; then
         if [ -n "$optional_prompt" ]; then
             full_prompt+="Additional context from user: $optional_prompt\n\n"
         fi
-        full_prompt+="Focus on what changed and why, considering the recent development context. Use a bullet list under the title, and do NOT use markdown code blocks. Use dashes (-) for bullet points:"
+        full_prompt+="Focus on what changed and why, considering the recent development context. IMPORTANT: Start with the commit title on the first line immediately - do NOT wrap the commit message in code blocks (\``` marks). Use a bullet list under the title with dashes (-) for bullet points:"
 
         echo "Staged files to be shown to Gemini:"
         git diff --name-only --cached
