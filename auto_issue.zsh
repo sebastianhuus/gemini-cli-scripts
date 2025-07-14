@@ -42,11 +42,16 @@
 # 5. Update help documentation and examples
 #
 # Architecture:
+# - convert_question_to_command(): Converts questions/requests to direct commands
 # - parse_intent(): Extracts operation type and parameters from natural language
 # - confirm_operation(): Validates and confirms operation before execution
 # - dispatch_operation(): Routes to appropriate handler function
 # - Individual operation functions: Handle specific GitHub operations
 # - LLM integration: Uses Gemini CLI for content generation and intent parsing
+#
+# Two-Stage Processing:
+# 1. Question Detection & Conversion: Handles conversational requests
+# 2. Intent Parsing: Extracts structured data from direct commands
 
 # Check for help flag
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
@@ -557,6 +562,49 @@ dispatch_operation() {
     esac
 }
 
+# Function to convert questions to direct commands
+convert_question_to_command() {
+    local input="$1"
+    
+    # LLM prompt for question detection and conversion
+    local converter_prompt="Analyze this input and determine if it's a question or request that implies a GitHub issue operation.
+
+User input: $input
+
+If this is a question or polite request (contains 'can you', 'help me', 'please', 'would you', etc.), convert it to a direct command. If it's already a direct command, return it unchanged.
+
+Examples:
+Input: \"can you generate a clear description of issue 16 based on the title\"
+Output: \"edit issue 16 body to generate a clear description based on the title\"
+
+Input: \"help me add a comment to issue 8 about the fix\"
+Output: \"add comment to issue 8 about the fix\"
+
+Input: \"edit issue 5 title to say Bug: Login timeout\"
+Output: \"edit issue 5 title to say Bug: Login timeout\"
+
+Input: \"please create an issue about dark mode\"
+Output: \"create issue about dark mode\"
+
+Input: \"would you mind commenting on issue 12 that this is resolved\"
+Output: \"comment on issue 12 that this is resolved\"
+
+Input: \"can you help me view issue 7\"
+Output: \"view issue 7\"
+
+Only output the converted/unchanged command, no additional text."
+    
+    # Get converted command from Gemini
+    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt" | tail -n +2)
+    
+    if [ $? -ne 0 ] || [ -z "$converted_command" ]; then
+        # If conversion fails, return original input
+        echo "$input"
+    else
+        echo "$converted_command"
+    fi
+}
+
 # Function to handle natural language input
 handle_natural_language() {
     local input="$1"
@@ -567,10 +615,21 @@ handle_natural_language() {
         return 1
     fi
     
+    echo "Processing natural language request..."
+    
+    # Stage 1: Convert questions to commands
+    local processed_input=$(convert_question_to_command "$input")
+    
+    # Show conversion if it changed
+    if [ "$processed_input" != "$input" ]; then
+        echo "Converted request: $processed_input"
+        echo ""
+    fi
+    
     echo "Parsing natural language request..."
     
-    # Parse intent from natural language
-    local intent_output=$(parse_intent "$input")
+    # Stage 2: Parse the processed command
+    local intent_output=$(parse_intent "$processed_input")
     
     if [ $? -ne 0 ]; then
         echo "Failed to parse intent. Please try rephrasing your request."
