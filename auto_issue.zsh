@@ -82,6 +82,25 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
+# Function to validate that quotes are properly closed in a string
+validate_quotes() {
+    local input="$1"
+    local quote_types=("\"" "'")
+    
+    for quote in "${quote_types[@]}"; do
+        # Count occurrences of each quote type
+        local count=$(echo "$input" | grep -o "$quote" | wc -l)
+        
+        # Check if count is odd (unclosed quotes)
+        if [ $((count % 2)) -ne 0 ]; then
+            echo "Error: Unclosed $quote quotes detected in: $input"
+            return 1
+        fi
+    done
+    
+    return 0
+}
+
 # Function to handle issue editing
 edit_issue() {
     local issue_number="$1"
@@ -153,6 +172,10 @@ For body edits, if the user wants to append or prepend text, combine it with the
             # Execute each command
             echo "$edit_commands" | while IFS= read -r cmd; do
                 if [ -n "$cmd" ]; then
+                    if ! validate_quotes "$cmd"; then
+                        echo "✗ Command validation failed - skipping unsafe command"
+                        continue
+                    fi
                     echo "Running: $cmd"
                     eval "$cmd"
                     if [ $? -eq 0 ]; then
@@ -506,6 +529,10 @@ Make sure to include appropriate labels and assignees based on the issue type an
             echo "Creating issue on GitHub..."
             # Escape backticks in the command to prevent shell interpretation
             escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
+            if ! validate_quotes "$escaped_command"; then
+                echo "Command validation failed - unsafe quotes detected"
+                return 1
+            fi
             eval "$escaped_command"
             if [ $? -eq 0 ]; then
                 echo "Issue created successfully!"
