@@ -251,6 +251,7 @@ if ! git diff --cached --quiet; then
     
     user_feedback=""
     last_commit_msg=""
+    should_generate=true
 
     while true; do
         # Create a more focused prompt for the commit message with recent history context
@@ -275,28 +276,32 @@ if ! git diff --cached --quiet; then
         fi
         full_prompt+="Focus on what changed and why, considering the recent development context. IMPORTANT: Start with the commit title on the first line immediately - do NOT wrap the commit message in code blocks (\``` marks). Use a bullet list under the title with dashes (-) for bullet points:"
 
-        echo "Staged files to be shown to Gemini:"
-        git diff --name-only --cached
+        if [ "$should_generate" = true ]; then
+            echo "Staged files to be shown to Gemini:"
+            git diff --name-only --cached
 
-        # Generate the raw commit message from Gemini
-        gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2)
-        
-        # Check for generation failure before proceeding
-        if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then
-            echo "Failed to generate commit message. Please commit manually."
-            exit 1
+            # Generate the raw commit message from Gemini
+            gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2)
+            
+            # Check for generation failure before proceeding
+            if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then
+                echo "Failed to generate commit message. Please commit manually."
+                exit 1
+            fi
+
+            # Store the raw message for the next iteration's feedback loop (without attribution)
+            last_commit_msg=$gemini_raw_msg
+
+            # Create the final commit message with attribution for display and commit
+            final_commit_msg="$gemini_raw_msg"
+            final_commit_msg+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
+            
+            should_generate=false
         fi
-
-        # Store the raw message for the next iteration's feedback loop (without attribution)
-        last_commit_msg=$gemini_raw_msg
-
-        # Create the final commit message with attribution for display and commit
-        final_commit_msg="$gemini_raw_msg"
-        final_commit_msg+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
 
         echo "Generated commit message:\n$final_commit_msg"
         echo ""
-        echo "Accept and commit? [y/r/q] (yes / regenerate with feedback / quit)"
+        echo "Accept and commit? [y/a/r/q] (yes / append / regenerate / quit)"
         read -r response
 
         case "$response" in
@@ -341,6 +346,21 @@ if ! git diff --cached --quiet; then
                 fi
                 break
                 ;;
+            [Aa]* )
+                echo "Enter text to append:"
+                read -r append_text
+                if [ -n "$append_text" ]; then
+                    # Append to the raw message (before attribution)
+                    last_commit_msg="$last_commit_msg"$'\n\n'"$append_text"
+                    # Recreate final message with attribution
+                    final_commit_msg="$last_commit_msg"
+                    final_commit_msg+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
+                    echo "Text appended successfully."
+                else
+                    echo "No text entered, keeping original message."
+                fi
+                continue
+                ;;
             [Rr]* )
                 echo "Please provide feedback:"
                 read -r feedback_input
@@ -348,6 +368,7 @@ if ! git diff --cached --quiet; then
                     user_feedback+="- $feedback_input\n"
                 fi
                 echo "Regenerating commit message..."
+                should_generate=true
                 continue
                 ;;
             [Qq]* )
@@ -356,7 +377,7 @@ if ! git diff --cached --quiet; then
                 break
                 ;;
             * )
-                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                echo "Invalid option. Please choose 'y', 'a', 'r', or 'q'."
                 ;;
         esac
     done
