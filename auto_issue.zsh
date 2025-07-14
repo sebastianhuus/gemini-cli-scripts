@@ -3,9 +3,8 @@
 # GitHub Issue Natural Language Assistant with LLM Enhancement
 # 
 # Usage:
-#   ./auto_issue.zsh "natural language request"        # Natural language mode (default)
-#   ./auto_issue.zsh legacy [description]              # Legacy mode (structured text parsing)
-#   ./auto_issue.zsh edit <issue_number> <edit_prompt> # Edit existing issue (legacy)
+#   ./auto_issue.zsh "natural language request"        # Natural language mode
+#   ./auto_issue.zsh edit <issue_number> <edit_prompt> # Edit existing issue
 #   ./auto_issue.zsh --help                            # Show this help
 #
 # Natural language mode features:
@@ -19,17 +18,45 @@
 #   ./auto_issue.zsh "add comment to issue 8 about fix deployed"
 #   ./auto_issue.zsh "edit issue 13 title to say Bug: Login timeout"
 #   ./auto_issue.zsh "comment on issue #5: this is resolved"
-#   ./auto_issue.zsh legacy "Feature request for dark mode"
 #   ./auto_issue.zsh edit 42 "add bug label and assign to john"
+#
+# Developer Expansion Guide:
+# =========================
+# 
+# To add new operations (close, reopen, label management):
+#
+# 1. Update parse_intent() function:
+#    - Add new operation to OPERATION list in prompt
+#    - Add examples for the new operation
+#
+# 2. Update confirm_operation() function:
+#    - Add new case for the operation
+#    - Define validation rules and display format
+#
+# 3. Create new operation function:
+#    - Follow pattern of comment_issue() and edit_issue()
+#    - Use LLM for content generation when appropriate
+#    - Include confirmation step before execution
+#
+# 4. Update dispatch_operation() function:
+#    - Add new case to route to your function
+#
+# 5. Update help documentation and examples
+#
+# Architecture:
+# - parse_intent(): Extracts operation type and parameters from natural language
+# - confirm_operation(): Validates and confirms operation before execution
+# - dispatch_operation(): Routes to appropriate handler function
+# - Individual operation functions: Handle specific GitHub operations
+# - LLM integration: Uses Gemini CLI for content generation and intent parsing
 
 # Check for help flag
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "GitHub Issue Natural Language Assistant with LLM Enhancement"
     echo ""
     echo "Usage:"
-    echo "  $0 \"natural language request\"             # Natural language mode (default)"
-    echo "  $0 legacy [description]                    # Legacy mode (structured text parsing)"
-    echo "  $0 edit <issue_number> <edit_prompt>       # Edit existing issue (legacy)"
+    echo "  $0 \"natural language request\"             # Natural language mode"
+    echo "  $0 edit <issue_number> <edit_prompt>       # Edit existing issue"
     echo "  $0 --help                                  # Show this help"
     echo ""
     echo "Natural language mode features:"
@@ -43,7 +70,6 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  $0 \"add comment to issue 8 about fix deployed\""
     echo "  $0 \"edit issue 13 title to say Bug: Login timeout\""
     echo "  $0 \"comment on issue #5: this is resolved\""
-    echo "  $0 legacy \"Feature request for dark mode\""
     echo "  $0 edit 42 \"add bug label and assign to john\""
     exit 0
 fi
@@ -346,83 +372,6 @@ Only output the comment content, without any additional text or explanation."
     esac
 }
 
-# Function to dispatch operations based on parsed intent
-dispatch_operation() {
-    local operation="$1"
-    local issue_number="$2"
-    local content="$3"
-    
-    case "$operation" in
-        "comment")
-            comment_issue "$issue_number" "$content"
-            ;;
-        "edit")
-            edit_issue "$issue_number" "$content"
-            ;;
-        "create")
-            create_issue_with_llm "$content"
-            ;;
-        "view")
-            echo "Viewing issue #$issue_number:"
-            gh issue view "$issue_number"
-            ;;
-        *)
-            echo "Unsupported operation: $operation"
-            return 1
-            ;;
-    esac
-}
-
-# Function to handle natural language input
-handle_natural_language() {
-    local input="$1"
-    
-    if [ -z "$input" ]; then
-        echo "Please provide a natural language request."
-        echo "Example: ./auto_issue.zsh \"add comment to issue 8 about login fix\""
-        return 1
-    fi
-    
-    echo "Parsing natural language request..."
-    
-    # Parse intent from natural language
-    local intent_output=$(parse_intent "$input")
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to parse intent. Please try rephrasing your request."
-        return 1
-    fi
-    
-    # Extract fields from intent output
-    local operation=$(extract_field "OPERATION" "$intent_output")
-    local issue_number=$(extract_field "ISSUE_NUMBER" "$intent_output")
-    local content=$(extract_field "CONTENT" "$intent_output")
-    local confidence=$(extract_field "CONFIDENCE" "$intent_output")
-    
-    # Confirm operation with user
-    if confirm_operation "$operation" "$issue_number" "$content" "$confidence"; then
-        echo "Executing operation..."
-        dispatch_operation "$operation" "$issue_number" "$content"
-    else
-        echo "Operation cancelled."
-        return 1
-    fi
-}
-
-# Check for edit subcommand
-if [ "$1" = "edit" ]; then
-    edit_issue "$2" "$3"
-    exit 0
-fi
-
-# Check for legacy mode flag
-if [ "$1" = "legacy" ]; then
-    use_legacy_mode=true
-    shift  # Remove the 'legacy' argument
-else
-    use_legacy_mode=false
-fi
-
 # Function to handle LLM-controlled issue creation
 create_issue_with_llm() {
     local user_description="$1"
@@ -585,150 +534,90 @@ Make sure to include appropriate labels and assignees based on the issue type an
     esac
 }
 
-# Main entry point - handle different modes
-if [ "$use_legacy_mode" = true ]; then
-    # Legacy mode - original functionality
-    initial_description="$1"
+# Function to dispatch operations based on parsed intent
+dispatch_operation() {
+    local operation="$1"
+    local issue_number="$2"
+    local content="$3"
+    
+    case "$operation" in
+        "comment")
+            comment_issue "$issue_number" "$content"
+            ;;
+        "edit")
+            edit_issue "$issue_number" "$content"
+            ;;
+        "create")
+            create_issue_with_llm "$content"
+            ;;
+        "view")
+            echo "Viewing issue #$issue_number:"
+            gh issue view "$issue_number"
+            ;;
+        *)
+            echo "Unsupported operation: $operation"
+            return 1
+            ;;
+    esac
+}
 
-    # Prompt for a description if not provided
-    if [ -z "$initial_description" ]; then
-        echo "Please describe the issue you want to create (press Ctrl+D when done):"
-        # Read multiple lines of input
-        user_description=$(</dev/stdin)
+# Function to handle natural language input
+handle_natural_language() {
+    local input="$1"
+    
+    if [ -z "$input" ]; then
+        echo "Please provide a natural language request."
+        echo "Example: ./auto_issue.zsh \"add comment to issue 8 about login fix\""
+        return 1
+    fi
+    
+    echo "Parsing natural language request..."
+    
+    # Parse intent from natural language
+    local intent_output=$(parse_intent "$input")
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to parse intent. Please try rephrasing your request."
+        return 1
+    fi
+    
+    # Extract fields from intent output
+    local operation=$(extract_field "OPERATION" "$intent_output")
+    local issue_number=$(extract_field "ISSUE_NUMBER" "$intent_output")
+    local content=$(extract_field "CONTENT" "$intent_output")
+    local confidence=$(extract_field "CONFIDENCE" "$intent_output")
+    
+    # Confirm operation with user
+    if confirm_operation "$operation" "$issue_number" "$content" "$confidence"; then
+        echo "Executing operation..."
+        dispatch_operation "$operation" "$issue_number" "$content"
     else
-        user_description="$initial_description"
+        echo "Operation cancelled."
+        return 1
     fi
+}
 
-    if [ -z "$user_description" ]; then
-        echo "No description provided. Exiting."
-        exit 1
-    fi
-    
-    # Legacy mode - original functionality
-    user_feedback=""
-    last_issue_content=""
-
-    while true; do
-        # Create a prompt for generating the GitHub issue
-        base_prompt="Based on the following description, generate a GitHub issue with a 'TITLE:' and a 'BODY:'. The body should be well-structured. If it's a bug, include sections like 'Steps to Reproduce', 'Expected Behavior', and 'Actual Behavior'. If it's a feature request, describe the feature clearly."
-
-        feedback_prompt=""
-        if [ -n "$last_issue_content" ]; then
-            feedback_prompt="
-
-The previous attempt was:
----
-$last_issue_content
----
-
-Please incorporate the following cumulative feedback to improve the issue:
-$user_feedback"
-        fi
-
-        full_prompt="$base_prompt$feedback_prompt
-
-Initial Description:
-$user_description
-
-"
-        full_prompt+="Format the output strictly as:
-TITLE: [Your Title]
-BODY:
-[Your Body Here]"
-
-        echo "Generating GitHub issue content with Gemini..."
-
-        # Generate the raw issue content from Gemini
-        # Using tail -n +2 to trim potential initial auth lines from Gemini CLI
-        gemini_raw_content=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2)
-
-        # Check for generation failure
-        if [ $? -ne 0 ] || [ -z "$gemini_raw_content" ]; then
-            echo "Failed to generate issue content. Please try again."
-            echo "Retry? [y/N]"
-            read -r retry_response
-            if [[ "$retry_response" =~ ^[Yy]$ ]]; then
-                continue
-            else
-                exit 1
-            fi
-        fi
-
-        # Store the raw content for the feedback loop
-        last_issue_content=$gemini_raw_content
-
-        # Create the display content with attribution
-        display_content="$gemini_raw_content"
-        display_content+=$'
-
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
-
-        echo "Generated GitHub Issue:
-------------------------
-$display_content
-------------------------"
-        echo ""
-        echo "Create this issue? [y/r/q] (yes / regenerate with feedback / quit)"
-        read -r response
-
-        case "$response" in
-            [Yy]* )
-                # Extract title and body from the raw content (without attribution)
-                issue_title=$(echo "$gemini_raw_content" | grep "^TITLE:" | sed 's/^TITLE: //')
-                issue_body_raw=$(echo "$gemini_raw_content" | sed -n '/^BODY:/,$p' | sed '1d')
-
-                # Add attribution to the final body
-                issue_body="$issue_body_raw"$'
-
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
-
-                echo "Creating issue on GitHub..."
-                # Create issue using gh cli
-                gh issue create --title "$issue_title" --body "$issue_body"
-                
-                if [ $? -eq 0 ]; then
-                    echo "Issue created successfully!"
-                else
-                    echo "Failed to create issue."
-                fi
-                break
-                ;;
-            [Rr]* )
-                echo "Please provide feedback:"
-                read -r feedback_input
-                if [ -n "$feedback_input" ]; then
-                    user_feedback+="- $feedback_input
-"
-                fi
-                echo "Regenerating issue content..."
-                continue
-                ;;
-            [Qq]* )
-                echo "Issue creation cancelled."
-                break
-                ;;
-            * )
-                echo "Invalid option. Please choose 'y', 'r', or 'q'."
-                ;;
-        esac
-    done
-else
-    # New natural language mode (default)
-    # Get all arguments as the natural language input
-    natural_language_input="$*"
-    
-    # If no arguments provided, prompt for input
-    if [ -z "$natural_language_input" ]; then
-        echo "Please provide a natural language request:"
-        echo "Examples:"
-        echo "  \"create issue about login bug\""
-        echo "  \"add comment to issue 8 about fix deployed\""
-        echo "  \"edit issue 13 title to say Bug: Login timeout\""
-        echo ""
-        echo "Enter your request:"
-        read -r natural_language_input
-    fi
-    
-    # Handle natural language input
-    handle_natural_language "$natural_language_input"
+# Check for edit subcommand
+if [ "$1" = "edit" ]; then
+    edit_issue "$2" "$3"
+    exit 0
 fi
+
+# Main entry point - natural language mode
+# Get all arguments as the natural language input
+natural_language_input="$*"
+
+# If no arguments provided, prompt for input
+if [ -z "$natural_language_input" ]; then
+    echo "Please provide a natural language request:"
+    echo "Examples:"
+    echo "  \"create issue about login bug\""
+    echo "  \"add comment to issue 8 about fix deployed\""
+    echo "  \"edit issue 13 title to say Bug: Login timeout\""
+    echo ""
+    echo "Enter your request:"
+    read -r natural_language_input
+fi
+
+# Handle natural language input
+handle_natural_language "$natural_language_input"
