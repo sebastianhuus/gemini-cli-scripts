@@ -4,7 +4,6 @@
 # 
 # Usage:
 #   ./auto_issue.zsh "natural language request"        # Natural language mode
-#   ./auto_issue.zsh edit <issue_number> <edit_prompt> # Edit existing issue
 #   ./auto_issue.zsh --help                            # Show this help
 #
 # Natural language mode features:
@@ -18,7 +17,6 @@
 #   ./auto_issue.zsh "add comment to issue 8 about fix deployed"
 #   ./auto_issue.zsh "edit issue 13 title to say Bug: Login timeout"
 #   ./auto_issue.zsh "comment on issue #5: this is resolved"
-#   ./auto_issue.zsh edit 42 "add bug label and assign to john"
 #
 # Developer Expansion Guide:
 # =========================
@@ -56,7 +54,6 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo ""
     echo "Usage:"
     echo "  $0 \"natural language request\"             # Natural language mode"
-    echo "  $0 edit <issue_number> <edit_prompt>       # Edit existing issue"
     echo "  $0 --help                                  # Show this help"
     echo ""
     echo "Natural language mode features:"
@@ -70,7 +67,6 @@ if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo "  $0 \"add comment to issue 8 about fix deployed\""
     echo "  $0 \"edit issue 13 title to say Bug: Login timeout\""
     echo "  $0 \"comment on issue #5: this is resolved\""
-    echo "  $0 edit 42 \"add bug label and assign to john\""
     exit 0
 fi
 
@@ -597,11 +593,7 @@ handle_natural_language() {
     fi
 }
 
-# Check for edit subcommand
-if [ "$1" = "edit" ]; then
-    edit_issue "$2" "$3"
-    exit 0
-fi
+# No explicit subcommands - everything through natural language
 
 # Main entry point - natural language mode
 # Get all arguments as the natural language input
