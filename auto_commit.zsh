@@ -31,26 +31,30 @@ if ! git diff --cached --quiet; then
         echo "Staged files to be shown to Gemini:"
         git diff --name-only --cached
 
-        commit_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2)
-        commit_msg+="
-
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
-
-        if [ $? -ne 0 ] || [ -z "$commit_msg" ]; then
+        # Generate the raw commit message from Gemini
+        gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2)
+        
+        # Check for generation failure before proceeding
+        if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then
             echo "Failed to generate commit message. Please commit manually."
             exit 1
         fi
-        last_commit_msg=$commit_msg
 
-        echo "Generated commit message:\n$commit_msg"
+        # Store the raw message for the next iteration's feedback loop (without attribution)
+        last_commit_msg=$gemini_raw_msg
+
+        # Create the final commit message with attribution for display and commit
+        final_commit_msg="$gemini_raw_msg"
+        final_commit_msg+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
+
+        echo "Generated commit message:\n$final_commit_msg"
         echo ""
         echo "Accept and commit? [y/r/q] (yes / regenerate with feedback / quit)"
         read -r response
 
         case "$response" in
             [Yy]* )
-
-                git commit -m "$commit_msg"
+                git commit -m "$final_commit_msg"
                 echo "Changes committed successfully!"
 
                 echo ""
@@ -76,7 +80,7 @@ if ! git diff --cached --quiet; then
                 ;;
             [Qq]* )
                 echo "Commit cancelled. You can commit manually with:"
-                echo "git commit -m \"$commit_msg\""
+                echo "git commit -m \"$final_commit_msg\""
                 break
                 ;;
             * )
