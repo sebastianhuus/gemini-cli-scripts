@@ -234,6 +234,17 @@ if ! git diff --cached --quiet; then
 
                     if [ $? -eq 0 ]; then
                         echo "Changes pushed successfully!"
+                        
+                        # Check for auto_pr.zsh and offer to create PR
+                        script_dir="${0:A:h}"
+                        if [ -f "${script_dir}/auto_pr.zsh" ]; then
+                            echo ""
+                            echo "Create a pull request? [y/N]"
+                            read -r pr_response
+                            if [[ "$pr_response" =~ ^[Yy]$ ]]; then
+                                "${script_dir}/auto_pr.zsh" "$1"
+                            fi
+                        fi
                     else
                         echo "Failed to push changes."
                     fi
