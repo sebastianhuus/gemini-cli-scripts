@@ -109,6 +109,22 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         if command -v gh &> /dev/null; then
             gh pr create --title "$pr_title" --body "$pr_description" --base "$base_branch" --head "$current_branch"
             echo "Pull request created successfully!"
+            
+            # Prompt to switch to main and pull latest changes
+            echo ""
+            echo "Do you want to switch to $base_branch and pull latest changes? [y/N]"
+            read -r switch_response
+            
+            if [[ "$switch_response" =~ ^[Yy]$ ]]; then
+                echo "Switching to $base_branch and pulling latest changes..."
+                if git switch "$base_branch" && git pull; then
+                    echo "Successfully updated $base_branch branch!"
+                else
+                    echo "Error: Failed to switch to $base_branch or pull latest changes."
+                fi
+            else
+                echo "Skipping branch switch and pull."
+            fi
         else
             echo "GitHub CLI (gh) not found. Please install it or create the PR manually:"
             echo "Title: $pr_title"
