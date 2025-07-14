@@ -112,18 +112,16 @@ display_repository_info() {
 # Function to validate that quotes are properly closed in a string
 validate_quotes() {
     local input="$1"
-    local quote_types=("\"" "'")
     
-    for quote in "${quote_types[@]}"; do
-        # Count occurrences of each quote type
-        local count=$(echo "$input" | grep -o "$quote" | wc -l)
-        
-        # Check if count is odd (unclosed quotes)
-        if [ $((count % 2)) -ne 0 ]; then
-            echo "Error: Unclosed $quote quotes detected in: $input"
-            return 1
-        fi
-    done
+    # Only validate double quotes at the shell command level
+    # Single quotes inside double-quoted strings (like contractions) are safe
+    local double_quote_count=$(echo "$input" | grep -o '"' | wc -l)
+    
+    # Check if double quote count is odd (unclosed quotes)
+    if [ $((double_quote_count % 2)) -ne 0 ]; then
+        echo "Error: Unclosed double quotes detected in: $input"
+        return 1
+    fi
     
     return 0
 }
@@ -164,6 +162,8 @@ $current_issue
 User's edit request: $edit_prompt
 
 Please provide the exact gh issue edit command(s) needed to apply these changes. Only output the command(s), one per line, without any additional text or explanation. Use the issue number $issue_number in your commands.
+
+IMPORTANT: Output the gh commands as plain text without bash code blocks or backticks around the commands.
 
 Examples of valid commands:
 - gh issue edit $issue_number --title \"New Title\"
@@ -234,6 +234,8 @@ OPERATION: [create|edit|comment|view|close|reopen]
 ISSUE_NUMBER: [number or NONE]
 CONTENT: [extracted content]
 CONFIDENCE: [high|medium|low]
+
+IMPORTANT: Output as plain text only, no code blocks or markdown formatting.
 
 Examples:
 Input: \"add comment to issue 8 about login fix\"
@@ -482,6 +484,8 @@ $user_feedback"
 
 Please provide the exact gh issue create command needed. Only output the command, without any additional text or explanation.
 
+IMPORTANT: Output the gh command directly as plain text without wrapping it in bash code blocks (\```bash). Do NOT use backticks around the entire command. However, DO use proper markdown formatting inside the --body parameter content (headers, bullets, etc.).
+
 For the --body parameter, create a comprehensive, well-structured issue body that includes:
 
 **For Feature Requests:**
@@ -646,7 +650,9 @@ Output: \"comment on issue 12 that this is resolved\"
 Input: \"can you help me view issue 7\"
 Output: \"view issue 7\"
 
-Only output the converted/unchanged command, no additional text."
+Only output the converted/unchanged command, no additional text.
+
+IMPORTANT: Output as plain text only, no code blocks or formatting."
     
     # Get converted command from Gemini
     local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt" | tail -n +2)
