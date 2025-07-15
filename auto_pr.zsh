@@ -75,82 +75,22 @@ echo ""
 # Get detailed commit information for better context
 commit_details=$(git log $base_branch..$current_branch --pretty=format:"%h - %s%n%b" --no-merges)
 
-# Function to get repository collaborators
-get_repository_collaborators() {
-    local available_collaborators=$(gh api repos/:owner/:repo/collaborators --jq '.[].login' 2>/dev/null | head -10)
-    local collaborators_context=""
-    if [ -n "$available_collaborators" ]; then
-        collaborators_context="Available collaborators for reviewer assignment: $(echo "$available_collaborators" | tr '\n' ', ' | sed 's/, $//')"
-    fi
-    echo "$collaborators_context"
-}
-
-# Function to analyze repository ownership and determine reviewer assignment
-analyze_repository_ownership() {
-    # Get repository information
-    local repo_info=$(gh api repos/:owner/:repo 2>/dev/null)
-    if [ $? -ne 0 ]; then
-        echo ""
-        return 1
-    fi
-    
-    # Get collaborator count and owner info
-    local collaborator_count=$(gh api repos/:owner/:repo/collaborators --jq 'length' 2>/dev/null)
-    local repo_owner=$(echo "$repo_info" | jq -r '.owner.login' 2>/dev/null)
-    
-    # Conservative approach: only suggest reviewer for single-owner repos
-    # If collaborator count is 1 or 2 (owner + maybe one other), consider it single-owner
-    if [ -n "$collaborator_count" ] && [ "$collaborator_count" -le 2 ] && [ -n "$repo_owner" ]; then
-        echo "$repo_owner"
-    else
-        echo ""
-    fi
-}
 
 # Function to generate PR content using Gemini
 generate_pr_content() {
     local feedback_prompt="$1"
     
-    # Get repository collaborator information for reviewer assignment
-    local collaborators_context=$(get_repository_collaborators)
-    local suggested_reviewer=$(analyze_repository_ownership)
-    
-    local base_prompt="${optional_prompt} Based on the following git commit history, generate a pull request title and description. Ensure to include any relevant issue references (e.g., 'resolves #123', 'closes #456', 'fixes #789', 'connects to #101', 'relates to #202', 'contributes to #303') found in the commit messages."
-    
-    # Add reviewer context if available
-    if [ -n "$collaborators_context" ]; then
-        base_prompt+="
+    local base_prompt="${optional_prompt} Based on the following git commit history, generate a complete gh pr create command. Ensure to include any relevant issue references (e.g., 'resolves #123', 'closes #456', 'fixes #789', 'connects to #101', 'relates to #202', 'contributes to #303') found in the commit messages.
 
-Repository Context for Reviewer Assignment:
-$collaborators_context"
-        
-        if [ -n "$suggested_reviewer" ]; then
-            base_prompt+="
-Suggested reviewer for this single-owner repository: $suggested_reviewer"
-        else
-            base_prompt+="
-Note: This appears to be a multi-owner repository. Do not automatically assign a reviewer."
-        fi
-    fi
-    
-    base_prompt+="
-
-Based on the repository context above, generate a complete gh pr create command that includes:
+Generate a complete gh pr create command that includes:
 1. --title \"[concise, descriptive title]\"
 2. --body \"[detailed description with bullet points of changes and issue references]\"
-3. --reviewer \"username\" (ONLY if this is a single-owner repository and you have a suggested reviewer)
+3. --assignee \"@me\" (to assign the PR to yourself)
 
 Format the output as the complete gh pr create command, ready to execute.
 
-IMPORTANT: Only include the --reviewer parameter if:
-- A suggested reviewer was provided above
-- This is clearly a single-owner repository
-- The suggested reviewer is in the collaborators list
-
-If no reviewer should be assigned, omit the --reviewer parameter entirely.
-
 Example format:
-gh pr create --title \"Fix: Resolve login timeout issue\" --body \"- Fixed session timeout handling...\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\" --reviewer \"username\"
+gh pr create --title \"Fix: Resolve login timeout issue\" --body \"- Fixed session timeout handling...\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\" --assignee \"@me\"
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
