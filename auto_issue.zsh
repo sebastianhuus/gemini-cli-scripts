@@ -195,7 +195,7 @@ For body edits, if the user wants to append or prepend text, combine it with the
     echo "Generating edit commands with Gemini..."
     
     # Generate edit commands from Gemini
-    edit_commands=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt" | tail -n +2)
+    edit_commands=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt")
     
     if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
         echo "Failed to generate edit commands. Please try again."
@@ -285,7 +285,7 @@ CONFIDENCE: high
 Be precise and only extract what's clearly stated."
     
     # Generate intent parsing from Gemini
-    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt" | tail -n +2)
+    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt")
     
     if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
         echo "OPERATION: unknown"
@@ -421,7 +421,7 @@ Only output the comment content, without any additional text or explanation."
     echo "Generating comment with Gemini..."
     
     # Generate comment content from Gemini
-    local comment_content=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt" | tail -n +2)
+    local comment_content=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt")
     
     if [ $? -ne 0 ] || [ -z "$comment_content" ]; then
         echo "Failed to generate comment. Please try again."
@@ -581,7 +581,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
     echo "Generating issue creation command with Gemini..."
     
     # Generate create command from Gemini
-    create_command=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2)
+    create_command=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt")
     
     if [ $? -ne 0 ] || [ -z "$create_command" ]; then
         echo "Failed to generate create command. Please try again."
@@ -699,7 +699,7 @@ Only output the converted/unchanged command, no additional text.
 IMPORTANT: Output as plain text only, no code blocks or formatting."
     
     # Get converted command from Gemini
-    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt" | tail -n +2)
+    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt")
     
     if [ $? -ne 0 ] || [ -z "$converted_command" ]; then
         # If conversion fails, return original input
