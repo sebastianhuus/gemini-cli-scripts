@@ -223,6 +223,32 @@ Please incorporate this feedback to improve the edit commands."
             should_generate=false
         fi
         
+        # Validate quotes in the entire command block before presenting to user
+        if ! validate_quotes "$edit_commands"; then
+            echo "⚠️  Validation failed: Generated commands contain unclosed quotes."
+            echo "Please regenerate the commands to fix this issue."
+            echo ""
+            echo "Regenerate commands? [y/q] (yes / quit)"
+            read -r validation_response
+            
+            case "$validation_response" in
+                [Yy]* )
+                    echo "Regenerating edit commands..."
+                    user_feedback+="- Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands.\n"
+                    should_generate=true
+                    continue
+                    ;;
+                [Qq]* )
+                    echo "Edit cancelled."
+                    return 1
+                    ;;
+                * )
+                    echo "Invalid option. Edit cancelled."
+                    return 1
+                    ;;
+            esac
+        fi
+
         echo "Generated edit commands:"
         echo "------------------------"
         echo "$edit_commands"
@@ -234,22 +260,15 @@ Please incorporate this feedback to improve the edit commands."
         case "$response" in
             [Yy]* )
                 echo "Executing edit commands..."
-                # Execute each command
-                echo "$edit_commands" | while IFS= read -r cmd; do
-                    if [ -n "$cmd" ]; then
-                        if ! validate_quotes "$cmd"; then
-                            echo "✗ Command validation failed - skipping unsafe command"
-                            continue
-                        fi
-                        echo "Running: $cmd"
-                        eval "$cmd"
-                        if [ $? -eq 0 ]; then
-                            echo "✓ Command executed successfully"
-                        else
-                            echo "✗ Command failed"
-                        fi
-                    fi
-                done
+                # Execute the entire command block, escaping backticks like in create_issue_with_llm
+                echo "Running: $edit_commands"
+                escaped_command=$(echo "$edit_commands" | sed 's/`/\\`/g')
+                eval "$escaped_command"
+                if [ $? -eq 0 ]; then
+                    echo "✓ Command executed successfully"
+                else
+                    echo "✗ Command failed"
+                fi
                 echo "Issue edit completed!"
                 return 0
                 ;;
