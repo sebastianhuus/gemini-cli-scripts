@@ -52,6 +52,35 @@ if [ -f "${script_dir}/gemini_context.zsh" ]; then
     gemini_context=$(load_gemini_context)
 fi
 
+# Function to get repository context for LLM
+get_repository_context() {
+    local repo_url=$(git remote get-url origin 2>/dev/null)
+    local current_branch=$(git branch --show-current 2>/dev/null)
+    local context=""
+    
+    if [ -n "$repo_url" ]; then
+        # Extract repository name from different URL formats
+        local repo_name
+        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
+            repo_name="${match[1]}"
+        else
+            # Fallback: use the URL as is
+            repo_name="$repo_url"
+        fi
+        
+        context+="Repository: $repo_name"
+    else
+        context+="Repository: (unable to detect remote)"
+    fi
+    
+    if [ -n "$current_branch" ]; then
+        context+="
+Current branch: $current_branch"
+    fi
+    
+    echo "$context"
+}
+
 # Function to display repository information
 display_repository_info() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -157,8 +186,18 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         # Generate branch name based on staged changes
         echo "Generating branch name based on staged changes..."
         
+        # Get repository context for LLM
+        repository_context=$(get_repository_context)
+        
         # Create full prompt with embedded diff (like commit message generation)
         branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
+        
+        if [ -n "$repository_context" ]; then
+            branch_name_prompt+="
+
+Repository context:
+$repository_context"
+        fi
         
         if [ -n "$gemini_context" ]; then
             branch_name_prompt+="
@@ -212,6 +251,13 @@ $staged_diff"
                     # Rebuild prompt for regeneration
                     branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
                     
+                    if [ -n "$repository_context" ]; then
+                        branch_name_prompt+="
+
+Repository context:
+$repository_context"
+                    fi
+                    
                     if [ -n "$gemini_context" ]; then
                         branch_name_prompt+="
 
@@ -255,6 +301,9 @@ if ! git diff --cached --quiet; then
     # Get recent commit history for context
     recent_commits=$(git log --oneline --no-merges -5)
     
+    # Get repository context for LLM
+    repository_context=$(get_repository_context)
+    
     user_feedback=""
     last_commit_msg=""
     should_generate=true
@@ -271,6 +320,10 @@ if ! git diff --cached --quiet; then
         optional_prompt="$1"
 
         full_prompt="$base_prompt$feedback_prompt"
+        
+        if [ -n "$repository_context" ]; then
+            full_prompt+="\n\nRepository context:\n$repository_context"
+        fi
         
         if [ -n "$gemini_context" ]; then
             full_prompt+="\n\nRepository context from GEMINI.md:\n$gemini_context"
