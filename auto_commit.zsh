@@ -254,11 +254,11 @@ $staged_diff"
                 echo ""
                 echo "Generated branch name: $generated_branch_name"
                 echo ""
-                echo "Create branch '$generated_branch_name'? [y/e/r/q] (yes / edit / regenerate / quit)"
+                echo "Create branch '$generated_branch_name'? [Y/e/r/q] (YES / edit / regenerate / quit)"
                 read -r branch_response
                 
                 case "$branch_response" in
-                    [Yy]* )
+                    [Yy]* | "" )
                         if git switch -c "$generated_branch_name"; then
                             echo "✅ Created and switched to branch '$generated_branch_name'"
                             echo ""
