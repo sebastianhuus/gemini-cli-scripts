@@ -227,7 +227,7 @@ Current staged changes:
 $staged_diff"
         
         # Generate branch name with Gemini (using prompt embedding, not pipe)
-        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
             echo "Failed to generate branch name. Enter manually:"
@@ -299,7 +299,7 @@ $gemini_context"
 Current staged changes:
 $staged_diff"
                         
-                        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
                             echo "Failed to regenerate branch name."
                         fi
@@ -370,7 +370,7 @@ if ! git diff --cached --quiet; then
             git diff --name-only --cached
 
             # Generate the raw commit message from Gemini
-            gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt")
+            gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/gemini_clean.zsh")
             
             # Check for generation failure before proceeding
             if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then
