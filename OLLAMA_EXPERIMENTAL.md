@@ -393,11 +393,37 @@ export OLLAMA_MAX_CONTEXT=2000
 - **+ Gemma 12b**: ~4GB total
 - **+ Gemma 27b**: ~6GB total
 
-### Quality Expectations
+### Quality Expectations by Model
+
+#### Gemma 1b (2GB RAM, Fastest)
+- **Commit Messages**: 80-90% of cloud quality
+- **Branch Names**: 85-95% of cloud quality
+- **Limitations**: Simple tasks only, may struggle with complex context
+
+#### Gemma 4b (3GB RAM, Balanced)
 - **Commit Messages**: 85-95% of cloud quality
 - **Branch Names**: 90-95% of cloud quality
+- **PR Descriptions**: 75-85% of cloud quality
+- **Limitations**: Limited reasoning for complex issue operations
+
+#### Gemma 12b (4GB RAM, Higher Quality)
+- **Commit Messages**: 90-95% of cloud quality
+- **Branch Names**: 95% of cloud quality
 - **PR Descriptions**: 80-90% of cloud quality
 - **Issue Operations**: 75-85% of cloud quality
+- **Limitations**: Higher memory requirements, slower generation
+
+#### Gemma 27b (6GB RAM, Best Quality)
+- **Commit Messages**: 90-95% of cloud quality
+- **Branch Names**: 95% of cloud quality
+- **PR Descriptions**: 85-95% of cloud quality
+- **Issue Operations**: 80-90% of cloud quality
+- **Limitations**: Highest memory usage, slowest generation
+
+#### Task Complexity Impact
+- **Simple Tasks** (branch names, basic commits): Local models perform very well
+- **Medium Tasks** (detailed commits, PR descriptions): Noticeable but acceptable quality gap
+- **Complex Tasks** (issue analysis, multi-step operations): Significant quality difference, consider cloud fallback
 
 ## Migration Guide
 
