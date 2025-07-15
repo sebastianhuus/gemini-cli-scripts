@@ -3,13 +3,15 @@
 # Default options
 auto_stage=false
 auto_pr=false
+auto_branch=false
 
 # Usage function
 usage() {
-    echo "Usage: $0 [-s|--stage] [-pr|--pr] [optional_context]"
+    echo "Usage: $0 [-s|--stage] [-b|--branch] [-pr|--pr] [optional_context]"
     echo ""
     echo "Options:"
     echo "  -s, --stage    Automatically stage all changes before generating commit"
+    echo "  -b, --branch   Automatically create new branch without confirmation"
     echo "  -pr, --pr      Automatically create pull request after successful commit"
     echo "  -h, --help     Show this help message"
     echo ""
@@ -22,6 +24,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         -s|--stage)
             auto_stage=true
+            shift
+            ;;
+        -b|--branch)
+            auto_branch=true
             shift
             ;;
         -pr|--pr)
@@ -180,10 +186,16 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         fi
     fi
     
-    # Now ask about branch creation
+    # Now ask about branch creation or auto-create if -b flag is used
     echo ""
-    echo "Create a new branch? [y/N]"
-    read -r create_branch_response
+    
+    if [[ "$auto_branch" == true ]]; then
+        echo "Auto-creating new branch..."
+        create_branch_response="y"
+    else
+        echo "Create a new branch? [y/N]"
+        read -r create_branch_response
+    fi
     
     if [[ "$create_branch_response" =~ ^[Yy]$ ]]; then
         # Generate branch name based on staged changes
@@ -223,70 +235,85 @@ $staged_diff"
             generated_branch_name="$manual_branch_name"
         fi
         
-        # Branch name confirmation loop
-        while true; do
+        # Branch name confirmation loop (or auto-create if -b flag is used)
+        if [[ "$auto_branch" == true ]]; then
+            # Auto-create branch without confirmation
             echo ""
             echo "Generated branch name: $generated_branch_name"
             echo ""
-            echo "Create branch '$generated_branch_name'? [y/e/r/q] (yes / edit / regenerate / quit)"
-            read -r branch_response
-            
-            case "$branch_response" in
-                [Yy]* )
-                    if git switch -c "$generated_branch_name"; then
-                        echo "✅ Created and switched to branch '$generated_branch_name'"
-                        echo ""
-                    else
-                        echo "❌ Failed to create branch. Exiting."
-                        exit 1
-                    fi
-                    break
-                    ;;
-                [Ee]* )
-                    echo "Enter new branch name:"
-                    read -r manual_branch_name
-                    if [ -n "$manual_branch_name" ]; then
-                        generated_branch_name="$manual_branch_name"
-                    fi
-                    ;;
-                [Rr]* )
-                    echo "Regenerating branch name..."
-                    # Rebuild prompt for regeneration
-                    branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
-                    
-                    if [ -n "$repository_context" ]; then
-                        branch_name_prompt+="
+            if git switch -c "$generated_branch_name"; then
+                echo "✅ Created and switched to branch '$generated_branch_name'"
+                echo ""
+            else
+                echo "❌ Failed to create branch. Exiting."
+                exit 1
+            fi
+        else
+            # Interactive confirmation loop
+            while true; do
+                echo ""
+                echo "Generated branch name: $generated_branch_name"
+                echo ""
+                echo "Create branch '$generated_branch_name'? [y/e/r/q] (yes / edit / regenerate / quit)"
+                read -r branch_response
+                
+                case "$branch_response" in
+                    [Yy]* )
+                        if git switch -c "$generated_branch_name"; then
+                            echo "✅ Created and switched to branch '$generated_branch_name'"
+                            echo ""
+                        else
+                            echo "❌ Failed to create branch. Exiting."
+                            exit 1
+                        fi
+                        break
+                        ;;
+                    [Ee]* )
+                        echo "Enter new branch name:"
+                        read -r manual_branch_name
+                        if [ -n "$manual_branch_name" ]; then
+                            generated_branch_name="$manual_branch_name"
+                        fi
+                        ;;
+                    [Rr]* )
+                        echo "Regenerating branch name..."
+                        # Rebuild prompt for regeneration
+                        branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
+                        
+                        if [ -n "$repository_context" ]; then
+                            branch_name_prompt+="
 
 Repository context:
 $repository_context"
-                    fi
-                    
-                    if [ -n "$gemini_context" ]; then
-                        branch_name_prompt+="
+                        fi
+                        
+                        if [ -n "$gemini_context" ]; then
+                            branch_name_prompt+="
 
 Repository context from GEMINI.md:
 $gemini_context"
-                    fi
-                    
-                    branch_name_prompt+="
+                        fi
+                        
+                        branch_name_prompt+="
 
 Current staged changes:
 $staged_diff"
-                    
-                    generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
-                        echo "Failed to regenerate branch name."
-                    fi
-                    ;;
-                [Qq]* )
-                    echo "Branch creation cancelled. Staying on '$current_branch'."
-                    exit 0
-                    ;;
-                * )
-                    echo "Invalid option. Please choose 'y', 'e', 'r', or 'q'."
-                    ;;
-            esac
-        done
+                        
+                        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
+                            echo "Failed to regenerate branch name."
+                        fi
+                        ;;
+                    [Qq]* )
+                        echo "Branch creation cancelled. Staying on '$current_branch'."
+                        exit 0
+                        ;;
+                    * )
+                        echo "Invalid option. Please choose 'y', 'e', 'r', or 'q'."
+                        ;;
+                esac
+            done
+        fi
     else
         echo "Continuing on '$current_branch' branch."
         echo ""
