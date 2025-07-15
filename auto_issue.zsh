@@ -194,47 +194,84 @@ For body edits, if the user wants to append or prepend text, combine it with the
     
     echo "Generating edit commands with Gemini..."
     
-    # Generate edit commands from Gemini
-    edit_commands=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt")
+    # Initialize variables for regeneration loop
+    local user_feedback=""
+    local should_generate=true
     
-    if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
-        echo "Failed to generate edit commands. Please try again."
-        exit 1
-    fi
-    
-    echo "Generated edit commands:"
-    echo "------------------------"
-    echo "$edit_commands"
-    echo "------------------------"
-    echo ""
-    echo "Execute these commands? [y/N]"
-    read -r response
-    
-    case "$response" in
-        [Yy]* )
-            echo "Executing edit commands..."
-            # Execute each command
-            echo "$edit_commands" | while IFS= read -r cmd; do
-                if [ -n "$cmd" ]; then
-                    if ! validate_quotes "$cmd"; then
-                        echo "✗ Command validation failed - skipping unsafe command"
-                        continue
+    # Regeneration loop
+    while true; do
+        if [ "$should_generate" = true ]; then
+            # Rebuild prompt with feedback if provided
+            local final_prompt="$llm_prompt"
+            if [ -n "$user_feedback" ]; then
+                final_prompt+="
+
+User feedback for improvement:
+$user_feedback
+
+Please incorporate this feedback to improve the edit commands."
+            fi
+            
+            # Generate edit commands from Gemini
+            edit_commands=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt")
+            
+            if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
+                echo "Failed to generate edit commands. Please try again."
+                exit 1
+            fi
+            
+            should_generate=false
+        fi
+        
+        echo "Generated edit commands:"
+        echo "------------------------"
+        echo "$edit_commands"
+        echo "------------------------"
+        echo ""
+        echo "Execute these commands? [y/r/q] (yes / regenerate / quit)"
+        read -r response
+        
+        case "$response" in
+            [Yy]* )
+                echo "Executing edit commands..."
+                # Execute each command
+                echo "$edit_commands" | while IFS= read -r cmd; do
+                    if [ -n "$cmd" ]; then
+                        if ! validate_quotes "$cmd"; then
+                            echo "✗ Command validation failed - skipping unsafe command"
+                            continue
+                        fi
+                        echo "Running: $cmd"
+                        eval "$cmd"
+                        if [ $? -eq 0 ]; then
+                            echo "✓ Command executed successfully"
+                        else
+                            echo "✗ Command failed"
+                        fi
                     fi
-                    echo "Running: $cmd"
-                    eval "$cmd"
-                    if [ $? -eq 0 ]; then
-                        echo "✓ Command executed successfully"
-                    else
-                        echo "✗ Command failed"
-                    fi
+                done
+                echo "Issue edit completed!"
+                return 0
+                ;;
+            [Rr]* )
+                echo "Please provide feedback:"
+                read -r feedback_input
+                if [ -n "$feedback_input" ]; then
+                    user_feedback+="- $feedback_input\n"
                 fi
-            done
-            echo "Issue edit completed!"
-            ;;
-        * )
-            echo "Edit cancelled."
-            ;;
-    esac
+                echo "Regenerating edit commands..."
+                should_generate=true
+                continue
+                ;;
+            [Qq]* )
+                echo "Edit cancelled."
+                return 1
+                ;;
+            * )
+                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                ;;
+        esac
+    done
 }
 
 # Function to parse natural language intent without JSON dependencies
