@@ -75,16 +75,25 @@ echo ""
 # Get detailed commit information for better context
 commit_details=$(git log $base_branch..$current_branch --pretty=format:"%h - %s%n%b" --no-merges)
 
+
 # Function to generate PR content using Gemini
 generate_pr_content() {
     local feedback_prompt="$1"
-    local base_prompt="${optional_prompt} Based on the following git commit history, generate a pull request title and description. Ensure to include any relevant issue references (e.g., 'resolves #123', 'closes #456', 'fixes #789', 'connects to #101', 'relates to #202', 'contributes to #303') found in the commit messages. Format as:
+    
+    local base_prompt="${optional_prompt} Based on the following git commit history, generate a complete gh pr create command. Ensure to include any relevant issue references (e.g., 'resolves #123', 'closes #456', 'fixes #789', 'connects to #101', 'relates to #202', 'contributes to #303') found in the commit messages.
 
-TITLE: [concise, descriptive title]
+Generate a complete gh pr create command that includes:
+1. --title \"[concise, descriptive title]\"
+2. --body \"[detailed description with bullet points of changes and issue references]\"
+3. --assignee \"@me\" (to assign the PR to yourself)
 
-DESCRIPTION:
-[detailed description with bullet points of changes]
-[Optional: List of issue references, e.g., 'Resolves #123', 'Contributes to #456']"
+Format the output as the complete gh pr create command, ready to execute.
+
+Example format:
+gh pr create --title \"Fix: Resolve login timeout issue\" --body \"- Fixed session timeout handling...\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\" --assignee \"@me\"
+
+Always end the --body content with the attribution line:
+🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
     
     if [ -n "$gemini_context" ]; then
         base_prompt+="
@@ -115,30 +124,37 @@ pr_content_raw=$(generate_pr_content)
 if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
     # Interactive loop for PR content confirmation and regeneration
     while true; do
-        # Create the final PR content with attribution for display
-        pr_content="$pr_content_raw"
-        pr_content+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
+        # The LLM now generates a complete gh pr create command
+        pr_create_command="$pr_content_raw"
 
-        echo "Generated PR content:"
-        echo "$pr_content"
+        echo "Generated PR create command:"
+        echo "$pr_create_command"
         echo ""
-        echo "Create PR with this content? [Y/r/q] (yes / regenerate with feedback / quit)"
+        echo "Create PR with this command? [Y/r/q] (yes / regenerate with feedback / quit)"
         read -r response
         
         case "$response" in
             [Yy]* | "" )
-                # Extract title and description
-                pr_title=$(echo "$pr_content" | grep "^TITLE:" | sed 's/^TITLE: //')
-                pr_description=$(echo "$pr_content" | sed '1,/^DESCRIPTION:/d')
-
                 # Push current branch to remote
                 echo "Pushing current branch to remote..."
                 git push -u origin "$current_branch"
                 
-                # Create PR using GitHub CLI (requires gh CLI to be installed)
+                # Create PR using the generated command
                 if command -v gh &> /dev/null; then
-                    gh pr create --title "$pr_title" --body "$pr_description" --base "$base_branch" --head "$current_branch"
-                    echo "Pull request created successfully!"
+                    # Add the base and head parameters to the generated command
+                    enhanced_command="$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
+                    echo "Executing: $enhanced_command"
+                    
+                    # Execute the command (similar to auto_issue.zsh pattern)
+                    escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
+                    eval "$escaped_command"
+                    
+                    if [ $? -eq 0 ]; then
+                        echo "Pull request created successfully!"
+                    else
+                        echo "Failed to create pull request."
+                        break
+                    fi
                     
                     # Prompt to switch to main and pull latest changes
                     echo ""
@@ -156,9 +172,8 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                         echo "Skipping branch switch and pull."
                     fi
                 else
-                    echo "GitHub CLI (gh) not found. Please install it or create the PR manually:"
-                    echo "Title: $pr_title"
-                    echo "Description: $pr_description"
+                    echo "GitHub CLI (gh) not found. Please install it or create the PR manually."
+                    echo "Generated command: $pr_create_command"
                     echo "Base: $base_branch"
                     echo "Head: $current_branch"
                 fi
@@ -175,8 +190,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 ;;
             [Qq]* )
                 echo "PR creation cancelled. You can create it manually with:"
-                echo "Title: $(echo "$pr_content" | grep "^TITLE:" | sed 's/^TITLE: //')"
-                echo "Description: $(echo "$pr_content" | sed '1,/^DESCRIPTION:/d')"
+                echo "$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
                 exit 0
                 ;;
             * )
