@@ -105,7 +105,7 @@ $commit_details"
     fi
     
     # Generate raw PR content from Gemini
-    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | tail -n +2
+    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt"
 }
 
 # Generate initial PR content
