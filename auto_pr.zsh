@@ -114,7 +114,7 @@ $commit_details"
     fi
     
     # Generate raw PR content from Gemini
-    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt"
+    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/gemini_clean.zsh"
 }
 
 # Generate initial PR content

@@ -8,6 +8,14 @@ This repository contains Zsh automation scripts that use the Gemini CLI to autom
 
 ## Core Scripts
 
+### gemini_clean.zsh
+Utility script for cleaning Gemini CLI responses:
+- Removes authentication-related lines that can appear at response start
+- Prevents command execution failures when auth messages get included
+- Used by all other scripts via pipe: `gemini ... | "${script_dir}/gemini_clean.zsh"`
+
+Usage: `gemini -m model --prompt "..." | ./gemini_clean.zsh`
+
 ### auto_commit.zsh
 Automated commit message generation using Gemini CLI with feedback loops:
 - Analyzes staged changes and recent commit history
@@ -97,7 +105,8 @@ git submodule update --remote  # For updates
 5. Update help documentation
 
 ### Gemini Response Handling
-- All scripts use `tail -n +2` to trim first line (handles auth-related output)
+- All scripts use `gemini_clean.zsh` utility to clean auth-related output from responses
+- Handles "Loaded cached credentials." and similar auth messages that sometimes appear
 - Retry mechanism available in auto_commit.zsh via regeneration option
 - Error checking for failed LLM calls with fallback messages
 
