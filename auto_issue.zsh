@@ -476,44 +476,79 @@ Only output the comment content, without any additional text or explanation."
     
     echo "Generating comment with Gemini..."
     
-    # Generate comment content from Gemini
-    local comment_content=$(echo "$llm_prompt" | gemini -m gemini-2.5-flash --prompt "$llm_prompt")
+    # Initialize variables for regeneration loop
+    local user_feedback=""
+    local should_generate=true
     
-    if [ $? -ne 0 ] || [ -z "$comment_content" ]; then
-        echo "Failed to generate comment. Please try again."
-        return 1
-    fi
-    
-    # Add attribution to the comment
-    local final_comment="$comment_content
+    # Regeneration loop
+    while true; do
+        if [ "$should_generate" = true ]; then
+            # Rebuild prompt with feedback if provided
+            local final_prompt="$llm_prompt"
+            if [ -n "$user_feedback" ]; then
+                final_prompt+="
 
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
-    
-    echo "Generated comment:"
-    echo "=================="
-    echo "$final_comment"
-    echo "=================="
-    echo ""
-    echo "Post this comment? [Y/n]"
-    read -r response
-    
-    case "$response" in
-        [Yy]* | "" )
-            echo "Posting comment to issue #$issue_number..."
-            gh issue comment "$issue_number" --body "$final_comment"
-            if [ $? -eq 0 ]; then
-                echo "Comment posted successfully!"
-                return 0
-            else
-                echo "Failed to post comment."
+User feedback for improvement:
+$user_feedback
+
+Please incorporate this feedback to improve the comment."
+            fi
+            
+            # Generate comment content from Gemini
+            local comment_content=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt")
+            
+            if [ $? -ne 0 ] || [ -z "$comment_content" ]; then
+                echo "Failed to generate comment. Please try again."
                 return 1
             fi
-            ;;
-        * )
-            echo "Comment cancelled."
-            return 1
-            ;;
-    esac
+            
+            should_generate=false
+        fi
+        
+        # Add attribution to the comment
+        local final_comment="$comment_content
+
+🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
+        
+        echo "Generated comment:"
+        echo "=================="
+        echo "$final_comment"
+        echo "=================="
+        echo ""
+        echo "Post this comment? [Y/r/q] (yes / regenerate / quit)"
+        read -r response
+        
+        case "$response" in
+            [Yy]* | "" )
+                echo "Posting comment to issue #$issue_number..."
+                gh issue comment "$issue_number" --body "$final_comment"
+                if [ $? -eq 0 ]; then
+                    echo "Comment posted successfully!"
+                    return 0
+                else
+                    echo "Failed to post comment."
+                    return 1
+                fi
+                ;;
+            [Rr]* )
+                echo "Please provide feedback:"
+                read -r feedback_input
+                if [ -n "$feedback_input" ]; then
+                    user_feedback+="- $feedback_input\n"
+                fi
+                echo "Regenerating comment..."
+                should_generate=true
+                continue
+                ;;
+            [Qq]* )
+                echo "Comment cancelled."
+                return 1
+                ;;
+            * )
+                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                ;;
+        esac
+    done
 }
 
 # Function to handle LLM-controlled issue creation
