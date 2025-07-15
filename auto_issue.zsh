@@ -228,11 +228,11 @@ Please incorporate this feedback to improve the edit commands."
             echo "⚠️  Validation failed: Generated commands contain unclosed quotes."
             echo "Please regenerate the commands to fix this issue."
             echo ""
-            echo "Regenerate commands? [y/q] (yes / quit)"
+            echo "Regenerate commands? [Y/q] (yes / quit)"
             read -r validation_response
             
             case "$validation_response" in
-                [Yy]* )
+                [Yy]* | "" )
                     echo "Regenerating edit commands..."
                     user_feedback+="- Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands.\n"
                     should_generate=true
@@ -254,11 +254,11 @@ Please incorporate this feedback to improve the edit commands."
         echo "$edit_commands"
         echo "------------------------"
         echo ""
-        echo "Execute these commands? [y/r/q] (yes / regenerate / quit)"
+        echo "Execute these commands? [Y/r/q] (yes / regenerate / quit)"
         read -r response
         
         case "$response" in
-            [Yy]* )
+            [Yy]* | "" )
                 echo "Executing edit commands..."
                 # Execute the entire command block, escaping backticks like in create_issue_with_llm
                 echo "Running: $edit_commands"
@@ -414,11 +414,11 @@ confirm_operation() {
         echo ""
     fi
     
-    echo "Proceed with this operation? [y/n]"
+    echo "Proceed with this operation? [Y/n]"
     read -r response
     
     case "$response" in
-        [Yy]* ) return 0 ;;
+        [Yy]* | "" ) return 0 ;;
         * ) return 1 ;;
     esac
 }
@@ -494,11 +494,11 @@ Only output the comment content, without any additional text or explanation."
     echo "$final_comment"
     echo "=================="
     echo ""
-    echo "Post this comment? [y/n]"
+    echo "Post this comment? [Y/n]"
     read -r response
     
     case "$response" in
-        [Yy]* )
+        [Yy]* | "" )
             echo "Posting comment to issue #$issue_number..."
             gh issue comment "$issue_number" --body "$final_comment"
             if [ $? -eq 0 ]; then
@@ -652,11 +652,11 @@ Make sure to include appropriate labels and assignees based on the issue type an
     echo "$enhanced_command"
     echo "------------------------"
     echo ""
-    echo "Execute this command? [y/r/q] (yes / regenerate with feedback / quit)"
+    echo "Execute this command? [Y/r/q] (yes / regenerate with feedback / quit)"
     read -r response
     
     case "$response" in
-        [Yy]* )
+        [Yy]* | "" )
             echo "Creating issue on GitHub..."
             # Escape backticks in the command to prevent shell interpretation
             escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')

@@ -122,11 +122,11 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         echo "Generated PR content:"
         echo "$pr_content"
         echo ""
-        echo "Create PR with this content? [y/r/q] (yes / regenerate with feedback / quit)"
+        echo "Create PR with this content? [Y/r/q] (yes / regenerate with feedback / quit)"
         read -r response
         
         case "$response" in
-            [Yy]* )
+            [Yy]* | "" )
                 # Extract title and description
                 pr_title=$(echo "$pr_content" | grep "^TITLE:" | sed 's/^TITLE: //')
                 pr_description=$(echo "$pr_content" | sed '1,/^DESCRIPTION:/d')
@@ -142,10 +142,10 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     
                     # Prompt to switch to main and pull latest changes
                     echo ""
-                    echo "Do you want to switch to $base_branch and pull latest changes? [y/N]"
+                    echo "Do you want to switch to $base_branch and pull latest changes? [Y/n]"
                     read -r switch_response
                     
-                    if [[ "$switch_response" =~ ^[Yy]$ ]]; then
+                    if [[ "$switch_response" =~ ^[Yy]$ || -z "$switch_response" ]]; then
                         echo "Switching to $base_branch and pulling latest changes..."
                         if git switch "$base_branch" && git pull; then
                             echo "Successfully updated $base_branch branch!"
