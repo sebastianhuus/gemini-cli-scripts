@@ -260,9 +260,10 @@ Please incorporate this feedback to improve the edit commands."
         case "$response" in
             [Yy]* )
                 echo "Executing edit commands..."
-                # Execute the entire command block
+                # Execute the entire command block, escaping backticks like in create_issue_with_llm
                 echo "Running: $edit_commands"
-                eval "$edit_commands"
+                escaped_command=$(echo "$edit_commands" | sed 's/`/\\`/g')
+                eval "$escaped_command"
                 if [ $? -eq 0 ]; then
                     echo "✓ Command executed successfully"
                 else
