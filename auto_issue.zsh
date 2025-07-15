@@ -246,6 +246,7 @@ Please incorporate this feedback to improve the edit commands."
             case "$validation_response" in
                 [Yy]* )
                     echo "Regenerating edit commands..."
+                    user_feedback+="- Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands.\n"
                     should_generate=true
                     continue
                     ;;
