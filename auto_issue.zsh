@@ -223,20 +223,8 @@ Please incorporate this feedback to improve the edit commands."
             should_generate=false
         fi
         
-        # Validate quotes in commands before presenting to user
-        local validation_failed=false
-        local temp_file=$(mktemp)
-        echo "$edit_commands" | while IFS= read -r cmd; do
-            if [ -n "$cmd" ]; then
-                if ! validate_quotes "$cmd"; then
-                    echo "failed" > "$temp_file"
-                    break
-                fi
-            fi
-        done
-        
-        if [ -f "$temp_file" ] && [ "$(cat "$temp_file")" = "failed" ]; then
-            rm -f "$temp_file"
+        # Validate quotes in the entire command block before presenting to user
+        if ! validate_quotes "$edit_commands"; then
             echo "⚠️  Validation failed: Generated commands contain unclosed quotes."
             echo "Please regenerate the commands to fix this issue."
             echo ""
@@ -259,8 +247,6 @@ Please incorporate this feedback to improve the edit commands."
                     return 1
                     ;;
             esac
-        else
-            rm -f "$temp_file"
         fi
 
         echo "Generated edit commands:"
