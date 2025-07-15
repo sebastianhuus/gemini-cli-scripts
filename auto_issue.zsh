@@ -260,18 +260,14 @@ Please incorporate this feedback to improve the edit commands."
         case "$response" in
             [Yy]* )
                 echo "Executing edit commands..."
-                # Execute each command
-                echo "$edit_commands" | while IFS= read -r cmd; do
-                    if [ -n "$cmd" ]; then
-                        echo "Running: $cmd"
-                        eval "$cmd"
-                        if [ $? -eq 0 ]; then
-                            echo "✓ Command executed successfully"
-                        else
-                            echo "✗ Command failed"
-                        fi
-                    fi
-                done
+                # Execute the entire command block
+                echo "Running: $edit_commands"
+                eval "$edit_commands"
+                if [ $? -eq 0 ]; then
+                    echo "✓ Command executed successfully"
+                else
+                    echo "✗ Command failed"
+                fi
                 echo "Issue edit completed!"
                 return 0
                 ;;
