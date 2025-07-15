@@ -8,15 +8,9 @@ This repository contains Zsh automation scripts that use the Gemini CLI to autom
 
 ## Core Scripts
 
-### gemini_clean.zsh
-Utility script for cleaning Gemini CLI responses:
-- Removes authentication-related lines that can appear at response start
-- Prevents command execution failures when auth messages get included
-- Used by all other scripts via pipe: `gemini ... | "${script_dir}/gemini_clean.zsh"`
+### Main Automation Scripts
 
-Usage: `gemini -m model --prompt "..." | ./gemini_clean.zsh`
-
-### auto_commit.zsh
+#### auto_commit.zsh
 Automated commit message generation using Gemini CLI with feedback loops:
 - Analyzes staged changes and recent commit history
 - Generates conventional commit messages 
@@ -25,7 +19,7 @@ Automated commit message generation using Gemini CLI with feedback loops:
 
 Usage: `./auto_commit.zsh [optional_context]`
 
-### auto_pr.zsh  
+#### auto_pr.zsh  
 Pull request creation automation:
 - Analyzes commit differences between current branch and main/master
 - Generates PR titles and descriptions
@@ -34,7 +28,7 @@ Pull request creation automation:
 
 Usage: `./auto_pr.zsh [optional_context]`
 
-### auto_issue.zsh
+#### auto_issue.zsh
 Natural language GitHub issue management:
 - Two-stage processing: question conversion → intent parsing
 - Supports create, edit, comment, view operations
@@ -42,6 +36,26 @@ Natural language GitHub issue management:
 - Repository context awareness (labels, milestones, collaborators)
 
 Usage: `./auto_issue.zsh "natural language request"`
+
+### Utility Scripts (utils/)
+
+#### utils/gemini_clean.zsh
+Utility script for cleaning Gemini CLI responses:
+- Removes authentication-related lines that can appear at response start
+- Prevents command execution failures when auth messages get included
+- Used by all other scripts via pipe: `gemini ... | "${script_dir}/utils/gemini_clean.zsh"`
+
+Usage: `gemini -m model --prompt "..." | ./utils/gemini_clean.zsh`
+
+#### utils/gemini_context.zsh
+Repository context utility for enhanced AI understanding:
+- Loads and formats GEMINI.md file content for LLM context
+- Provides functions: `load_gemini_context()` and `has_gemini_context()`
+- Automatically sourced by main scripts when available
+- File size validation (max 2KB) to prevent token overuse
+
+Usage: Automatically loaded by main scripts when present
+
 
 ## Architecture
 
@@ -105,10 +119,11 @@ git submodule update --remote  # For updates
 5. Update help documentation
 
 ### Gemini Response Handling
-- All scripts use `gemini_clean.zsh` utility to clean auth-related output from responses
+- All scripts use `utils/gemini_clean.zsh` utility to clean auth-related output from responses
 - Handles "Loaded cached credentials." and similar auth messages that sometimes appear
 - Retry mechanism available in auto_commit.zsh via regeneration option
 - Error checking for failed LLM calls with fallback messages
+- Repository context loading via `utils/gemini_context.zsh` for enhanced AI understanding
 
 ### Attribution Pattern
 All generated content includes attribution footer for transparency and compliance with LLM usage policies.

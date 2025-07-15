@@ -3,8 +3,8 @@
 # Load context utility if available
 script_dir="${0:A:h}"
 gemini_context=""
-if [ -f "${script_dir}/gemini_context.zsh" ]; then
-    source "${script_dir}/gemini_context.zsh"
+if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
+    source "${script_dir}/utils/gemini_context.zsh"
     gemini_context=$(load_gemini_context)
 fi
 
@@ -114,7 +114,7 @@ $commit_details"
     fi
     
     # Generate raw PR content from Gemini
-    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/gemini_clean.zsh"
+    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
 }
 
 # Generate initial PR content
