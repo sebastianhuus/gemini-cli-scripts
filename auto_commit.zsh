@@ -140,9 +140,9 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                 exit 1
             fi
         else
-            echo "Found unstaged changes. Stage all changes? [y/N]"
+            echo "Found unstaged changes. Stage all changes? [Y/n]"
             read -r stage_response
-            if [[ "$stage_response" =~ ^[Yy]$ ]]; then
+            if [[ "$stage_response" =~ ^[Yy]$ || -z "$stage_response" ]]; then
                 git add .
                 if ! git diff --cached --quiet; then
                     staged_diff=$(git diff --cached)
@@ -160,9 +160,9 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         fi
     else
         echo "No changes found (staged or unstaged)."
-        echo "Create empty branch anyway? [y/N]"
+        echo "Create empty branch anyway? [Y/n]"
         read -r empty_branch_response
-        if [[ "$empty_branch_response" =~ ^[Yy]$ ]]; then
+        if [[ "$empty_branch_response" =~ ^[Yy]$ || -z "$empty_branch_response" ]]; then
             echo "Enter branch name:"
             read -r manual_branch_name
             if [ -n "$manual_branch_name" ]; then
@@ -193,11 +193,11 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         echo "Auto-creating new branch..."
         create_branch_response="y"
     else
-        echo "Create a new branch? [y/N]"
+        echo "Create a new branch? [Y/n]"
         read -r create_branch_response
     fi
     
-    if [[ "$create_branch_response" =~ ^[Yy]$ ]]; then
+    if [[ "$create_branch_response" =~ ^[Yy]$ || -z "$create_branch_response" ]]; then
         # Generate branch name based on staged changes
         echo "Generating branch name based on staged changes..."
         
@@ -390,19 +390,19 @@ if ! git diff --cached --quiet; then
 
         echo "Generated commit message:\n$final_commit_msg"
         echo ""
-        echo "Accept and commit? [y/a/r/q] (yes / append / regenerate / quit)"
+        echo "Accept and commit? [Y/a/r/q] (yes / append / regenerate / quit)"
         read -r response
 
         case "$response" in
-            [Yy]* )
+            [Yy]* | "" )
                 git commit -m "$final_commit_msg"
                 echo "Changes committed successfully!"
 
                 echo ""
-                echo "Do you want to push the changes now? [y/N]"
+                echo "Do you want to push the changes now? [Y/n]"
                 read -r push_response
 
-                if [[ "$push_response" =~ ^[Yy]$ ]]; then
+                if [[ "$push_response" =~ ^[Yy]$ || -z "$push_response" ]]; then
                     current_branch=$(git branch --show-current)
                     # Check if upstream branch is set
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
@@ -426,9 +426,9 @@ if ! git diff --cached --quiet; then
                                 "${script_dir}/auto_pr.zsh" "$1"
                             else
                                 echo ""
-                                echo "Create a pull request? [y/N]"
+                                echo "Create a pull request? [Y/n]"
                                 read -r pr_response
-                                if [[ "$pr_response" =~ ^[Yy]$ ]]; then
+                                if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
                                     "${script_dir}/auto_pr.zsh" "$1"
                                 fi
                             fi
@@ -490,10 +490,10 @@ else
         fi
     else
         echo "No staged changes found."
-        echo "Do you want to stage all changes? [y/N]"
+        echo "Do you want to stage all changes? [Y/n]"
         read -r stage_response
 
-        if [[ "$stage_response" =~ ^[Yy]$ ]]; then
+        if [[ "$stage_response" =~ ^[Yy]$ || -z "$stage_response" ]]; then
             git add .
             echo "All changes staged."
             # Re-run the script to proceed with commit message generation
