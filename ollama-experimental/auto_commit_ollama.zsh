@@ -107,59 +107,69 @@ if [[ "$test_mode" == true ]]; then
     exit 0
 fi
 
-# Function to escape JSON strings
+# Function to escape JSON strings using Python
 escape_json() {
     local string="$1"
-    # Escape backslashes, quotes, and newlines for JSON
-    echo "$string" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n' | sed 's/\\n$//'
-}
-
-# Function to preprocess JSON response for jq compatibility
-preprocess_json_for_jq() {
-    local json="$1"
-    # Escape control characters that jq requires to be escaped
-    echo "$json" | sed 's/\\n/\\\\n/g; s/\\t/\\\\t/g; s/\\r/\\\\r/g'
-}
-
-# Function to parse JSON response without jq
-parse_json_response() {
-    local json_response="$1"
     
-    # Extract the response field from JSON using awk for better handling
-    echo "$json_response" | awk -F'"response":"' '{
-        if (NF > 1) {
-            response = $2
-            # Find the end of the response field (next unescaped quote)
-            pos = 1
-            result = ""
-            while (pos <= length(response)) {
-                char = substr(response, pos, 1)
-                if (char == "\\") {
-                    # Handle escaped characters
-                    next_char = substr(response, pos + 1, 1)
-                    if (next_char == "n") {
-                        result = result "\n"
-                    } else if (next_char == "t") {
-                        result = result "\t"
-                    } else if (next_char == "\"") {
-                        result = result "\""
-                    } else if (next_char == "\\") {
-                        result = result "\\"
-                    } else {
-                        result = result char next_char
-                    }
-                    pos += 2
-                } else if (char == "\"") {
-                    # End of response field
-                    break
-                } else {
-                    result = result char
-                    pos += 1
-                }
-            }
-            print result
-        }
-    }'
+    # Use Python's json.dumps for proper JSON escaping
+    python3 -c "
+import json, sys
+try:
+    # json.dumps properly escapes all characters, then we remove the surrounding quotes
+    escaped = json.dumps(sys.argv[1])
+    print(escaped[1:-1])  # Remove surrounding quotes
+except Exception as e:
+    print('JSON escaping error', file=sys.stderr)
+    sys.exit(1)
+" "$string"
+}
+
+# Function to extract JSON response using Python
+extract_json_response() {
+    local json="$1"
+    
+    # Check if Python is available
+    if ! command -v python3 > /dev/null 2>&1; then
+        echo "❌ Python3 is required for JSON processing but not found"
+        return 1
+    fi
+    
+    # Use Python to extract and clean the response
+    python3 -c "
+import json, sys, re
+
+try:
+    data = json.loads(sys.stdin.read())
+    response = data.get('response', '')
+    
+    # Clean up the response
+    response = response.strip()
+    
+    # Remove markdown code blocks if present
+    if response.startswith('\`\`\`'):
+        lines = response.split('\n')
+        # Remove first line (opening \`\`\`) and last line if it's closing \`\`\`
+        if len(lines) > 1:
+            if lines[-1].strip() == '\`\`\`':
+                response = '\n'.join(lines[1:-1])
+            else:
+                response = '\n'.join(lines[1:])
+        response = response.strip()
+    
+    # Remove any remaining backticks at start/end
+    response = re.sub(r'^\`+', '', response)
+    response = re.sub(r'\`+$', '', response)
+    response = response.strip()
+    
+    if response:
+        print(response)
+    else:
+        sys.exit(1)
+        
+except Exception as e:
+    print(f'JSON parsing error: {e}', file=sys.stderr)
+    sys.exit(1)
+" <<< "$json"
 }
 
 # Function to call Ollama with retry mechanism
@@ -210,52 +220,31 @@ call_ollama_generate() {
                 echo "$response" | grep -o '"error":"[^"]*"' || echo "$response"
                 echo ""
             else
-                # Extract the response text using jq if available, otherwise use custom parsing
+                # Extract the response using Python JSON processing
+                debug_log "🔍 DEBUG: Using Python for JSON parsing"
                 local result=""
-                if command -v jq > /dev/null 2>&1; then
-                    debug_log "🔍 DEBUG: Using jq for JSON parsing"
-                    debug_log "🔍 DEBUG: Preprocessing JSON for jq compatibility..."
-                    
-                    # Preprocess JSON to escape control characters for jq
-                    local processed_json=$(preprocess_json_for_jq "$response")
-                    debug_log "🔍 DEBUG: Original response length: $(echo "$response" | wc -c) chars"
-                    debug_log "🔍 DEBUG: Processed response length: $(echo "$processed_json" | wc -c) chars"
-                    
-                    # Try jq with error output visible
-                    local jq_result=""
-                    local jq_error=""
-                    jq_result=$(echo "$processed_json" | jq -r '.response' 2>&1)
-                    local jq_exit_code=$?
-                    
-                    debug_log "🔍 DEBUG: jq exit code: $jq_exit_code"
-                    debug_log "🔍 DEBUG: jq raw result: '$jq_result'"
-                    
-                    if [ $jq_exit_code -eq 0 ]; then
-                        result=$(echo "$jq_result" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                        debug_log "🔍 DEBUG: jq trimmed result: '$result'"
-                    else
-                        debug_log "🔍 DEBUG: jq failed with error: $jq_result"
-                        debug_log "🔍 DEBUG: Falling back to custom parser"
-                        result=$(parse_json_response "$response" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                        debug_log "🔍 DEBUG: Custom parser result: '$result'"
-                    fi
-                else
-                    debug_log "🔍 DEBUG: Using custom JSON parsing (no jq)"
-                    result=$(parse_json_response "$response" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    debug_log "🔍 DEBUG: Custom parser result: '$result'"
-                fi
+                result=$(extract_json_response "$response" 2>&1)
+                local extraction_exit_code=$?
                 
-                # Check if we got a valid response
-                if [ -n "$result" ] && [ "$result" != "null" ]; then
-                    debug_log "✅ DEBUG: Successfully generated response"
+                debug_log "🔍 DEBUG: Python extraction exit code: $extraction_exit_code"
+                debug_log "🔍 DEBUG: Python extraction result: '$result'"
+                
+                # Check if extraction was successful
+                if [ $extraction_exit_code -eq 0 ] && [ -n "$result" ] && [ "$result" != "null" ]; then
+                    debug_log "✅ DEBUG: Successfully extracted response with Python"
                     echo "$result"
                     return 0
+                else
+                    debug_log "❌ DEBUG: Python extraction failed"
+                    if [[ "$result" == *"JSON parsing error"* ]]; then
+                        debug_log "🔍 DEBUG: JSON parsing error: $result"
+                    else
+                        debug_log "🔍 DEBUG: Empty or null response"
+                    fi
+                    debug_log "🔍 DEBUG: Full raw response:"
+                    debug_log "$response"
+                    debug_log ""
                 fi
-                
-                debug_log "⚠️  DEBUG: Empty or null response received"
-                debug_log "🔍 DEBUG: Full raw response:"
-                debug_log "$response"
-                debug_log ""
             fi
         else
             debug_log "❌ DEBUG: curl failed or empty response"
@@ -381,6 +370,13 @@ display_repository_info() {
     
     echo ""
 }
+
+# Check Python3 dependency
+if ! command -v python3 > /dev/null 2>&1; then
+    echo "❌ Python3 is required for JSON processing but not found."
+    echo "Please install Python3 and try again."
+    exit 1
+fi
 
 # Initialize Ollama environment
 if ! setup_ollama_environment; then
@@ -592,22 +588,37 @@ if ! git diff --cached --quiet; then
 1. Use ONLY these types: feat, fix, docs, style, refactor, test, chore
 2. Format: type(scope): description
 3. Use imperative mood (add, fix, update, not added, fixed, updated)
-4. Max 50 characters for the title
+4. Max 50 characters for the title line
 5. Be specific about what changed, not just filenames
-6. Output ONLY the commit message, no explanations
+6. For complex changes, add detailed bullet points after a blank line
 
 ## SCOPE GUIDELINES:
 - Use scope when changes affect specific areas: feat(auth):, fix(parser):, docs(api):
 - For experimental/sub-projects: feat(experimental):, docs(ollama):
 - Omit scope only for broad changes across multiple areas
 
-## GOOD EXAMPLES:
-- feat(auth): add JWT token validation
-- fix(parser): resolve memory leak in JSON parsing
-- docs(api): update authentication endpoints
-- refactor(db): simplify query builder interface
-- test(auth): add unit tests for login flow
-- chore(deps): update dependencies to latest versions
+## FORMAT RULES:
+- **Simple changes**: Single line only
+- **Complex changes**: Title line + blank line + bullet points (-)
+- **Multiple files/features**: Always use detailed format
+- **New features**: Always use detailed format
+
+## SIMPLE EXAMPLES:
+- fix(auth): resolve token validation bug
+- docs(api): update endpoint documentation
+- style(ui): fix button alignment
+
+## DETAILED EXAMPLES:
+- feat(ollama-experimental): add auto commit script for local AI workflows
+  - Introduces automated Git commit message generation
+  - Utilizes Ollama and Gemma models for local AI processing
+  - Includes features for auto-staging and interactive refinement
+  - Implements retry mechanisms and robust error handling
+
+- refactor(parser): restructure JSON processing pipeline
+  - Separates parsing logic from validation
+  - Improves error handling and debugging
+  - Adds support for streaming JSON processing
 
 ## BAD EXAMPLES (DON'T DO THIS):
 - feat: add file (too vague)
@@ -620,6 +631,7 @@ if ! git diff --cached --quiet; then
 2. FOCUS on the functionality/purpose of the changes
 3. IDENTIFY the main area affected for scope
 4. DESCRIBE what the change accomplishes for users/developers
+5. For significant changes, explain the key features/improvements
 
 Context:
 $context
@@ -646,13 +658,14 @@ Changes: $(echo "$staged_diff" | head -n 20)
 RULES:
 1. Types: feat, fix, docs, style, refactor, test, chore
 2. Use imperative mood (add, fix, update)
-3. Max 50 chars, be specific
-4. Output ONLY the commit message
+3. Max 50 chars for title, add bullet points for complex changes
+4. Be specific about functionality, not just filenames
 
 EXAMPLES:
-- feat(auth): add JWT validation
-- fix(parser): resolve memory leak  
-- docs(api): update endpoints
+Simple: fix(auth): resolve token validation bug
+Complex: feat(ollama-experimental): add auto commit script
+- Introduces automated Git commit message generation
+- Utilizes Ollama and Gemma models for local AI processing
 
 Context:
 $short_context
