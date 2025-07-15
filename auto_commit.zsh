@@ -2,13 +2,15 @@
 
 # Default options
 auto_stage=false
+auto_pr=false
 
 # Usage function
 usage() {
-    echo "Usage: $0 [-s|--stage] [optional_context]"
+    echo "Usage: $0 [-s|--stage] [-pr|--pr] [optional_context]"
     echo ""
     echo "Options:"
     echo "  -s, --stage    Automatically stage all changes before generating commit"
+    echo "  -pr, --pr      Automatically create pull request after successful commit"
     echo "  -h, --help     Show this help message"
     echo ""
     echo "Arguments:"
@@ -20,6 +22,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         -s|--stage)
             auto_stage=true
+            shift
+            ;;
+        -pr|--pr)
+            auto_pr=true
             shift
             ;;
         -h|--help)
@@ -328,14 +334,20 @@ if ! git diff --cached --quiet; then
                     if [ $? -eq 0 ]; then
                         echo "Changes pushed successfully!"
                         
-                        # Check for auto_pr.zsh and offer to create PR
+                        # Check for auto_pr.zsh and handle PR creation
                         script_dir="${0:A:h}"
                         if [ -f "${script_dir}/auto_pr.zsh" ]; then
-                            echo ""
-                            echo "Create a pull request? [y/N]"
-                            read -r pr_response
-                            if [[ "$pr_response" =~ ^[Yy]$ ]]; then
+                            if [[ "$auto_pr" == true ]]; then
+                                echo ""
+                                echo "Creating pull request automatically..."
                                 "${script_dir}/auto_pr.zsh" "$1"
+                            else
+                                echo ""
+                                echo "Create a pull request? [y/N]"
+                                read -r pr_response
+                                if [[ "$pr_response" =~ ^[Yy]$ ]]; then
+                                    "${script_dir}/auto_pr.zsh" "$1"
+                                fi
                             fi
                         fi
                     else
