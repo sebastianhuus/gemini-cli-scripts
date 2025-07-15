@@ -293,55 +293,12 @@ Please incorporate this feedback to improve the edit commands."
     done
 }
 
-# Function to parse natural language intent without JSON dependencies
+# Function to parse natural language intent using external script
 parse_intent() {
     local input="$1"
     
-    # Create prompt for LLM to parse intent
-    local parser_prompt="Analyze this GitHub issue request and determine the operation, issue number, and content.
-
-User input: $input"
-    
-    if [ -n "$gemini_context" ]; then
-        parser_prompt+="
-
-Repository context from GEMINI.md:
-$gemini_context"
-    fi
-    
-    parser_prompt+="
-
-Respond with ONLY these lines in this exact format:
-OPERATION: [create|edit|comment|view|close|reopen]
-ISSUE_NUMBER: [number or NONE]
-CONTENT: [extracted content]
-CONFIDENCE: [high|medium|low]
-
-IMPORTANT: Output as plain text only, no code blocks or markdown formatting.
-
-Examples:
-Input: \"add comment to issue 8 about login fix\"
-OPERATION: comment
-ISSUE_NUMBER: 8
-CONTENT: login fix
-CONFIDENCE: high
-
-Input: \"create issue about dark mode\"
-OPERATION: create
-ISSUE_NUMBER: NONE
-CONTENT: dark mode
-CONFIDENCE: high
-
-Input: \"edit issue 13 title to say Bug: Login timeout\"
-OPERATION: edit
-ISSUE_NUMBER: 13
-CONTENT: title to say Bug: Login timeout
-CONFIDENCE: high
-
-Be precise and only extract what's clearly stated."
-    
-    # Generate intent parsing from Gemini
-    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+    # Use the external parse_intent.zsh script
+    local intent_output=$("${script_dir}/parse_intent.zsh" "$input" "$gemini_context")
     
     if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
         echo "OPERATION: unknown"
