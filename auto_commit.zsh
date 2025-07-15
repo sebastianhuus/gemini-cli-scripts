@@ -148,6 +148,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
             else
                 echo "Cannot generate branch name without staged changes."
                 echo "Either stage changes first or create branch manually."
+                echo "❌ Auto-commit cancelled. Stage changes manually and try again."
                 exit 0
             fi
         fi
@@ -169,10 +170,12 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                 fi
             else
                 echo "No branch name provided. Staying on '$current_branch'."
+                echo "❌ Auto-commit cancelled. No branch name provided."
                 exit 0
             fi
         else
             echo "Staying on '$current_branch' branch."
+            echo "❌ Auto-commit cancelled. Create changes and try again."
             exit 0
         fi
     fi
