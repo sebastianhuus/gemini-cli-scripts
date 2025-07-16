@@ -1,8 +1,31 @@
-# Enhanced parse_intent() function proposal
-# This shows how to improve the existing prompt to capture complex requests
+#!/usr/bin/env zsh
 
-parse_intent_enhanced() {
+# GitHub Issue Intent Parser - Enhanced Version
+# Extracts structured intent from natural language requests with enhanced parameter extraction
+#
+# Usage:
+#   ./parse_intent.zsh "user input" [gemini_context]
+#   echo "user input" | ./parse_intent.zsh [gemini_context]
+#
+# Output format:
+#   OPERATION: [create|edit|comment|view|close|reopen]
+#   ISSUE_NUMBER: [number or NONE]
+#   CONTENT: [extracted content]
+#   CONFIDENCE: [high|medium|low]
+#   REQUESTED_LABELS: [comma-separated labels or NONE]
+#   REQUESTED_ASSIGNEES: [comma-separated usernames or NONE]
+#   REQUESTED_MILESTONE: [milestone name or NONE]
+#   PRIORITY_INDICATORS: [urgent|high|medium|low|NONE]
+#   TONE_PREFERENCE: [formal|casual|technical|NONE]
+#   SPECIAL_INSTRUCTIONS: [any specific formatting/content requests or NONE]
+
+# Get script directory for utility access
+script_dir="${0:A:h}"
+
+# Enhanced intent parsing function
+parse_intent() {
     local input="$1"
+    local gemini_context="$2"
     
     # Enhanced prompt that captures more parameters
     local parser_prompt="Analyze this GitHub issue request and extract ALL parameters and intent.
@@ -123,7 +146,7 @@ Be precise and extract everything mentioned, including implied parameters from c
 }
 
 # Enhanced field extraction to handle new fields
-extract_field_enhanced() {
+extract_field() {
     local field="$1"
     local intent_output="$2"
     local value=$(echo "$intent_output" | grep "^$field:" | sed "s/^$field: //")
@@ -136,10 +159,28 @@ extract_field_enhanced() {
     fi
 }
 
-# Usage in create_issue_with_llm() would then incorporate these extracted parameters:
-# requested_labels=$(extract_field_enhanced "REQUESTED_LABELS" "$intent_output")
-# requested_assignees=$(extract_field_enhanced "REQUESTED_ASSIGNEES" "$intent_output")
-# requested_milestone=$(extract_field_enhanced "REQUESTED_MILESTONE" "$intent_output")
-# priority_indicators=$(extract_field_enhanced "PRIORITY_INDICATORS" "$intent_output")
-# tone_preference=$(extract_field_enhanced "TONE_PREFERENCE" "$intent_output")
-# special_instructions=$(extract_field_enhanced "SPECIAL_INSTRUCTIONS" "$intent_output")
+# Main execution
+main() {
+    local input="$1"
+    local gemini_context="$2"
+    
+    # If no input provided as argument, read from stdin
+    if [ -z "$input" ]; then
+        input=$(cat)
+    fi
+    
+    if [ -z "$input" ]; then
+        echo "Error: No input provided" >&2
+        echo "Usage: $0 \"user input\" [gemini_context]" >&2
+        echo "   or: echo \"user input\" | $0 [gemini_context]" >&2
+        exit 1
+    fi
+    
+    # Parse intent and output results
+    parse_intent "$input" "$gemini_context"
+}
+
+# Only run main if script is executed directly (not sourced)
+if [ "${BASH_SOURCE[0]}" = "${0}" ] || [ "${0:t}" = "parse_intent.zsh" ]; then
+    main "$@"
+fi

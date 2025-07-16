@@ -293,15 +293,15 @@ Please incorporate this feedback to improve the edit commands."
     done
 }
 
-# Function to parse natural language intent using enhanced proposal
+# Function to parse natural language intent using enhanced parser
 parse_intent() {
     local input="$1"
     
     # Source the enhanced parse intent functions
-    source "${script_dir}/enhanced_parse_intent_proposal.zsh"
+    source "${script_dir}/utils/parse_intent.zsh"
     
     # Use the enhanced parse intent function
-    local intent_output=$(parse_intent_enhanced "$input")
+    local intent_output=$(parse_intent "$input" "$gemini_context")
     
     if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
         echo "OPERATION: unknown"
@@ -326,12 +326,12 @@ extract_field() {
     local intent_output="$2"
     
     # Source the enhanced functions if not already loaded
-    if ! type extract_field_enhanced >/dev/null 2>&1; then
-        source "${script_dir}/enhanced_parse_intent_proposal.zsh"
+    if ! type extract_field >/dev/null 2>&1; then
+        source "${script_dir}/utils/parse_intent.zsh"
     fi
     
     # Use the enhanced field extraction
-    extract_field_enhanced "$field" "$intent_output"
+    extract_field "$field" "$intent_output"
 }
 
 # Function to confirm operation before execution
