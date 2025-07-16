@@ -820,21 +820,27 @@ convert_question_to_command() {
     local input="$1"
     
     # LLM prompt for question detection and conversion
-    local converter_prompt="Analyze this input and determine if it's a question or request that implies a GitHub issue operation.
+    local converter_prompt="Analyze this input and determine if it's a question/polite request or already a direct command.
 
 User input: $input
 
-If this is a question or polite request (contains 'can you', 'help me', 'please', 'would you', etc.), convert it to a direct command. If it's already a direct command, return it unchanged.
+DETECTION RULES:
+1. QUESTION/POLITE REQUEST (convert to direct command):
+   - Contains question words: \"can you\", \"would you\", \"could you\", \"help me\", \"please\"
+   - Contains polite phrases: \"would you mind\", \"if you could\", \"I need you to\"
+   - Starts with question words: \"how do I\", \"what should I\", \"why is\"
 
-Examples:
+2. DIRECT COMMAND (return unchanged):
+   - Starts with action verbs: \"add\", \"edit\", \"create\", \"comment\", \"view\", \"close\", \"reopen\"
+   - Contains imperative instructions without polite qualifiers
+   - Already in command format
+
+Examples of CONVERSION (questions → commands):
 Input: \"can you generate a clear description of issue 16 based on the title\"
 Output: \"edit issue 16 body to generate a clear description based on the title\"
 
 Input: \"help me add a comment to issue 8 about the fix\"
 Output: \"add comment to issue 8 about the fix\"
-
-Input: \"edit issue 5 title to say Bug: Login timeout\"
-Output: \"edit issue 5 title to say Bug: Login timeout\"
 
 Input: \"please create an issue about dark mode\"
 Output: \"create issue about dark mode\"
@@ -842,8 +848,20 @@ Output: \"create issue about dark mode\"
 Input: \"would you mind commenting on issue 12 that this is resolved\"
 Output: \"comment on issue 12 that this is resolved\"
 
-Input: \"can you help me view issue 7\"
-Output: \"view issue 7\"
+Examples of NO CHANGE (already direct commands):
+Input: \"edit issue 5 title to say Bug: Login timeout\"
+Output: \"edit issue 5 title to say Bug: Login timeout\"
+
+Input: \"add -p --push flag for automatic push when commit message confirmed\"
+Output: \"add -p --push flag for automatic push when commit message confirmed\"
+
+Input: \"create issue about login timeout\"
+Output: \"create issue about login timeout\"
+
+Input: \"comment on issue 15 about deployment status\"
+Output: \"comment on issue 15 about deployment status\"
+
+CRITICAL: If input starts with action verbs (add, edit, create, comment, view, close, reopen) and does NOT contain polite/question phrases, return it EXACTLY as provided. Do NOT add \"create\" or modify direct commands.
 
 Only output the converted/unchanged command, no additional text.
 

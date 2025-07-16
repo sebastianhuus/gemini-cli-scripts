@@ -186,6 +186,7 @@ main() {
 }
 
 # Only run main if script is executed directly (not sourced)
-if [ "${BASH_SOURCE[0]}" = "${0}" ] || [ "${0:t}" = "parse_intent.zsh" ]; then
-    main "$@"
-fi
+# DISABLED: This script is only meant to be sourced, never executed directly
+# if [[ "${ZSH_EVAL_CONTEXT}" = toplevel ]] || [[ "${(%):-%N}" = "${0}" ]]; then
+#     main "$@"
+# fi
