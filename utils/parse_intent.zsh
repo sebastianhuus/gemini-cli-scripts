@@ -22,6 +22,11 @@
 # Get script directory for utility access
 script_dir="${0:A:h}"
 
+# Function to get absolute path to utils directory
+get_utils_path() {
+    echo "${script_dir:A}"
+}
+
 # Enhanced intent parsing function
 parse_intent() {
     local input="$1"
@@ -126,7 +131,7 @@ SPECIAL_INSTRUCTIONS: NONE
 Be precise and extract everything mentioned, including implied parameters from context."
     
     # Generate enhanced intent parsing from Gemini
-    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt" | "$(get_utils_path)/gemini_clean.zsh")
     
     if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
         echo "OPERATION: unknown"

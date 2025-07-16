@@ -330,14 +330,14 @@ parse_intent() {
 extract_field() {
     local field="$1"
     local intent_output="$2"
+    local value=$(echo "$intent_output" | grep "^$field:" | sed "s/^$field: //")
     
-    # Source the enhanced functions if not already loaded
-    if ! type extract_field >/dev/null 2>&1; then
-        source "$(get_utils_path)/parse_intent.zsh"
+    # Return empty string if NONE, otherwise return the value
+    if [ "$value" = "NONE" ]; then
+        echo ""
+    else
+        echo "$value"
     fi
-    
-    # Use the enhanced field extraction
-    extract_field "$field" "$intent_output"
 }
 
 # Function to confirm operation before execution
