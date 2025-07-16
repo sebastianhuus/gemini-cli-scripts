@@ -300,7 +300,7 @@ Please incorporate this feedback to improve the edit commands."
 }
 
 # Function to parse natural language intent using enhanced parser
-parse_intent() {
+parse_intent_wrapper() {
     local input="$1"
     
     # Source the enhanced parse intent functions
@@ -887,7 +887,7 @@ handle_natural_language() {
     echo "Parsing natural language request..."
     
     # Stage 2: Parse the processed command
-    local intent_output=$(parse_intent "$processed_input")
+    local intent_output=$(parse_intent_wrapper "$processed_input")
     
     if [ $? -ne 0 ]; then
         echo "Failed to parse intent. Please try rephrasing your request."
