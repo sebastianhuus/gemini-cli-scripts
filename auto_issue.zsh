@@ -2,9 +2,15 @@
 
 # Load context utility if available
 script_dir="${0:A:h}"
+
+# Function to get absolute path to utils directory
+get_utils_path() {
+    echo "${script_dir:A}/utils"
+}
+
 gemini_context=""
-if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
-    source "${script_dir}/utils/gemini_context.zsh"
+if [ -f "$(get_utils_path)/gemini_context.zsh" ]; then
+    source "$(get_utils_path)/gemini_context.zsh"
     gemini_context=$(load_gemini_context)
 fi
 
@@ -213,7 +219,7 @@ Please incorporate this feedback to improve the edit commands."
             fi
             
             # Generate edit commands from Gemini
-            edit_commands=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+            edit_commands=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt" | "$(get_utils_path)/gemini_clean.zsh")
             
             if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
                 echo "Failed to generate edit commands. Please try again."
@@ -298,7 +304,7 @@ parse_intent() {
     local input="$1"
     
     # Source the enhanced parse intent functions
-    source "${script_dir}/utils/parse_intent.zsh"
+    source "$(get_utils_path)/parse_intent.zsh"
     
     # Use the enhanced parse intent function
     local intent_output=$(parse_intent "$input" "$gemini_context")
@@ -327,7 +333,7 @@ extract_field() {
     
     # Source the enhanced functions if not already loaded
     if ! type extract_field >/dev/null 2>&1; then
-        source "${script_dir}/utils/parse_intent.zsh"
+        source "$(get_utils_path)/parse_intent.zsh"
     fi
     
     # Use the enhanced field extraction
@@ -524,7 +530,7 @@ Please incorporate this feedback to improve the comment."
             fi
             
             # Generate comment content from Gemini
-            local comment_content=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+            local comment_content=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt" | "$(get_utils_path)/gemini_clean.zsh")
             
             if [ $? -ne 0 ] || [ -z "$comment_content" ]; then
                 echo "Failed to generate comment. Please try again."
@@ -720,7 +726,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
     echo "Generating issue creation command with Gemini..."
     
     # Generate create command from Gemini
-    create_command=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+    create_command=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "$(get_utils_path)/gemini_clean.zsh")
     
     if [ $? -ne 0 ] || [ -z "$create_command" ]; then
         echo "Failed to generate create command. Please try again."
@@ -844,7 +850,7 @@ Only output the converted/unchanged command, no additional text.
 IMPORTANT: Output as plain text only, no code blocks or formatting."
     
     # Get converted command from Gemini
-    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt" | "$(get_utils_path)/gemini_clean.zsh")
     
     if [ $? -ne 0 ] || [ -z "$converted_command" ]; then
         # If conversion fails, return original input
