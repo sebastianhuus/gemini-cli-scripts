@@ -34,6 +34,7 @@ Natural language GitHub issue management:
 - Supports create, edit, comment, view operations
 - LLM-enhanced content generation for issue bodies and comments
 - Repository context awareness (labels, milestones, collaborators)
+- Priority label support for visual issue urgency indication
 
 Usage: `./auto_issue.zsh "natural language request"`
 
@@ -84,6 +85,45 @@ Required tools:
 - Git
 - Gemini CLI (`gemini` command)
 - GitHub CLI (`gh` command)
+
+## Issue Priority Labels
+
+This repository uses priority labels to provide visual indicators of issue urgency and guide work prioritization:
+
+### Priority Label System
+- **`priority:critical`** - 🔴 Critical priority (Red #FF0000)
+  - Urgent, blocking issues requiring immediate attention
+  - System outages, security vulnerabilities, or complete feature failures
+  
+- **`priority:high`** - 🟠 High priority (Orange #FF6600)
+  - Important, time-sensitive issues
+  - Significant feature enhancements, performance issues, or user experience problems
+  
+- **`priority:normal`** - 🔵 Normal priority (Blue #0099FF)
+  - Standard workflow priority
+  - Regular feature requests, minor improvements, or standard bug fixes
+  
+- **`priority:low`** - 🟢 Low priority (Green #66CC00)
+  - Nice-to-have, non-urgent issues
+  - Code cleanup, documentation updates, or minor enhancements
+
+### Usage Guidelines
+- **No priority label** implies normal priority (standard workflow)
+- Priority labels work seamlessly with the existing `auto_issue.zsh` script
+- Labels are automatically discovered and available for AI-assisted issue management
+- Use priority labels during issue creation or apply them during triage
+
+### Examples with auto_issue.zsh
+```bash
+# Create issue with priority label
+./auto_issue.zsh "create critical issue about login system down"
+
+# Add priority label to existing issue
+./auto_issue.zsh "add priority:high label to issue 42"
+
+# Create issue and let AI determine priority
+./auto_issue.zsh "create issue about slow page loading"
+```
 
 ## Common Commands
 
