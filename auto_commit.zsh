@@ -420,16 +420,22 @@ if ! git diff --cached --quiet; then
                         # Check for auto_pr.zsh and handle PR creation
                         script_dir="${0:A:h}"
                         if [ -f "${script_dir}/auto_pr.zsh" ]; then
-                            if [[ "$auto_pr" == true ]]; then
-                                echo ""
-                                echo "Creating pull request automatically..."
-                                "${script_dir}/auto_pr.zsh" "$1"
-                            else
-                                echo ""
-                                echo "Create a pull request? [Y/n]"
-                                read -r pr_response
-                                if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                            # Get current branch for PR check
+                            current_branch=$(git branch --show-current)
+                            
+                            # Only suggest PR creation if not on main/master
+                            if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
+                                if [[ "$auto_pr" == true ]]; then
+                                    echo ""
+                                    echo "Creating pull request automatically..."
                                     "${script_dir}/auto_pr.zsh" "$1"
+                                else
+                                    echo ""
+                                    echo "Create a pull request? [Y/n]"
+                                    read -r pr_response
+                                    if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                                        "${script_dir}/auto_pr.zsh" "$1"
+                                    fi
                                 fi
                             fi
                         fi
