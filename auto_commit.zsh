@@ -4,15 +4,17 @@
 auto_stage=false
 auto_pr=false
 auto_branch=false
+auto_push=false
 
 # Usage function
 usage() {
-    echo "Usage: $0 [-s|--stage] [-b|--branch] [-pr|--pr] [optional_context]"
+    echo "Usage: $0 [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]"
     echo ""
     echo "Options:"
     echo "  -s, --stage    Automatically stage all changes before generating commit"
     echo "  -b, --branch   Automatically create new branch without confirmation"
     echo "  -pr, --pr      Automatically create pull request after successful commit"
+    echo "  -p, --push     Automatically push changes after successful commit"
     echo "  -h, --help     Show this help message"
     echo ""
     echo "Arguments:"
@@ -32,6 +34,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -pr|--pr)
             auto_pr=true
+            shift
+            ;;
+        -p|--push)
+            auto_push=true
             shift
             ;;
         -h|--help)
@@ -399,8 +405,13 @@ if ! git diff --cached --quiet; then
                 echo "Changes committed successfully!"
 
                 echo ""
-                echo "Do you want to push the changes now? [Y/n]"
-                read -r push_response
+                if [[ "$auto_push" == true ]]; then
+                    echo "Auto-pushing changes..."
+                    push_response="y"
+                else
+                    echo "Do you want to push the changes now? [Y/n]"
+                    read -r push_response
+                fi
 
                 if [[ "$push_response" =~ ^[Yy]$ || -z "$push_response" ]]; then
                     current_branch=$(git branch --show-current)
