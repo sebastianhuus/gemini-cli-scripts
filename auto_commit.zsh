@@ -121,7 +121,10 @@ use_gum_choose() {
     local options=("$@")
     
     if command -v gum &> /dev/null; then
-        gum choose --header="$prompt" "${options[@]}"
+        local result
+        result=$(gum choose --header="$prompt" "${options[@]}")
+        echo "> $result" | gum format >&2
+        echo "$result"
     else
         # Fallback to traditional prompt
         echo "$prompt"
@@ -131,11 +134,14 @@ use_gum_choose() {
             ((i++))
         done
         read -r choice
+        local result
         if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#options[@]} ]; then
-            echo "${options[$((choice-1))]}"
+            result="${options[$((choice-1))]}"
         else
-            echo "${options[0]}" # Default to first option
+            result="${options[0]}" # Default to first option
         fi
+        echo "> $result"
+        echo "$result"
     fi
 }
 
@@ -144,15 +150,19 @@ use_gum_input() {
     local placeholder="${2:-}"
     
     if command -v gum &> /dev/null; then
+        local result
         if [ -n "$placeholder" ]; then
-            gum input --placeholder="$placeholder" --header="$prompt"
+            result=$(gum input --placeholder="$placeholder" --header="$prompt")
         else
-            gum input --header="$prompt"
+            result=$(gum input --header="$prompt")
         fi
+        echo "> $result" | gum format >&2
+        echo "$result"
     else
         # Fallback to traditional prompt
         echo "$prompt"
         read -r response
+        echo "> $response"
         echo "$response"
     fi
 }
