@@ -102,10 +102,27 @@ use_gum_confirm() {
     local default_yes="${2:-true}"
     
     if command -v gum &> /dev/null; then
+        local result
         if [ "$default_yes" = true ]; then
-            gum confirm "$prompt"
+            if gum confirm "$prompt"; then
+                result="Yes"
+            else
+                result="No"
+            fi
         else
-            gum confirm "$prompt" --default=false
+            if gum confirm "$prompt" --default=false; then
+                result="Yes"
+            else
+                result="No"
+            fi
+        fi
+        echo "# $prompt" | gum format >&2
+        echo "> $result" | gum format >&2
+        # Return the original exit code
+        if [ "$result" = "Yes" ]; then
+            return 0
+        else
+            return 1
         fi
     else
         # Fallback to traditional prompt
