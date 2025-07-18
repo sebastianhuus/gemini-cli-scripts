@@ -694,18 +694,15 @@ if ! git diff --cached --quiet; then
                         push_exit_code=$?
                     fi
 
-                    # Display push output in quote block format
+                    # Display clean push output
                     if [ -n "$push_output" ]; then
-                        push_output_header="> **$push_command**"
-                        push_output_content=$(wrap_quote_block_text "$push_output")
-                        push_output_block="$push_output_header"$'\n>'"$'\n'"$push_output_content""
-                        
-                        # Display using gum format if available, otherwise fallback to echo
-                        if command -v gum &> /dev/null; then
-                            echo "$push_output_block" | gum format
-                            echo "> \\n" | gum format
+                        # Extract branch info from push output
+                        branch_info=$(echo "$push_output" | grep -E "->|\.\.\..*->" | head -n 1 | sed 's/^[[:space:]]*//')
+                        if [ -n "$branch_info" ]; then
+                            colored_status "Push successful: $current_branch" "success"
+                            colored_status "$branch_info" "success"
                         else
-                            echo "$push_output_block"
+                            colored_status "Push completed: $push_command" "success"
                         fi
                     fi
 
