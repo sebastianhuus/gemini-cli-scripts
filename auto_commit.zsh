@@ -210,7 +210,7 @@ colored_status() {
                 echo "$(gum style --foreground 1 "⏺") $message"
                 ;;
             "info"|"cancel")
-                echo "$(gum style --foreground 4 "⏺") $message"
+                echo "$(gum style --foreground 5 "⏺") $message"
                 ;;
             *)
                 echo "⏺ $message"
@@ -352,11 +352,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         # Have unstaged changes, auto-stage if flag is set or ask user
         if [[ "$auto_stage" == true ]]; then
             echo ""
-            if command -v gum &> /dev/null; then
-                echo "**⏺ Auto-staging all changes...**" | gum format
-            else
-                echo "⏺ Auto-staging all changes..."
-            fi
+            colored_status "Auto-staging all changes..." "info"
             git add -A
             if ! git diff --cached --quiet; then
                 staged_diff=$(git diff --cached)
@@ -793,11 +789,7 @@ else
     if [[ "$auto_stage" == true ]]; then
         colored_status "No staged changes found." "info"
         echo ""
-        if command -v gum &> /dev/null; then
-            echo "**⏺ Auto-staging all changes...**" | gum format
-        else
-            echo "⏺ Auto-staging all changes..."
-        fi
+        colored_status "Auto-staging all changes..." "info"
         git add -A
         if ! git diff --cached --quiet; then
             colored_status "All changes staged successfully." "success"
