@@ -5,11 +5,11 @@
 
 # Model Configuration
 # Task-specific model selection for optimal performance
-DEFAULT_MODEL="gemma3:4b"
-COMMIT_MODEL="gemma3:4b"      # Balance of speed and quality for commit messages
-BRANCH_MODEL="gemma3:1b"      # Simple task, speed preferred for branch names
-PR_MODEL="gemma3:12b-it-qat"         # More complex, quality matters for PR descriptions  
-ISSUE_MODEL="gemma3:12b-it-qat"      # Complex reasoning required for issue operations
+DEFAULT_MODEL="gemma3:12b"
+COMMIT_MODEL="gemma3:12b"      # Balance of speed and quality for commit messages
+BRANCH_MODEL="gemma3:4b"      # Simple task, speed preferred for branch names
+PR_MODEL="gemma3:27bt"         # More complex, quality matters for PR descriptions  
+ISSUE_MODEL="gemma3:27b"      # Complex reasoning required for issue operations
 
 # Ollama Service Configuration
 OLLAMA_HOST="http://localhost:11434"
@@ -35,7 +35,7 @@ CONTEXT_FILE_NAME="OLLAMA.md"  # Repository-specific context file name
 MAX_CONTEXT_SIZE=2048          # Maximum context file size in bytes
 
 # Validation Configuration
-REQUIRED_MODELS=("gemma3:1b" "gemma3:4b" "gemma3:12b-it-qat")  # Models required for full functionality
+REQUIRED_MODELS=("gemma3:1b" "gemma3:4b" "gemma3:27b")  # Models required for full functionality
 
 # Function to validate Ollama service availability
 check_ollama_service() {
