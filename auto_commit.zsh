@@ -230,8 +230,6 @@ display_repository_info() {
     if [ -n "$current_branch" ]; then
         echo "🌿 Branch: $current_branch"
     fi
-    
-    echo ""
 }
 
 # Check if we're on main/master branch and handle staging/branch creation
@@ -543,17 +541,42 @@ if ! git diff --cached --quiet; then
                 if [[ "$should_push" == true ]]; then
                     current_branch=$(git branch --show-current)
                     # Check if upstream branch is set
+                    local push_output
+                    local push_exit_code
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
                         # Upstream is set, a simple push is enough
-                        git push
+                        push_output=$(git push 2>&1)
+                        push_exit_code=$?
                     else
                         # Upstream is not set, so we need to publish the branch
                         echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                        git push --set-upstream origin "$current_branch"
+                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                        push_exit_code=$?
                     fi
 
-                    if [ $? -eq 0 ]; then
-                        echo "Changes pushed successfully!"
+                    # Display push output in quote block format
+                    if [ -n "$push_output" ]; then
+                        push_output_block="> **Git push output:**"
+                        while IFS= read -r line; do
+                            push_output_block+=$'\n> '"$line"
+                        done <<< "$push_output"
+                        
+                        # Display using gum format if available, otherwise fallback to echo
+                        if command -v gum &> /dev/null; then
+                            echo "$push_output_block" | gum format
+                            echo "> \\n" | gum format
+                        else
+                            echo "$push_output_block"
+                        fi
+                    fi
+
+                    if [ $push_exit_code -eq 0 ]; then
+                        # Display success message in bold using gum format
+                        if command -v gum &> /dev/null; then
+                            echo "**Changes pushed successfully!**" | gum format
+                        else
+                            echo "Changes pushed successfully!"
+                        fi
                         
                         # Check for auto_pr.zsh and handle PR creation
                         script_dir="${0:A:h}"
