@@ -484,8 +484,20 @@ if ! git diff --cached --quiet; then
         full_prompt+="Focus on what changed and why, considering the recent development context. IMPORTANT: Start with the commit title on the first line immediately - do NOT wrap the commit message in code blocks (\``` marks). Use a bullet list under the title with dashes (-) for bullet points:"
 
         if [ "$should_generate" = true ]; then
-            echo "Staged files to be shown to Gemini:"
-            git diff --name-only --cached
+            # Create the staged files list with markdown formatting
+            staged_files=$(git diff --name-only --cached)
+            staged_files_block="> **Staged files to be shown to Gemini:**"
+            while IFS= read -r file; do
+                staged_files_block+=$'\n> '"$file"
+            done <<< "$staged_files"
+            
+            # Display using gum format if available, otherwise fallback to echo
+            if command -v gum &> /dev/null; then
+                echo "$staged_files_block" | gum format
+                echo "> \n" | gum format
+            else
+                echo "$staged_files_block"
+            fi
 
             # Generate the raw commit message from Gemini
             gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
