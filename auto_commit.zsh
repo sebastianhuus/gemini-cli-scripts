@@ -545,31 +545,22 @@ if ! git diff --cached --quiet; then
                 commit_output=$(git commit -m "$final_commit_msg" 2>&1)
                 commit_exit_code=$?
                 
-                # Display commit output in quote block format
-                if [ -n "$commit_output" ]; then
-                    # Extract just the first line (title) of the commit message for the header
-                    commit_title=$(echo "$final_commit_msg" | head -n 1)
-                    commit_output_block="> **git commit -m \"$commit_title\"**"
-                    commit_output_block+=$'\n>'
-                    while IFS= read -r line; do
-                        commit_output_block+=$'\n> '"$line"
-                    done <<< "$commit_output"
-                    
-                    # Display using gum format if available, otherwise fallback to echo
-                    if command -v gum &> /dev/null; then
-                        echo "$commit_output_block" | gum format
-                        echo "> \\n" | gum format
-                    else
-                        echo "$commit_output_block"
-                    fi
-                fi
-                
                 if [ $commit_exit_code -eq 0 ]; then
-                    # Display success message in bold using gum format
-                    if command -v gum &> /dev/null; then
-                        echo "**Changes committed successfully!**" | gum format
-                    else
-                        echo "Changes committed successfully!"
+                    # Display minimalistic commit summary
+                    current_branch=$(git branch --show-current)
+                    commit_title=$(echo "$final_commit_msg" | head -n 1)
+                    
+                    # Extract commit hash from git output
+                    commit_hash=$(echo "$commit_output" | grep -oE '\[[a-f0-9]{7,}\]' | tr -d '[]' | head -n 1)
+                    
+                    # Extract file statistics from git output
+                    file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
+                    
+                    echo "git commit ..."
+                    echo "[$current_branch $commit_hash]"
+                    echo "$commit_title"
+                    if [ -n "$file_stats" ]; then
+                        echo "$file_stats"
                     fi
                 else
                     echo "Failed to commit changes."
