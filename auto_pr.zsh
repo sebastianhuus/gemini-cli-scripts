@@ -8,6 +8,27 @@ if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     gemini_context=$(load_gemini_context)
 fi
 
+# Function to check for existing pull request
+check_existing_pr() {
+    local current_branch="$1"
+    local pr_info=$(gh pr list --head "$current_branch" --json number,title,url 2>/dev/null)
+    
+    if [ -n "$pr_info" ] && [ "$pr_info" != "[]" ]; then
+        # Extract PR details for informative display
+        local pr_number=$(echo "$pr_info" | jq -r '.[0].number')
+        local pr_title=$(echo "$pr_info" | jq -r '.[0].title')
+        local pr_url=$(echo "$pr_info" | jq -r '.[0].url')
+        
+        echo "ℹ️  Pull request #${pr_number} already exists for branch '$current_branch'"
+        echo "   Title: \"$pr_title\""
+        echo "   View: gh pr view $pr_number --web"
+        echo "   URL: $pr_url"
+        return 0  # PR exists
+    else
+        return 1  # No PR exists
+    fi
+}
+
 # Function to display repository information
 display_repository_info() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -48,6 +69,13 @@ current_branch=$(git branch --show-current)
 if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     echo "Cannot create PR from main/master branch."
     exit 1
+fi
+
+# Check if PR already exists for this branch
+if check_existing_pr "$current_branch"; then
+    echo ""
+    echo "Skipping PR creation since one already exists."
+    exit 0
 fi
 
 # Check if main branch exists, otherwise use master

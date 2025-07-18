@@ -93,6 +93,27 @@ Current branch: $current_branch"
     echo "$context"
 }
 
+# Function to check for existing pull request
+check_existing_pr() {
+    local current_branch="$1"
+    local pr_info=$(gh pr list --head "$current_branch" --json number,title,url 2>/dev/null)
+    
+    if [ -n "$pr_info" ] && [ "$pr_info" != "[]" ]; then
+        # Extract PR details for informative display
+        local pr_number=$(echo "$pr_info" | jq -r '.[0].number')
+        local pr_title=$(echo "$pr_info" | jq -r '.[0].title')
+        local pr_url=$(echo "$pr_info" | jq -r '.[0].url')
+        
+        echo "ℹ️  Pull request #${pr_number} already exists for branch '$current_branch'"
+        echo "   Title: \"$pr_title\""
+        echo "   View: gh pr view $pr_number --web"
+        echo "   URL: $pr_url"
+        return 0  # PR exists
+    else
+        return 1  # No PR exists
+    fi
+}
+
 # Function to display repository information
 display_repository_info() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -436,16 +457,22 @@ if ! git diff --cached --quiet; then
                             
                             # Only suggest PR creation if not on main/master
                             if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
-                                if [[ "$auto_pr" == true ]]; then
+                                # Check if PR already exists for this branch
+                                if check_existing_pr "$current_branch"; then
                                     echo ""
-                                    echo "Creating pull request automatically..."
-                                    "${script_dir}/auto_pr.zsh" "$1"
                                 else
-                                    echo ""
-                                    echo "Create a pull request? [Y/n]"
-                                    read -r pr_response
-                                    if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                                    # No existing PR, proceed with creation
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        echo "Creating pull request automatically..."
                                         "${script_dir}/auto_pr.zsh" "$1"
+                                    else
+                                        echo ""
+                                        echo "Create a pull request? [Y/n]"
+                                        read -r pr_response
+                                        if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                                            "${script_dir}/auto_pr.zsh" "$1"
+                                        fi
                                     fi
                                 fi
                             fi
