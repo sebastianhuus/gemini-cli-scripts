@@ -791,7 +791,7 @@ if ! git diff --cached --quiet; then
     done
 else
     if [[ "$auto_stage" == true ]]; then
-        echo "No staged changes found."
+        colored_status "No staged changes found." "info"
         echo ""
         if command -v gum &> /dev/null; then
             echo "**⏺ Auto-staging all changes...**" | gum format
@@ -808,7 +808,7 @@ else
             exit 1
         fi
     else
-        echo "No staged changes found."
+        colored_status "No staged changes found." "info"
         if use_gum_confirm "Do you want to stage all changes?"; then
             git add .
             if command -v gum &> /dev/null; then
