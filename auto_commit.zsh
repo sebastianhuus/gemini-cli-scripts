@@ -662,7 +662,7 @@ if ! git diff --cached --quiet; then
                     
                     colored_status "Commit successful:" "success"
                     echo "  ⎿ [$current_branch $commit_hash] $file_stats"
-                    echo "    $commit_title"
+                    echo "     $commit_title"
                 else
                     colored_status "Failed to commit changes." "error"
                     break
@@ -702,7 +702,7 @@ if ! git diff --cached --quiet; then
                     # Display clean push output
                     if [ -n "$push_output" ]; then
                         # Extract branch info from push output
-                        branch_info=$(echo "$push_output" | grep -E "->|\.\.\..*->" | head -n 1 | sed 's/^[[:space:]]*//')
+                        branch_info=$(echo "$push_output" | grep -E '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
                         if [ -n "$branch_info" ]; then
                             colored_status "Push successful:" "success"
                             echo "  ⎿ $current_branch"
