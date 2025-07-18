@@ -277,12 +277,16 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     
     if [[ "$auto_branch" == true ]]; then
         echo "Auto-creating new branch..."
-        create_branch_response=true
+        create_branch=true
     else
-        create_branch_response=$(use_gum_confirm "Create a new branch?")
+        if use_gum_confirm "Create a new branch?"; then
+            create_branch=true
+        else
+            create_branch=false
+        fi
     fi
     
-    if [[ "$create_branch_response" == true ]]; then
+    if [[ "$create_branch" == true ]]; then
         # Generate branch name based on staged changes
         echo "Generating branch name based on staged changes..."
         
@@ -486,12 +490,16 @@ if ! git diff --cached --quiet; then
                 echo ""
                 if [[ "$auto_push" == true ]]; then
                     echo "Auto-pushing changes..."
-                    push_response=true
+                    should_push=true
                 else
-                    push_response=$(use_gum_confirm "Do you want to push the changes now?")
+                    if use_gum_confirm "Do you want to push the changes now?"; then
+                        should_push=true
+                    else
+                        should_push=false
+                    fi
                 fi
 
-                if [[ "$push_response" == true ]]; then
+                if [[ "$should_push" == true ]]; then
                     current_branch=$(git branch --show-current)
                     # Check if upstream branch is set
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
