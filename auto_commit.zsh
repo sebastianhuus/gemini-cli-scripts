@@ -516,8 +516,21 @@ if ! git diff --cached --quiet; then
             should_generate=false
         fi
 
-        echo "Generated commit message:\n$final_commit_msg"
-        echo ""
+        # Display generated commit message in quote block format
+        commit_msg_block="> **Generated commit message:**"
+        while IFS= read -r line; do
+            commit_msg_block+=$'\n> '"$line"
+        done <<< "$final_commit_msg"
+        
+        # Display using gum format if available, otherwise fallback to echo
+        if command -v gum &> /dev/null; then
+            echo "$commit_msg_block" | gum format
+            echo "> \\n" | gum format
+        else
+            echo "Generated commit message:"
+            echo "$final_commit_msg"
+            echo ""
+        fi
         
         response=$(use_gum_choose "Accept and commit?" "Yes" "Append text" "Regenerate" "Quit")
 
