@@ -542,7 +542,9 @@ if ! git diff --cached --quiet; then
                 
                 # Display commit output in quote block format
                 if [ -n "$commit_output" ]; then
-                    commit_output_block="> **git commit -m \"[message]\"**"
+                    # Extract just the first line (title) of the commit message for the header
+                    commit_title=$(echo "$final_commit_msg" | head -n 1)
+                    commit_output_block="> **git commit -m \"$commit_title\"**"
                     while IFS= read -r line; do
                         commit_output_block+=$'\n> '"$line"
                     done <<< "$commit_output"
