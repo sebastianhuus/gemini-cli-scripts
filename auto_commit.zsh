@@ -657,7 +657,7 @@ if ! git diff --cached --quiet; then
                     file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
                     
                     colored_status "Commit successful:" "success"
-                    echo "    $commit_title"
+                    echo "  ⎿ $commit_title"
                     echo "    [$current_branch $commit_hash] $file_stats"
                 else
                     colored_status "Failed to commit changes." "error"
@@ -700,10 +700,12 @@ if ! git diff --cached --quiet; then
                         # Extract branch info from push output
                         branch_info=$(echo "$push_output" | grep -E "->|\.\.\..*->" | head -n 1 | sed 's/^[[:space:]]*//')
                         if [ -n "$branch_info" ]; then
-                            colored_status "Push successful: $current_branch" "success"
-                            colored_status "$branch_info" "success"
+                            colored_status "Push successful:" "success"
+                            echo "  ⎿ $current_branch"
+                            echo "    $branch_info"
                         else
-                            colored_status "Push completed: $push_command" "success"
+                            colored_status "Push completed:" "success"
+                            echo "  ⎿ $push_command"
                         fi
                     fi
 
