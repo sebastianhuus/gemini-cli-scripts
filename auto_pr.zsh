@@ -8,6 +8,70 @@ if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     gemini_context=$(load_gemini_context)
 fi
 
+# Function to check if gum is available and provide fallback
+use_gum_confirm() {
+    local prompt="$1"
+    local default_yes="${2:-true}"
+    
+    if command -v gum &> /dev/null; then
+        if [ "$default_yes" = true ]; then
+            gum confirm "$prompt"
+        else
+            gum confirm "$prompt" --default=false
+        fi
+    else
+        # Fallback to traditional prompt
+        echo "$prompt [Y/n]"
+        read -r response
+        case "$response" in
+            [Yy]* | "" ) return 0 ;;
+            * ) return 1 ;;
+        esac
+    fi
+}
+
+use_gum_choose() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    
+    if command -v gum &> /dev/null; then
+        gum choose --header="$prompt" "${options[@]}"
+    else
+        # Fallback to traditional prompt
+        echo "$prompt"
+        local i=1
+        for option in "${options[@]}"; do
+            echo "$i) $option"
+            ((i++))
+        done
+        read -r choice
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#options[@]} ]; then
+            echo "${options[$((choice-1))]}"
+        else
+            echo "${options[0]}" # Default to first option
+        fi
+    fi
+}
+
+use_gum_input() {
+    local prompt="$1"
+    local placeholder="${2:-}"
+    
+    if command -v gum &> /dev/null; then
+        if [ -n "$placeholder" ]; then
+            gum input --placeholder="$placeholder" --header="$prompt"
+        else
+            gum input --header="$prompt"
+        fi
+    else
+        # Fallback to traditional prompt
+        echo "$prompt"
+        read -r response
+        echo "$response"
+    fi
+}
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -158,11 +222,10 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         echo "Generated PR create command:"
         echo "$pr_create_command"
         echo ""
-        echo "Create PR with this command? [Y/r/q] (yes / regenerate with feedback / quit)"
-        read -r response
+        response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
-            [Yy]* | "" )
+            "Yes" )
                 # Push current branch to remote
                 echo "Pushing current branch to remote..."
                 git push -u origin "$current_branch"
@@ -186,10 +249,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     
                     # Prompt to switch to main and pull latest changes
                     echo ""
-                    echo "Do you want to switch to $base_branch and pull latest changes? [Y/n]"
-                    read -r switch_response
-                    
-                    if [[ "$switch_response" =~ ^[Yy]$ || -z "$switch_response" ]]; then
+                    if use_gum_confirm "Do you want to switch to $base_branch and pull latest changes?"; then
                         echo "Switching to $base_branch and pulling latest changes..."
                         if git switch "$base_branch" && git pull; then
                             echo "Successfully updated $base_branch branch!"
@@ -207,22 +267,22 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 fi
                 break
                 ;;
-            [Rr]* )
-                echo "What specific feedback would you like to incorporate? (or press Enter to regenerate without feedback)"
-                read -r feedback
+            "Regenerate with feedback" )
+                feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
                 echo "Regenerating PR content..."
                 pr_content_raw=$(generate_pr_content "$feedback")
                 if [ $? -ne 0 ] || [ -z "$pr_content_raw" ]; then
                     echo "Failed to regenerate PR content. Please try again."
                 fi
                 ;;
-            [Qq]* )
+            "Quit" )
                 echo "PR creation cancelled. You can create it manually with:"
                 echo "$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
                 exit 0
                 ;;
             * )
-                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                echo "PR creation cancelled."
+                exit 0
                 ;;
         esac
     done

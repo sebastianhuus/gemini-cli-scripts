@@ -93,6 +93,70 @@ Current branch: $current_branch"
     echo "$context"
 }
 
+# Function to check if gum is available and provide fallback
+use_gum_confirm() {
+    local prompt="$1"
+    local default_yes="${2:-true}"
+    
+    if command -v gum &> /dev/null; then
+        if [ "$default_yes" = true ]; then
+            gum confirm "$prompt"
+        else
+            gum confirm "$prompt" --default=false
+        fi
+    else
+        # Fallback to traditional prompt
+        echo "$prompt [Y/n]"
+        read -r response
+        case "$response" in
+            [Yy]* | "" ) return 0 ;;
+            * ) return 1 ;;
+        esac
+    fi
+}
+
+use_gum_choose() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    
+    if command -v gum &> /dev/null; then
+        gum choose --header="$prompt" "${options[@]}"
+    else
+        # Fallback to traditional prompt
+        echo "$prompt"
+        local i=1
+        for option in "${options[@]}"; do
+            echo "$i) $option"
+            ((i++))
+        done
+        read -r choice
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#options[@]} ]; then
+            echo "${options[$((choice-1))]}"
+        else
+            echo "${options[0]}" # Default to first option
+        fi
+    fi
+}
+
+use_gum_input() {
+    local prompt="$1"
+    local placeholder="${2:-}"
+    
+    if command -v gum &> /dev/null; then
+        if [ -n "$placeholder" ]; then
+            gum input --placeholder="$placeholder" --header="$prompt"
+        else
+            gum input --header="$prompt"
+        fi
+    else
+        # Fallback to traditional prompt
+        echo "$prompt"
+        read -r response
+        echo "$response"
+    fi
+}
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -167,9 +231,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                 exit 1
             fi
         else
-            echo "Found unstaged changes. Stage all changes? [Y/n]"
-            read -r stage_response
-            if [[ "$stage_response" =~ ^[Yy]$ || -z "$stage_response" ]]; then
+            if use_gum_confirm "Found unstaged changes. Stage all changes?"; then
                 git add .
                 if ! git diff --cached --quiet; then
                     staged_diff=$(git diff --cached)
@@ -187,11 +249,8 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         fi
     else
         echo "No changes found (staged or unstaged)."
-        echo "Create empty branch anyway? [Y/n]"
-        read -r empty_branch_response
-        if [[ "$empty_branch_response" =~ ^[Yy]$ || -z "$empty_branch_response" ]]; then
-            echo "Enter branch name:"
-            read -r manual_branch_name
+        if use_gum_confirm "Create empty branch anyway?"; then
+            manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
                 if git switch -c "$manual_branch_name"; then
                     echo "✅ Created and switched to branch '$manual_branch_name'"
@@ -218,13 +277,12 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     
     if [[ "$auto_branch" == true ]]; then
         echo "Auto-creating new branch..."
-        create_branch_response="y"
+        create_branch_response=true
     else
-        echo "Create a new branch? [Y/n]"
-        read -r create_branch_response
+        create_branch_response=$(use_gum_confirm "Create a new branch?")
     fi
     
-    if [[ "$create_branch_response" =~ ^[Yy]$ || -z "$create_branch_response" ]]; then
+    if [[ "$create_branch_response" == true ]]; then
         # Generate branch name based on staged changes
         echo "Generating branch name based on staged changes..."
         
@@ -281,11 +339,11 @@ $staged_diff"
                 echo ""
                 echo "Generated branch name: $generated_branch_name"
                 echo ""
-                echo "Create branch '$generated_branch_name'? [Y/e/r/q] (YES / edit / regenerate / quit)"
-                read -r branch_response
+                
+                branch_response=$(use_gum_choose "Create branch '$generated_branch_name'?" "Yes" "Edit" "Regenerate" "Quit")
                 
                 case "$branch_response" in
-                    [Yy]* | "" )
+                    "Yes" )
                         if git switch -c "$generated_branch_name"; then
                             echo "✅ Created and switched to branch '$generated_branch_name'"
                             echo ""
@@ -295,14 +353,13 @@ $staged_diff"
                         fi
                         break
                         ;;
-                    [Ee]* )
-                        echo "Enter new branch name:"
-                        read -r manual_branch_name
+                    "Edit" )
+                        manual_branch_name=$(use_gum_input "Enter new branch name:" "$generated_branch_name")
                         if [ -n "$manual_branch_name" ]; then
                             generated_branch_name="$manual_branch_name"
                         fi
                         ;;
-                    [Rr]* )
+                    "Regenerate" )
                         echo "Regenerating branch name..."
                         # Rebuild prompt for regeneration
                         branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
@@ -331,12 +388,13 @@ $staged_diff"
                             echo "Failed to regenerate branch name."
                         fi
                         ;;
-                    [Qq]* )
+                    "Quit" )
                         echo "Branch creation cancelled. Staying on '$current_branch'."
                         exit 0
                         ;;
                     * )
-                        echo "Invalid option. Please choose 'y', 'e', 'r', or 'q'."
+                        echo "Branch creation cancelled. Staying on '$current_branch'."
+                        exit 0
                         ;;
                 esac
             done
@@ -417,24 +475,23 @@ if ! git diff --cached --quiet; then
 
         echo "Generated commit message:\n$final_commit_msg"
         echo ""
-        echo "Accept and commit? [Y/a/r/q] (yes / append / regenerate / quit)"
-        read -r response
+        
+        response=$(use_gum_choose "Accept and commit?" "Yes" "Append text" "Regenerate" "Quit")
 
         case "$response" in
-            [Yy]* | "" )
+            "Yes" )
                 git commit -m "$final_commit_msg"
                 echo "Changes committed successfully!"
 
                 echo ""
                 if [[ "$auto_push" == true ]]; then
                     echo "Auto-pushing changes..."
-                    push_response="y"
+                    push_response=true
                 else
-                    echo "Do you want to push the changes now? [Y/n]"
-                    read -r push_response
+                    push_response=$(use_gum_confirm "Do you want to push the changes now?")
                 fi
 
-                if [[ "$push_response" =~ ^[Yy]$ || -z "$push_response" ]]; then
+                if [[ "$push_response" == true ]]; then
                     current_branch=$(git branch --show-current)
                     # Check if upstream branch is set
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
@@ -468,9 +525,7 @@ if ! git diff --cached --quiet; then
                                         "${script_dir}/auto_pr.zsh" "$1"
                                     else
                                         echo ""
-                                        echo "Create a pull request? [Y/n]"
-                                        read -r pr_response
-                                        if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                                        if use_gum_confirm "Create a pull request?"; then
                                             "${script_dir}/auto_pr.zsh" "$1"
                                         fi
                                     fi
@@ -485,9 +540,8 @@ if ! git diff --cached --quiet; then
                 fi
                 break
                 ;;
-            [Aa]* )
-                echo "Enter text to append:"
-                read -r append_text
+            "Append text" )
+                append_text=$(use_gum_input "Enter text to append:" "Additional details here")
                 if [ -n "$append_text" ]; then
                     # Append to the raw message (before attribution)
                     last_commit_msg="$last_commit_msg"$'\n\n'"$append_text"
@@ -500,9 +554,8 @@ if ! git diff --cached --quiet; then
                 fi
                 continue
                 ;;
-            [Rr]* )
-                echo "Please provide feedback:"
-                read -r feedback_input
+            "Regenerate" )
+                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
                 if [ -n "$feedback_input" ]; then
                     user_feedback+="- $feedback_input\n"
                 fi
@@ -510,13 +563,14 @@ if ! git diff --cached --quiet; then
                 should_generate=true
                 continue
                 ;;
-            [Qq]* )
+            "Quit" )
                 echo "Commit cancelled. You can commit manually with:"
                 echo "git commit -m \"$final_commit_msg\""
                 break
                 ;;
             * )
-                echo "Invalid option. Please choose 'y', 'a', 'r', or 'q'."
+                echo "Commit cancelled."
+                break
                 ;;
         esac
     done
@@ -534,10 +588,7 @@ else
         fi
     else
         echo "No staged changes found."
-        echo "Do you want to stage all changes? [Y/n]"
-        read -r stage_response
-
-        if [[ "$stage_response" =~ ^[Yy]$ || -z "$stage_response" ]]; then
+        if use_gum_confirm "Do you want to stage all changes?"; then
             git add .
             echo "All changes staged."
             # Re-run the script to proceed with commit message generation
