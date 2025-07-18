@@ -248,7 +248,12 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     elif ! git diff --quiet; then
         # Have unstaged changes, auto-stage if flag is set or ask user
         if [[ "$auto_stage" == true ]]; then
-            echo "Auto-staging all changes..."
+            echo ""
+            if command -v gum &> /dev/null; then
+                echo "**Auto-staging all changes...**" | gum format
+            else
+                echo "Auto-staging all changes..."
+            fi
             git add -A
             if ! git diff --cached --quiet; then
                 staged_diff=$(git diff --cached)
@@ -696,7 +701,13 @@ if ! git diff --cached --quiet; then
     done
 else
     if [[ "$auto_stage" == true ]]; then
-        echo "No staged changes found. Auto-staging all changes..."
+        echo "No staged changes found."
+        echo ""
+        if command -v gum &> /dev/null; then
+            echo "**Auto-staging all changes...**" | gum format
+        else
+            echo "Auto-staging all changes..."
+        fi
         git add -A
         if ! git diff --cached --quiet; then
             echo "✅ All changes staged successfully."
