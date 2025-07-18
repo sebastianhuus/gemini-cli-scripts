@@ -5,6 +5,7 @@ auto_stage=false
 auto_pr=false
 auto_branch=false
 auto_push=false
+skip_env_info=false
 
 # Usage function
 usage() {
@@ -43,6 +44,10 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             usage
             exit 0
+            ;;
+        --skip-env-info)
+            skip_env_info=true
+            shift
             ;;
         -*)
             echo "Unknown option: $1"
@@ -237,30 +242,35 @@ check_existing_pr() {
     fi
 }
 
-# Function to display repository information
-display_repository_info() {
-    local repo_url=$(git remote get-url origin 2>/dev/null)
-    local current_branch=$(git branch --show-current 2>/dev/null)
-    
+
+# Display environment information for user confirmation at start (unless skipped)
+if [ "$skip_env_info" != true ]; then
+    repo_url=$(git remote get-url origin 2>/dev/null)
+    current_branch=$(git branch --show-current 2>/dev/null)
+
+    # Extract repository name from URL
+    repo_name=""
     if [ -n "$repo_url" ]; then
-        # Extract repository name from different URL formats
-        local repo_name
         if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
             repo_name="${match[1]}"
         else
-            # Fallback: use the URL as is
             repo_name="$repo_url"
         fi
-        
-        echo "🏗️  Repository: $repo_name"
+    fi
+
+    env_info_block="> **Current Working Environment:**"
+    env_info_block+=$'\n> 🏗️  Repository: '"$repo_name"
+    env_info_block+=$'\n> 🌿 Branch: '"$current_branch"
+
+    # Display using gum format if available, otherwise fallback to echo
+    if command -v gum &> /dev/null; then
+        echo "$env_info_block" | gum format
+        echo "> \\n" | gum format
     else
-        echo "🏗️  Repository: (unable to detect remote)"
+        echo "$env_info_block"
+        echo ""
     fi
-    
-    if [ -n "$current_branch" ]; then
-        echo "🌿 Branch: $current_branch"
-    fi
-}
+fi
 
 # Check if we're on main/master branch and handle staging/branch creation
 current_branch=$(git branch --show-current)
@@ -473,8 +483,6 @@ fi
 
 # Check if there are staged changes
 if ! git diff --cached --quiet; then
-    # Display repository information
-    display_repository_info
     
     # Get the diff for context
     staged_diff=$(git diff --cached)
@@ -519,25 +527,7 @@ if ! git diff --cached --quiet; then
         if [ "$should_generate" = true ]; then
             # Create the staged files list with markdown formatting
             staged_files=$(git diff --name-only --cached)
-            
-            # Get repository info
-            repo_url=$(git remote get-url origin 2>/dev/null)
-            current_branch=$(git branch --show-current 2>/dev/null)
-            
-            # Extract repository name from URL
-            repo_name=""
-            if [ -n "$repo_url" ]; then
-                if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-                    repo_name="${match[1]}"
-                else
-                    repo_name="$repo_url"
-                fi
-            fi
-            
-            staged_files_block="> 🏗️  Repository: $repo_name"
-            staged_files_block+=$'\n> 🌿 Branch: '"$current_branch"
-            staged_files_block+=$'\n>'
-            staged_files_block+=$'\n> **Staged files to be shown to Gemini:**'
+            staged_files_block="> **Staged files to be shown to Gemini:**"
             while IFS= read -r file; do
                 staged_files_block+=$'\n> '"$file"
             done <<< "$staged_files"
@@ -749,9 +739,9 @@ else
         fi
         git add -A
         if ! git diff --cached --quiet; then
-            echo "⏺ All changes staged successfully."
+            colored_status "All changes staged successfully." "success"
             # Re-run the script to proceed with commit message generation
-            exec "$0" "$@"
+            exec "$0" "$@" --skip-env-info
         else
             echo "⏺ No changes to stage."
             exit 1
@@ -767,7 +757,7 @@ else
             fi
             echo ""
             # Re-run the script to proceed with commit message generation
-            exec "$0" "$@"
+            exec "$0" "$@" --skip-env-info
         else
             colored_status "No changes staged. Commit cancelled." "cancel"
             exit 0
