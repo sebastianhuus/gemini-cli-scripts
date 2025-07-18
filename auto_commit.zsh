@@ -536,8 +536,37 @@ if ! git diff --cached --quiet; then
 
         case "$response" in
             "Yes" )
-                git commit -m "$final_commit_msg"
-                echo "Changes committed successfully!"
+                # Capture git commit output
+                commit_output=$(git commit -m "$final_commit_msg" 2>&1)
+                commit_exit_code=$?
+                
+                # Display commit output in quote block format
+                if [ -n "$commit_output" ]; then
+                    commit_output_block="> **git commit -m \"[message]\"**"
+                    while IFS= read -r line; do
+                        commit_output_block+=$'\n> '"$line"
+                    done <<< "$commit_output"
+                    
+                    # Display using gum format if available, otherwise fallback to echo
+                    if command -v gum &> /dev/null; then
+                        echo "$commit_output_block" | gum format
+                        echo "> \\n" | gum format
+                    else
+                        echo "$commit_output_block"
+                    fi
+                fi
+                
+                if [ $commit_exit_code -eq 0 ]; then
+                    # Display success message in bold using gum format
+                    if command -v gum &> /dev/null; then
+                        echo "**Changes committed successfully!**" | gum format
+                    else
+                        echo "Changes committed successfully!"
+                    fi
+                else
+                    echo "Failed to commit changes."
+                    break
+                fi
 
                 echo ""
                 if [[ "$auto_push" == true ]]; then
