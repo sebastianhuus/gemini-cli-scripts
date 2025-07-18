@@ -141,8 +141,13 @@ use_gum_choose() {
         local result
         result=$(gum choose --header="$prompt" "${options[@]}")
         echo "# $prompt" | gum format >&2
-        gum style --faint "> $result" >&2
-        echo "$result"
+        if [ -z "$result" ]; then
+            gum style --faint "> Cancelled" >&2
+            echo "Cancelled"
+        else
+            gum style --faint "> $result" >&2
+            echo "$result"
+        fi
     else
         # Fallback to traditional prompt
         echo "$prompt"
@@ -183,6 +188,31 @@ use_gum_input() {
         read -r response
         echo "> $response"
         echo "$response"
+    fi
+}
+
+# Function to display colored status messages
+colored_status() {
+    local message="$1"
+    local type="$2"  # "success", "error", "info", "cancel"
+    
+    if command -v gum &> /dev/null; then
+        case "$type" in
+            "success")
+                echo "$(gum style --foreground 2 "⏺") $message"
+                ;;
+            "error")
+                echo "$(gum style --foreground 1 "⏺") $message"
+                ;;
+            "info"|"cancel")
+                echo "$(gum style --foreground 4 "⏺") $message"
+                ;;
+            *)
+                echo "⏺ $message"
+                ;;
+        esac
+    else
+        echo "⏺ $message"
     fi
 }
 
@@ -244,22 +274,22 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     if ! git diff --cached --quiet; then
         # Already have staged changes
         staged_diff=$(git diff --cached)
-        echo "✅ Found staged changes for branch name generation."
+        colored_status "Found staged changes for branch name generation." "success"
     elif ! git diff --quiet; then
         # Have unstaged changes, auto-stage if flag is set or ask user
         if [[ "$auto_stage" == true ]]; then
             echo ""
             if command -v gum &> /dev/null; then
-                echo "**Auto-staging all changes...**" | gum format
+                echo "**⏺ Auto-staging all changes...**" | gum format
             else
-                echo "Auto-staging all changes..."
+                echo "⏺ Auto-staging all changes..."
             fi
             git add -A
             if ! git diff --cached --quiet; then
                 staged_diff=$(git diff --cached)
-                echo "✅ Changes staged successfully."
+                colored_status "Changes staged successfully." "success"
             else
-                echo "❌ No changes to stage."
+                colored_status "No changes to stage." "error"
                 exit 1
             fi
         else
@@ -267,15 +297,15 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                 git add .
                 if ! git diff --cached --quiet; then
                     staged_diff=$(git diff --cached)
-                    echo "✅ Changes staged successfully."
+                    colored_status "Changes staged successfully." "success"
                 else
-                    echo "❌ No changes to stage."
+                    colored_status "No changes to stage." "error"
                     exit 1
                 fi
             else
                 echo "Cannot generate branch name without staged changes."
                 echo "Either stage changes first or create branch manually."
-                echo "❌ Auto-commit cancelled. Stage changes manually and try again."
+                colored_status "Auto-commit cancelled. Stage changes manually and try again." "cancel"
                 exit 0
             fi
         fi
@@ -285,21 +315,21 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
             manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
                 if git switch -c "$manual_branch_name"; then
-                    echo "✅ Created and switched to branch '$manual_branch_name'"
+                    echo "⏺ Created and switched to branch '$manual_branch_name'"
                     echo ""
                     exit 0
                 else
-                    echo "❌ Failed to create branch. Exiting."
+                    echo "⏺ Failed to create branch. Exiting."
                     exit 1
                 fi
             else
                 echo "No branch name provided. Staying on '$current_branch'."
-                echo "❌ Auto-commit cancelled. No branch name provided."
+                colored_status "Auto-commit cancelled. No branch name provided." "cancel"
                 exit 0
             fi
         else
             echo "Staying on '$current_branch' branch."
-            echo "❌ Auto-commit cancelled. Create changes and try again."
+            colored_status "Auto-commit cancelled. Create changes and try again." "cancel"
             exit 0
         fi
     fi
@@ -363,7 +393,7 @@ $staged_diff"
             echo "Generated branch name: $generated_branch_name"
             echo ""
             if git switch -c "$generated_branch_name"; then
-                echo "✅ Created and switched to branch '$generated_branch_name'"
+                echo "⏺ Created and switched to branch '$generated_branch_name'"
                 echo ""
             else
                 echo "❌ Failed to create branch. Exiting."
@@ -381,10 +411,10 @@ $staged_diff"
                 case "$branch_response" in
                     "Yes" )
                         if git switch -c "$generated_branch_name"; then
-                            echo "✅ Created and switched to branch '$generated_branch_name'"
+                            echo "⏺ Created and switched to branch '$generated_branch_name'"
                             echo ""
                         else
-                            echo "❌ Failed to create branch. Exiting."
+                            echo "⏺ Failed to create branch. Exiting."
                             exit 1
                         fi
                         break
@@ -425,11 +455,11 @@ $staged_diff"
                         fi
                         ;;
                     "Quit" )
-                        echo "Branch creation cancelled. Staying on '$current_branch'."
+                        colored_status "Branch creation cancelled. Staying on '$current_branch'." "cancel"
                         exit 0
                         ;;
-                    * )
-                        echo "Branch creation cancelled. Staying on '$current_branch'."
+                    "Cancelled"|* )
+                        colored_status "Branch creation cancelled. Staying on '$current_branch'." "cancel"
                         exit 0
                         ;;
                 esac
@@ -489,7 +519,25 @@ if ! git diff --cached --quiet; then
         if [ "$should_generate" = true ]; then
             # Create the staged files list with markdown formatting
             staged_files=$(git diff --name-only --cached)
-            staged_files_block="> **Staged files to be shown to Gemini:**"
+            
+            # Get repository info
+            repo_url=$(git remote get-url origin 2>/dev/null)
+            current_branch=$(git branch --show-current 2>/dev/null)
+            
+            # Extract repository name from URL
+            repo_name=""
+            if [ -n "$repo_url" ]; then
+                if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
+                    repo_name="${match[1]}"
+                else
+                    repo_name="$repo_url"
+                fi
+            fi
+            
+            staged_files_block="> 🏗️  Repository: $repo_name"
+            staged_files_block+=$'\n> 🌿 Branch: '"$current_branch"
+            staged_files_block+=$'\n>'
+            staged_files_block+=$'\n> **Staged files to be shown to Gemini:**'
             while IFS= read -r file; do
                 staged_files_block+=$'\n> '"$file"
             done <<< "$staged_files"
@@ -563,13 +611,13 @@ if ! git diff --cached --quiet; then
                         echo "$file_stats"
                     fi
                 else
-                    echo "Failed to commit changes."
+                    colored_status "Failed to commit changes." "error"
                     break
                 fi
 
                 echo ""
                 if [[ "$auto_push" == true ]]; then
-                    echo "Auto-pushing changes..."
+                    echo "⏺ Auto-pushing changes..."
                     should_push=true
                 else
                     if use_gum_confirm "Do you want to push the changes now?"; then
@@ -617,9 +665,9 @@ if ! git diff --cached --quiet; then
                     if [ $push_exit_code -eq 0 ]; then
                         # Display success message in bold using gum format
                         if command -v gum &> /dev/null; then
-                            echo "**Changes pushed successfully!**" | gum format
+                            echo "**$(gum style --foreground 2 "⏺") Changes pushed successfully!**" | gum format
                         else
-                            echo "Changes pushed successfully!"
+                            colored_status "Changes pushed successfully!" "success"
                         fi
                         
                         # Check for auto_pr.zsh and handle PR creation
@@ -649,10 +697,10 @@ if ! git diff --cached --quiet; then
                             fi
                         fi
                     else
-                        echo "Failed to push changes."
+                        colored_status "Failed to push changes." "error"
                     fi
                 else
-                    echo "Push cancelled. You can push manually later with 'git push'."
+                    colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
                 fi
                 break
                 ;;
@@ -680,12 +728,12 @@ if ! git diff --cached --quiet; then
                 continue
                 ;;
             "Quit" )
-                echo "Commit cancelled. You can commit manually with:"
+                colored_status "Commit cancelled. You can commit manually with:" "cancel"
                 echo "git commit -m \"$final_commit_msg\""
                 break
                 ;;
-            * )
-                echo "Commit cancelled."
+            "Cancelled"|* )
+                colored_status "Commit cancelled." "cancel"
                 break
                 ;;
         esac
@@ -695,28 +743,33 @@ else
         echo "No staged changes found."
         echo ""
         if command -v gum &> /dev/null; then
-            echo "**Auto-staging all changes...**" | gum format
+            echo "**⏺ Auto-staging all changes...**" | gum format
         else
-            echo "Auto-staging all changes..."
+            echo "⏺ Auto-staging all changes..."
         fi
         git add -A
         if ! git diff --cached --quiet; then
-            echo "✅ All changes staged successfully."
+            echo "⏺ All changes staged successfully."
             # Re-run the script to proceed with commit message generation
             exec "$0" "$@"
         else
-            echo "❌ No changes to stage."
+            echo "⏺ No changes to stage."
             exit 1
         fi
     else
         echo "No staged changes found."
         if use_gum_confirm "Do you want to stage all changes?"; then
             git add .
-            echo "All changes staged."
+            if command -v gum &> /dev/null; then
+                echo "**$(gum style --foreground 2 "⏺") All changes staged.**" | gum format
+            else
+                colored_status "All changes staged." "success"
+            fi
+            echo ""
             # Re-run the script to proceed with commit message generation
             exec "$0" "$@"
         else
-            echo "No changes staged. Commit cancelled."
+            colored_status "No changes staged. Commit cancelled." "cancel"
             exit 0
         fi
     fi
