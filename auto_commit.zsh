@@ -656,12 +656,8 @@ if ! git diff --cached --quiet; then
                     # Extract file statistics from git output
                     file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
                     
-                    echo "git commit ..."
-                    echo "[$current_branch $commit_hash]"
-                    echo "$commit_title"
-                    if [ -n "$file_stats" ]; then
-                        echo "$file_stats"
-                    fi
+                    colored_status "Commit successful: $commit_title" "success"
+                    colored_status "[$current_branch $commit_hash] $file_stats" "success"
                 else
                     colored_status "Failed to commit changes." "error"
                     break
