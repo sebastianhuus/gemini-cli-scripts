@@ -651,7 +651,11 @@ if ! git diff --cached --quiet; then
                     commit_title=$(echo "$final_commit_msg" | head -n 1)
                     
                     # Extract commit hash from git output
-                    commit_hash=$(echo "$commit_output" | grep -oE '\[[a-f0-9]{7,}\]' | tr -d '[]' | head -n 1)
+                    commit_hash=$(echo "$commit_output" | grep -oE '\[[A-Fa-f0-9]{7,}\]' | tr -d '[]' | head -n 1)
+                    if [ -z "$commit_hash" ]; then
+                        # Fallback: extract any 7+ character hex string
+                        commit_hash=$(echo "$commit_output" | grep -oE '[A-Fa-f0-9]{7,}' | head -n 1)
+                    fi
                     
                     # Extract file statistics from git output
                     file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
