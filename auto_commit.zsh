@@ -556,20 +556,23 @@ if ! git diff --cached --quiet; then
                     # Check if upstream branch is set
                     local push_output
                     local push_exit_code
+                    local push_command
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
                         # Upstream is set, a simple push is enough
+                        push_command="git push"
                         push_output=$(git push 2>&1)
                         push_exit_code=$?
                     else
                         # Upstream is not set, so we need to publish the branch
                         echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                        push_command="git push --set-upstream origin \"$current_branch\""
                         push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
                         push_exit_code=$?
                     fi
 
                     # Display push output in quote block format
                     if [ -n "$push_output" ]; then
-                        push_output_block="> **Git push output:**"
+                        push_output_block="> **$push_command**"
                         while IFS= read -r line; do
                             push_output_block+=$'\n> '"$line"
                         done <<< "$push_output"
