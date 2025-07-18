@@ -29,7 +29,7 @@ use_gum_confirm() {
             fi
         fi
         echo "# $prompt" | gum format >&2
-        gum style --dim "> $result" >&2
+        gum style --faint "> $result" >&2
         # Return the original exit code
         if [ "$result" = "Yes" ]; then
             return 0
@@ -56,7 +56,7 @@ use_gum_choose() {
         local result
         result=$(gum choose --header="$prompt" "${options[@]}")
         echo "# $prompt" | gum format >&2
-        gum style --dim "> $result" >&2
+        gum style --faint "> $result" >&2
         echo "$result"
     else
         # Fallback to traditional prompt
@@ -90,7 +90,7 @@ use_gum_input() {
             result=$(gum input --header="$prompt")
         fi
         echo "# $prompt" | gum format >&2
-        gum style --dim "> $result" >&2
+        gum style --faint "> $result" >&2
         echo "$result"
     else
         # Fallback to traditional prompt
