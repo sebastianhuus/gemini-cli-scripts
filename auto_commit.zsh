@@ -221,6 +221,69 @@ colored_status() {
     fi
 }
 
+# Function to wrap text for quote blocks respecting terminal width
+wrap_quote_block_text() {
+    local text="$1"
+    local max_width="${COLUMNS:-80}"  # Use COLUMNS env var or default to 80
+    
+    # Reserve space for "> " prefix (2 chars) and some margin (4 chars for safety)
+    local usable_width=$((max_width - 6))
+    
+    # Ensure minimum usable width
+    if [ $usable_width -lt 20 ]; then
+        usable_width=20
+    fi
+    
+    local result=""
+    while IFS= read -r line; do
+        if [ ${#line} -le $usable_width ]; then
+            # Line fits, add it as-is
+            if [ -n "$result" ]; then
+                result+=$'\n> '"$line"
+            else
+                result="> $line"
+            fi
+        else
+            # Line too long, need to wrap
+            local remaining="$line"
+            while [ ${#remaining} -gt $usable_width ]; do
+                # Find last space within usable width
+                local chunk="${remaining:0:$usable_width}"
+                local break_pos=$usable_width
+                
+                # Try to break at word boundary
+                for ((i = usable_width - 1; i >= $((usable_width * 3 / 4)); i--)); do
+                    if [[ "${remaining:$i:1}" == " " ]]; then
+                        break_pos=$i
+                        break
+                    fi
+                done
+                
+                chunk="${remaining:0:$break_pos}"
+                # Remove trailing space if we broke at word boundary
+                chunk="${chunk% }"
+                
+                if [ -n "$result" ]; then
+                    result+=$'\n> '"$chunk"
+                else
+                    result="> $chunk"
+                fi
+                
+                # Remove processed chunk and any leading space
+                remaining="${remaining:$break_pos}"
+                remaining="${remaining# }"
+            done
+            
+            # Add remaining text if any
+            if [ -n "$remaining" ]; then
+                result+=$'\n> '"$remaining"
+            fi
+        fi
+    done <<< "$text"
+    
+    echo "$result"
+}
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -560,10 +623,9 @@ if ! git diff --cached --quiet; then
         fi
 
         # Display generated commit message in quote block format
-        commit_msg_block="> **Generated commit message:**"
-        while IFS= read -r line; do
-            commit_msg_block+=$'\n> '"$line"
-        done <<< "$final_commit_msg"
+        commit_msg_header="> **Generated commit message:**"
+        commit_msg_content=$(wrap_quote_block_text "$final_commit_msg")
+        commit_msg_block="$commit_msg_header"$'\n'"$commit_msg_content"
         
         # Display using gum format if available, otherwise fallback to echo
         if command -v gum &> /dev/null; then
@@ -638,10 +700,9 @@ if ! git diff --cached --quiet; then
 
                     # Display push output in quote block format
                     if [ -n "$push_output" ]; then
-                        push_output_block="> **$push_command**"
-                        while IFS= read -r line; do
-                            push_output_block+=$'\n> '"$line"
-                        done <<< "$push_output"
+                        push_output_header="> **$push_command**"
+                        push_output_content=$(wrap_quote_block_text "$push_output")
+                        push_output_block="$push_output_header"$'\n>'"$'\n'"$push_output_content""
                         
                         # Display using gum format if available, otherwise fallback to echo
                         if command -v gum &> /dev/null; then
