@@ -2,9 +2,15 @@
 
 # Load context utility if available
 script_dir="${0:A:h}"
+
+# Function to get absolute path to utils directory
+get_utils_path() {
+    echo "${script_dir:A}/utils"
+}
+
 gemini_context=""
-if [ -f "${script_dir}/gemini_context.zsh" ]; then
-    source "${script_dir}/gemini_context.zsh"
+if [ -f "$(get_utils_path)/gemini_context.zsh" ]; then
+    source "$(get_utils_path)/gemini_context.zsh"
     gemini_context=$(load_gemini_context)
 fi
 
@@ -213,7 +219,7 @@ Please incorporate this feedback to improve the edit commands."
             fi
             
             # Generate edit commands from Gemini
-            edit_commands=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt")
+            edit_commands=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt" | "$(get_utils_path)/gemini_clean.zsh")
             
             if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
                 echo "Failed to generate edit commands. Please try again."
@@ -293,72 +299,45 @@ Please incorporate this feedback to improve the edit commands."
     done
 }
 
-# Function to parse natural language intent without JSON dependencies
-parse_intent() {
+# Function to parse natural language intent using enhanced parser
+parse_intent_wrapper() {
     local input="$1"
     
-    # Create prompt for LLM to parse intent
-    local parser_prompt="Analyze this GitHub issue request and determine the operation, issue number, and content.
-
-User input: $input"
+    # Source the enhanced parse intent functions
+    source "$(get_utils_path)/parse_intent.zsh"
     
-    if [ -n "$gemini_context" ]; then
-        parser_prompt+="
-
-Repository context from GEMINI.md:
-$gemini_context"
-    fi
-    
-    parser_prompt+="
-
-Respond with ONLY these lines in this exact format:
-OPERATION: [create|edit|comment|view|close|reopen]
-ISSUE_NUMBER: [number or NONE]
-CONTENT: [extracted content]
-CONFIDENCE: [high|medium|low]
-
-IMPORTANT: Output as plain text only, no code blocks or markdown formatting.
-
-Examples:
-Input: \"add comment to issue 8 about login fix\"
-OPERATION: comment
-ISSUE_NUMBER: 8
-CONTENT: login fix
-CONFIDENCE: high
-
-Input: \"create issue about dark mode\"
-OPERATION: create
-ISSUE_NUMBER: NONE
-CONTENT: dark mode
-CONFIDENCE: high
-
-Input: \"edit issue 13 title to say Bug: Login timeout\"
-OPERATION: edit
-ISSUE_NUMBER: 13
-CONTENT: title to say Bug: Login timeout
-CONFIDENCE: high
-
-Be precise and only extract what's clearly stated."
-    
-    # Generate intent parsing from Gemini
-    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt")
+    # Use the enhanced parse intent function
+    local intent_output=$(parse_intent "$input" "$gemini_context")
     
     if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
         echo "OPERATION: unknown"
         echo "ISSUE_NUMBER: NONE"
         echo "CONTENT: $input"
         echo "CONFIDENCE: low"
+        echo "REQUESTED_LABELS: NONE"
+        echo "REQUESTED_ASSIGNEES: NONE"
+        echo "REQUESTED_MILESTONE: NONE"
+        echo "PRIORITY_INDICATORS: NONE"
+        echo "TONE_PREFERENCE: NONE"
+        echo "SPECIAL_INSTRUCTIONS: NONE"
         return 1
     fi
     
     echo "$intent_output"
 }
 
-# Function to extract specific fields from intent output
+# Function to extract specific fields from intent output with enhanced NONE handling
 extract_field() {
     local field="$1"
     local intent_output="$2"
-    echo "$intent_output" | grep "^$field:" | sed "s/^$field: //"
+    local value=$(echo "$intent_output" | grep "^$field:" | sed "s/^$field: //")
+    
+    # Return empty string if NONE, otherwise return the value
+    if [ "$value" = "NONE" ]; then
+        echo ""
+    else
+        echo "$value"
+    fi
 }
 
 # Function to confirm operation before execution
@@ -367,6 +346,12 @@ confirm_operation() {
     local issue_number="$2"
     local content="$3"
     local confidence="$4"
+    local requested_labels="$5"
+    local requested_assignees="$6"
+    local requested_milestone="$7"
+    local priority_indicators="$8"
+    local tone_preference="$9"
+    local special_instructions="${10}"
     
     echo "Intent Analysis:"
     echo "================"
@@ -405,6 +390,26 @@ confirm_operation() {
             ;;
     esac
     
+    # Display extracted parameters if present
+    if [ -n "$requested_labels" ]; then
+        echo "Requested Labels: $requested_labels"
+    fi
+    if [ -n "$requested_assignees" ]; then
+        echo "Requested Assignees: $requested_assignees"
+    fi
+    if [ -n "$requested_milestone" ]; then
+        echo "Requested Milestone: $requested_milestone"
+    fi
+    if [ -n "$priority_indicators" ]; then
+        echo "Priority: $priority_indicators"
+    fi
+    if [ -n "$tone_preference" ]; then
+        echo "Tone Preference: $tone_preference"
+    fi
+    if [ -n "$special_instructions" ]; then
+        echo "Special Instructions: $special_instructions"
+    fi
+    
     echo ""
     echo "Confidence: $confidence"
     echo ""
@@ -427,6 +432,8 @@ confirm_operation() {
 comment_issue() {
     local issue_number="$1"
     local comment_prompt="$2"
+    local tone_preference="$3"
+    local special_instructions="$4"
     
     if [ -z "$issue_number" ] || [ -z "$comment_prompt" ]; then
         echo "Usage: comment_issue <issue_number> <comment_prompt>"
@@ -466,11 +473,39 @@ $gemini_context"
     
     llm_prompt+="
 
-Please provide a well-structured, professional comment that addresses the user's request. The comment should be:
+Please provide a well-structured comment that addresses the user's request. The comment should be:
 - Clear and concise
-- Professional in tone
 - Relevant to the issue context
-- Properly formatted with markdown if needed
+- Properly formatted with markdown if needed"
+
+    # Add tone preference if specified
+    if [ -n "$tone_preference" ]; then
+        case "$tone_preference" in
+            "formal")
+                llm_prompt+="
+- Use formal, professional language"
+                ;;
+            "casual")
+                llm_prompt+="
+- Use casual, friendly language"
+                ;;
+            "technical")
+                llm_prompt+="
+- Use technical, precise language with specific details"
+                ;;
+        esac
+    else
+        llm_prompt+="
+- Professional in tone"
+    fi
+    
+    # Add special instructions if specified
+    if [ -n "$special_instructions" ]; then
+        llm_prompt+="
+- Special instructions: $special_instructions"
+    fi
+    
+    llm_prompt+="
 
 Only output the comment content, without any additional text or explanation."
     
@@ -495,7 +530,7 @@ Please incorporate this feedback to improve the comment."
             fi
             
             # Generate comment content from Gemini
-            local comment_content=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt")
+            local comment_content=$(echo "$final_prompt" | gemini -m gemini-2.5-flash --prompt "$final_prompt" | "$(get_utils_path)/gemini_clean.zsh")
             
             if [ $? -ne 0 ] || [ -z "$comment_content" ]; then
                 echo "Failed to generate comment. Please try again."
@@ -505,10 +540,8 @@ Please incorporate this feedback to improve the comment."
             should_generate=false
         fi
         
-        # Add attribution to the comment
-        local final_comment="$comment_content
-
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
+        # Use the comment content directly (attribution already included by prompt)
+        local final_comment="$comment_content"
         
         echo "Generated comment:"
         echo "=================="
@@ -554,8 +587,14 @@ Please incorporate this feedback to improve the comment."
 # Function to handle LLM-controlled issue creation
 create_issue_with_llm() {
     local user_description="$1"
-    local user_feedback="$2"
-    local last_command="$3"
+    local requested_labels="$2"
+    local requested_assignees="$3"
+    local requested_milestone="$4"
+    local priority_indicators="$5"
+    local tone_preference="$6"
+    local special_instructions="$7"
+    local user_feedback="$8"
+    local last_command="$9"
     
     # Fetch repository context to help LLM make better parameter choices
     echo "Fetching repository context..."
@@ -601,6 +640,21 @@ $gemini_context"
     base_prompt+="
 
 User's description: $user_description"
+    
+    # Add extracted parameters to the prompt
+    if [ -n "$requested_labels" ] || [ -n "$requested_assignees" ] || [ -n "$requested_milestone" ] || [ -n "$priority_indicators" ] || [ -n "$tone_preference" ] || [ -n "$special_instructions" ]; then
+        base_prompt+="
+
+User's requested parameters from natural language:
+- Requested labels: $requested_labels
+- Requested assignees: $requested_assignees  
+- Requested milestone: $requested_milestone
+- Priority indicators: $priority_indicators
+- Tone preference: $tone_preference
+- Special instructions: $special_instructions
+
+IMPORTANT: Use these extracted parameters as guidance but validate them against the repository context above. Map requested labels to available labels when possible (e.g., 'urgent' might map to 'priority:high', 'critical' to 'priority:critical'). Only use assignees that exist in the collaborators list. If a requested parameter doesn't exist, suggest the closest available alternative or omit it."
+    fi
 
     feedback_prompt=""
     if [ -n "$last_command" ]; then
@@ -672,7 +726,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
     echo "Generating issue creation command with Gemini..."
     
     # Generate create command from Gemini
-    create_command=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt")
+    create_command=$(echo "$full_prompt" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "$(get_utils_path)/gemini_clean.zsh")
     
     if [ $? -ne 0 ] || [ -z "$create_command" ]; then
         echo "Failed to generate create command. Please try again."
@@ -712,9 +766,9 @@ Make sure to include appropriate labels and assignees based on the issue type an
             echo "Please provide feedback:"
             read -r feedback_input
             if [ -n "$feedback_input" ]; then
-                create_issue_with_llm "$user_description" "$feedback_input" "$create_command"
+                create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "$feedback_input" "$create_command"
             else
-                create_issue_with_llm "$user_description" "" "$create_command"
+                create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "" "$create_command"
             fi
             ;;
         [Qq]* )
@@ -723,7 +777,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
             ;;
         * )
             echo "Invalid option. Please choose 'y', 'r', or 'q'."
-            create_issue_with_llm "$user_description" "$user_feedback" "$create_command"
+            create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "$user_feedback" "$create_command"
             ;;
     esac
 }
@@ -733,16 +787,22 @@ dispatch_operation() {
     local operation="$1"
     local issue_number="$2"
     local content="$3"
+    local requested_labels="$4"
+    local requested_assignees="$5"
+    local requested_milestone="$6"
+    local priority_indicators="$7"
+    local tone_preference="$8"
+    local special_instructions="$9"
     
     case "$operation" in
         "comment")
-            comment_issue "$issue_number" "$content"
+            comment_issue "$issue_number" "$content" "$tone_preference" "$special_instructions"
             ;;
         "edit")
-            edit_issue "$issue_number" "$content"
+            edit_issue "$issue_number" "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$special_instructions"
             ;;
         "create")
-            create_issue_with_llm "$content"
+            create_issue_with_llm "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions"
             ;;
         "view")
             echo "Viewing issue #$issue_number:"
@@ -760,21 +820,27 @@ convert_question_to_command() {
     local input="$1"
     
     # LLM prompt for question detection and conversion
-    local converter_prompt="Analyze this input and determine if it's a question or request that implies a GitHub issue operation.
+    local converter_prompt="Analyze this input and determine if it's a question/polite request or already a direct command.
 
 User input: $input
 
-If this is a question or polite request (contains 'can you', 'help me', 'please', 'would you', etc.), convert it to a direct command. If it's already a direct command, return it unchanged.
+DETECTION RULES:
+1. QUESTION/POLITE REQUEST (convert to direct command):
+   - Contains question words: \"can you\", \"would you\", \"could you\", \"help me\", \"please\"
+   - Contains polite phrases: \"would you mind\", \"if you could\", \"I need you to\"
+   - Starts with question words: \"how do I\", \"what should I\", \"why is\"
 
-Examples:
+2. DIRECT COMMAND (return unchanged):
+   - Starts with action verbs: \"add\", \"edit\", \"create\", \"comment\", \"view\", \"close\", \"reopen\"
+   - Contains imperative instructions without polite qualifiers
+   - Already in command format
+
+Examples of CONVERSION (questions → commands):
 Input: \"can you generate a clear description of issue 16 based on the title\"
 Output: \"edit issue 16 body to generate a clear description based on the title\"
 
 Input: \"help me add a comment to issue 8 about the fix\"
 Output: \"add comment to issue 8 about the fix\"
-
-Input: \"edit issue 5 title to say Bug: Login timeout\"
-Output: \"edit issue 5 title to say Bug: Login timeout\"
 
 Input: \"please create an issue about dark mode\"
 Output: \"create issue about dark mode\"
@@ -782,15 +848,27 @@ Output: \"create issue about dark mode\"
 Input: \"would you mind commenting on issue 12 that this is resolved\"
 Output: \"comment on issue 12 that this is resolved\"
 
-Input: \"can you help me view issue 7\"
-Output: \"view issue 7\"
+Examples of NO CHANGE (already direct commands):
+Input: \"edit issue 5 title to say Bug: Login timeout\"
+Output: \"edit issue 5 title to say Bug: Login timeout\"
+
+Input: \"add -p --push flag for automatic push when commit message confirmed\"
+Output: \"add -p --push flag for automatic push when commit message confirmed\"
+
+Input: \"create issue about login timeout\"
+Output: \"create issue about login timeout\"
+
+Input: \"comment on issue 15 about deployment status\"
+Output: \"comment on issue 15 about deployment status\"
+
+CRITICAL: If input starts with action verbs (add, edit, create, comment, view, close, reopen) and does NOT contain polite/question phrases, return it EXACTLY as provided. Do NOT add \"create\" or modify direct commands.
 
 Only output the converted/unchanged command, no additional text.
 
 IMPORTANT: Output as plain text only, no code blocks or formatting."
     
     # Get converted command from Gemini
-    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt")
+    local converted_command=$(echo "$converter_prompt" | gemini -m gemini-2.5-flash --prompt "$converter_prompt" | "$(get_utils_path)/gemini_clean.zsh")
     
     if [ $? -ne 0 ] || [ -z "$converted_command" ]; then
         # If conversion fails, return original input
@@ -827,7 +905,7 @@ handle_natural_language() {
     echo "Parsing natural language request..."
     
     # Stage 2: Parse the processed command
-    local intent_output=$(parse_intent "$processed_input")
+    local intent_output=$(parse_intent_wrapper "$processed_input")
     
     if [ $? -ne 0 ]; then
         echo "Failed to parse intent. Please try rephrasing your request."
@@ -840,10 +918,18 @@ handle_natural_language() {
     local content=$(extract_field "CONTENT" "$intent_output")
     local confidence=$(extract_field "CONFIDENCE" "$intent_output")
     
+    # Extract new enhanced parameters
+    local requested_labels=$(extract_field "REQUESTED_LABELS" "$intent_output")
+    local requested_assignees=$(extract_field "REQUESTED_ASSIGNEES" "$intent_output")
+    local requested_milestone=$(extract_field "REQUESTED_MILESTONE" "$intent_output")
+    local priority_indicators=$(extract_field "PRIORITY_INDICATORS" "$intent_output")
+    local tone_preference=$(extract_field "TONE_PREFERENCE" "$intent_output")
+    local special_instructions=$(extract_field "SPECIAL_INSTRUCTIONS" "$intent_output")
+    
     # Confirm operation with user
-    if confirm_operation "$operation" "$issue_number" "$content" "$confidence"; then
+    if confirm_operation "$operation" "$issue_number" "$content" "$confidence" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions"; then
         echo "Executing operation..."
-        dispatch_operation "$operation" "$issue_number" "$content"
+        dispatch_operation "$operation" "$issue_number" "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions"
     else
         echo "Operation cancelled."
         return 1

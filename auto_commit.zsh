@@ -4,15 +4,17 @@
 auto_stage=false
 auto_pr=false
 auto_branch=false
+auto_push=false
 
 # Usage function
 usage() {
-    echo "Usage: $0 [-s|--stage] [-b|--branch] [-pr|--pr] [optional_context]"
+    echo "Usage: $0 [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]"
     echo ""
     echo "Options:"
     echo "  -s, --stage    Automatically stage all changes before generating commit"
     echo "  -b, --branch   Automatically create new branch without confirmation"
     echo "  -pr, --pr      Automatically create pull request after successful commit"
+    echo "  -p, --push     Automatically push changes after successful commit"
     echo "  -h, --help     Show this help message"
     echo ""
     echo "Arguments:"
@@ -34,6 +36,10 @@ while [[ $# -gt 0 ]]; do
             auto_pr=true
             shift
             ;;
+        -p|--push)
+            auto_push=true
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -53,8 +59,8 @@ done
 # Load context utility if available
 script_dir="${0:A:h}"
 gemini_context=""
-if [ -f "${script_dir}/gemini_context.zsh" ]; then
-    source "${script_dir}/gemini_context.zsh"
+if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
+    source "${script_dir}/utils/gemini_context.zsh"
     gemini_context=$(load_gemini_context)
 fi
 
@@ -85,6 +91,27 @@ Current branch: $current_branch"
     fi
     
     echo "$context"
+}
+
+# Function to check for existing pull request
+check_existing_pr() {
+    local current_branch="$1"
+    local pr_info=$(gh pr list --head "$current_branch" --json number,title,url 2>/dev/null)
+    
+    if [ -n "$pr_info" ] && [ "$pr_info" != "[]" ]; then
+        # Extract PR details for informative display
+        local pr_number=$(echo "$pr_info" | jq -r '.[0].number')
+        local pr_title=$(echo "$pr_info" | jq -r '.[0].title')
+        local pr_url=$(echo "$pr_info" | jq -r '.[0].url')
+        
+        echo "ℹ️  Pull request #${pr_number} already exists for branch '$current_branch'"
+        echo "   Title: \"$pr_title\""
+        echo "   View: gh pr view $pr_number --web"
+        echo "   URL: $pr_url"
+        return 0  # PR exists
+    else
+        return 1  # No PR exists
+    fi
 }
 
 # Function to display repository information
@@ -227,7 +254,7 @@ Current staged changes:
 $staged_diff"
         
         # Generate branch name with Gemini (using prompt embedding, not pipe)
-        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
             echo "Failed to generate branch name. Enter manually:"
@@ -254,11 +281,11 @@ $staged_diff"
                 echo ""
                 echo "Generated branch name: $generated_branch_name"
                 echo ""
-                echo "Create branch '$generated_branch_name'? [y/e/r/q] (yes / edit / regenerate / quit)"
+                echo "Create branch '$generated_branch_name'? [Y/e/r/q] (YES / edit / regenerate / quit)"
                 read -r branch_response
                 
                 case "$branch_response" in
-                    [Yy]* )
+                    [Yy]* | "" )
                         if git switch -c "$generated_branch_name"; then
                             echo "✅ Created and switched to branch '$generated_branch_name'"
                             echo ""
@@ -299,7 +326,7 @@ $gemini_context"
 Current staged changes:
 $staged_diff"
                         
-                        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
                             echo "Failed to regenerate branch name."
                         fi
@@ -370,7 +397,7 @@ if ! git diff --cached --quiet; then
             git diff --name-only --cached
 
             # Generate the raw commit message from Gemini
-            gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt")
+            gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
             
             # Check for generation failure before proceeding
             if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then
@@ -399,8 +426,13 @@ if ! git diff --cached --quiet; then
                 echo "Changes committed successfully!"
 
                 echo ""
-                echo "Do you want to push the changes now? [Y/n]"
-                read -r push_response
+                if [[ "$auto_push" == true ]]; then
+                    echo "Auto-pushing changes..."
+                    push_response="y"
+                else
+                    echo "Do you want to push the changes now? [Y/n]"
+                    read -r push_response
+                fi
 
                 if [[ "$push_response" =~ ^[Yy]$ || -z "$push_response" ]]; then
                     current_branch=$(git branch --show-current)
@@ -420,16 +452,28 @@ if ! git diff --cached --quiet; then
                         # Check for auto_pr.zsh and handle PR creation
                         script_dir="${0:A:h}"
                         if [ -f "${script_dir}/auto_pr.zsh" ]; then
-                            if [[ "$auto_pr" == true ]]; then
-                                echo ""
-                                echo "Creating pull request automatically..."
-                                "${script_dir}/auto_pr.zsh" "$1"
-                            else
-                                echo ""
-                                echo "Create a pull request? [Y/n]"
-                                read -r pr_response
-                                if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
-                                    "${script_dir}/auto_pr.zsh" "$1"
+                            # Get current branch for PR check
+                            current_branch=$(git branch --show-current)
+                            
+                            # Only suggest PR creation if not on main/master
+                            if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
+                                # Check if PR already exists for this branch
+                                if check_existing_pr "$current_branch"; then
+                                    echo ""
+                                else
+                                    # No existing PR, proceed with creation
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        echo "Creating pull request automatically..."
+                                        "${script_dir}/auto_pr.zsh" "$1"
+                                    else
+                                        echo ""
+                                        echo "Create a pull request? [Y/n]"
+                                        read -r pr_response
+                                        if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                                            "${script_dir}/auto_pr.zsh" "$1"
+                                        fi
+                                    fi
                                 fi
                             fi
                         fi

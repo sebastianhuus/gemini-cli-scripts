@@ -8,7 +8,9 @@ This repository contains Zsh automation scripts that use the Gemini CLI to autom
 
 ## Core Scripts
 
-### auto_commit.zsh
+### Main Automation Scripts
+
+#### auto_commit.zsh
 Automated commit message generation using Gemini CLI with feedback loops:
 - Analyzes staged changes and recent commit history
 - Generates conventional commit messages 
@@ -17,7 +19,7 @@ Automated commit message generation using Gemini CLI with feedback loops:
 
 Usage: `./auto_commit.zsh [optional_context]`
 
-### auto_pr.zsh  
+#### auto_pr.zsh  
 Pull request creation automation:
 - Analyzes commit differences between current branch and main/master
 - Generates PR titles and descriptions
@@ -26,14 +28,35 @@ Pull request creation automation:
 
 Usage: `./auto_pr.zsh [optional_context]`
 
-### auto_issue.zsh
+#### auto_issue.zsh
 Natural language GitHub issue management:
 - Two-stage processing: question conversion → intent parsing
 - Supports create, edit, comment, view operations
 - LLM-enhanced content generation for issue bodies and comments
 - Repository context awareness (labels, milestones, collaborators)
+- Priority label support for visual issue urgency indication
 
 Usage: `./auto_issue.zsh "natural language request"`
+
+### Utility Scripts (utils/)
+
+#### utils/gemini_clean.zsh
+Utility script for cleaning Gemini CLI responses:
+- Removes authentication-related lines that can appear at response start
+- Prevents command execution failures when auth messages get included
+- Used by all other scripts via pipe: `gemini ... | "${script_dir}/utils/gemini_clean.zsh"`
+
+Usage: `gemini -m model --prompt "..." | ./utils/gemini_clean.zsh`
+
+#### utils/gemini_context.zsh
+Repository context utility for enhanced AI understanding:
+- Loads and formats GEMINI.md file content for LLM context
+- Provides functions: `load_gemini_context()` and `has_gemini_context()`
+- Automatically sourced by main scripts when available
+- File size validation (max 2KB) to prevent token overuse
+
+Usage: Automatically loaded by main scripts when present
+
 
 ## Architecture
 
@@ -62,6 +85,45 @@ Required tools:
 - Git
 - Gemini CLI (`gemini` command)
 - GitHub CLI (`gh` command)
+
+## Issue Priority Labels
+
+This repository uses priority labels to provide visual indicators of issue urgency and guide work prioritization:
+
+### Priority Label System
+- **`priority:critical`** - 🔴 Critical priority (Red #FF0000)
+  - Urgent, blocking issues requiring immediate attention
+  - System outages, security vulnerabilities, or complete feature failures
+  
+- **`priority:high`** - 🟠 High priority (Orange #FF6600)
+  - Important, time-sensitive issues
+  - Significant feature enhancements, performance issues, or user experience problems
+  
+- **`priority:normal`** - 🔵 Normal priority (Blue #0099FF)
+  - Standard workflow priority
+  - Regular feature requests, minor improvements, or standard bug fixes
+  
+- **`priority:low`** - 🟢 Low priority (Green #66CC00)
+  - Nice-to-have, non-urgent issues
+  - Code cleanup, documentation updates, or minor enhancements
+
+### Usage Guidelines
+- **No priority label** implies normal priority (standard workflow)
+- Priority labels work seamlessly with the existing `auto_issue.zsh` script
+- Labels are automatically discovered and available for AI-assisted issue management
+- Use priority labels during issue creation or apply them during triage
+
+### Examples with auto_issue.zsh
+```bash
+# Create issue with priority label
+./auto_issue.zsh "create critical issue about login system down"
+
+# Add priority label to existing issue
+./auto_issue.zsh "add priority:high label to issue 42"
+
+# Create issue and let AI determine priority
+./auto_issue.zsh "create issue about slow page loading"
+```
 
 ## Common Commands
 
@@ -97,9 +159,11 @@ git submodule update --remote  # For updates
 5. Update help documentation
 
 ### Gemini Response Handling
-- All scripts use `tail -n +2` to trim first line (handles auth-related output)
+- All scripts use `utils/gemini_clean.zsh` utility to clean auth-related output from responses
+- Handles "Loaded cached credentials." and similar auth messages that sometimes appear
 - Retry mechanism available in auto_commit.zsh via regeneration option
 - Error checking for failed LLM calls with fallback messages
+- Repository context loading via `utils/gemini_context.zsh` for enhanced AI understanding
 
 ### Attribution Pattern
 All generated content includes attribution footer for transparency and compliance with LLM usage policies.
