@@ -38,6 +38,7 @@ use_gum_choose() {
     if command -v gum &> /dev/null; then
         local result
         result=$(gum choose --header="$prompt" "${options[@]}")
+        echo "# $prompt" | gum format >&2
         echo "> $result" | gum format >&2
         echo "$result"
     else
@@ -71,6 +72,7 @@ use_gum_input() {
         else
             result=$(gum input --header="$prompt")
         fi
+        echo "# $prompt" | gum format >&2
         echo "> $result" | gum format >&2
         echo "$result"
     else
