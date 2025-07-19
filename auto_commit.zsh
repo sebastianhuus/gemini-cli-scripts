@@ -220,7 +220,7 @@ except Exception:
                             echo "$new_title" | gum format -t "code"
                             echo ""
                             echo "**Body:**" | gum format
-                            gum style --border=double --padding="1 2" "$(gum format "$new_body")"
+                            gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$new_body")"
                         else
                             echo ""
                             echo "Updated PR content:"
