@@ -710,8 +710,10 @@ if ! git diff --cached --quiet; then
                     if [ -n "$push_output" ]; then
                         # DEBUG: Show what we're about to grep
                         echo "DEBUG: About to run grep on push_output..." >&2
+                        # Ensure stderr is flushed before grep to prevent contamination
+                        exec 2>&2
                         # Extract branch info from push output
-                        branch_info=$(echo "$push_output" | grep -E '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                        branch_info=$(echo "$push_output" | grep -E '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//' 2>/dev/null)
                         if [ -n "$branch_info" ]; then
                             colored_status "Push successful:" "success"
                             echo "  ⎿ $current_branch"
@@ -801,7 +803,6 @@ if ! git diff --cached --quiet; then
 else
     if [[ "$auto_stage" == true ]]; then
         colored_status "No staged changes found." "info"
-        echo ""
         colored_status "Auto-staging all changes..." "info"
         git add -A
         if ! git diff --cached --quiet; then
