@@ -16,6 +16,13 @@ else
     exit 1
 fi
 
+# Load shared git push helper functions
+if [ -f "${script_dir}/utils/git_push_helpers.zsh" ]; then
+    source "${script_dir}/utils/git_push_helpers.zsh"
+else
+    echo "Error: Required git push helper functions not found at ${script_dir}/utils/git_push_helpers.zsh"
+    exit 1
+fi
 
 # Function to check for existing pull request
 check_existing_pr() {
@@ -159,35 +166,9 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 # Push current branch to remote
                 colored_status "Pushing current branch to remote..." "info"
                 
-                # Capture push output and exit code
-                local push_output
-                local push_exit_code
-                push_output=$(git push -u origin "$current_branch" 2>&1)
-                push_exit_code=$?
-                
-                # Handle push result
-                if [ $push_exit_code -eq 0 ]; then
-                    # Display clean push output
-                    if [ -n "$push_output" ]; then
-                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
-                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
-                        if [ -n "$branch_info" ]; then
-                            colored_status "Push successful:" "success"
-                            echo "  ⎿ $current_branch"
-                            echo "    $branch_info"
-                        else
-                            colored_status "Push completed:" "success"
-                            echo "  ⎿ git push -u origin \"$current_branch\""
-                        fi
-                    else
-                        colored_status "Push completed:" "success"
-                        echo "  ⎿ $current_branch"
-                    fi
-                else
-                    colored_status "Failed to push changes." "error"
-                    if [ -n "$push_output" ]; then
-                        echo "Error details: $push_output"
-                    fi
+                # Use shared push function (force upstream for PR creation)
+                if ! pr_push_with_display "$current_branch"; then
+                    # Push failed, break out of loop to prevent PR creation
                     break
                 fi
                 

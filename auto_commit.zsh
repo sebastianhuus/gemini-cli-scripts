@@ -75,6 +75,9 @@ source "${script_dir}/gum/gum_helpers.zsh"
 # Load commit message generator utility
 source "${script_dir}/utils/commit_message_generator.zsh"
 
+# Load shared git push helper functions
+source "${script_dir}/utils/git_push_helpers.zsh"
+
 # Function to get repository context for LLM
 get_repository_context() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -429,38 +432,9 @@ if ! git diff --cached --quiet; then
 
             if [[ "$should_push" == true ]]; then
                 current_branch=$(git branch --show-current)
-                # Check if upstream branch is set
-                local push_output
-                local push_exit_code
-                local push_command
-                if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                    # Upstream is set, a simple push is enough
-                    push_command="git push"
-                    push_output=$(git push 2>&1)
-                    push_exit_code=$?
-                else
-                    # Upstream is not set, so we need to publish the branch
-                    echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                    push_command="git push --set-upstream origin \"$current_branch\""
-                    push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
-                    push_exit_code=$?
-                fi
-
-                # Display clean push output
-                if [ -n "$push_output" ]; then
-                    # Extract branch info from push output (using -- to prevent shell interpretation of ->)
-                    branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
-                    if [ -n "$branch_info" ]; then
-                        colored_status "Push successful:" "success"
-                        echo "  ⎿ $current_branch"
-                        echo "    $branch_info"
-                    else
-                        colored_status "Push completed:" "success"
-                        echo "  ⎿ $push_command"
-                    fi
-                fi
-
-                if [ $push_exit_code -eq 0 ]; then
+                
+                # Use shared smart push function
+                if simple_push_with_display "$current_branch"; then
                     # Display success message
                     colored_status "Changes pushed successfully!" "success"
                     
@@ -535,38 +509,9 @@ else
             if check_unpushed_commits; then
                 if use_gum_confirm "Do you want to push these unpushed commits now?"; then
                     current_branch=$(git branch --show-current)
-                    # Check if upstream branch is set
-                    local push_output
-                    local push_exit_code
-                    local push_command
-                    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                        # Upstream is set, a simple push is enough
-                        push_command="git push"
-                        push_output=$(git push 2>&1)
-                        push_exit_code=$?
-                    else
-                        # Upstream is not set, so we need to publish the branch
-                        echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                        push_command="git push --set-upstream origin \"$current_branch\""
-                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
-                        push_exit_code=$?
-                    fi
-
-                    # Display clean push output
-                    if [ -n "$push_output" ]; then
-                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
-                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
-                        if [ -n "$branch_info" ]; then
-                            colored_status "Push successful:" "success"
-                            echo "  ⎿ $current_branch"
-                            echo "    $branch_info"
-                        else
-                            colored_status "Push completed:" "success"
-                            echo "  ⎿ $push_command"
-                        fi
-                    fi
-
-                    if [ $push_exit_code -eq 0 ]; then
+                    
+                    # Use shared smart push function with exit on failure
+                    if simple_push_with_display "$current_branch"; then
                         # Display success message
                         colored_status "Changes pushed successfully!" "success"
                         exit 0
@@ -600,38 +545,9 @@ else
                 if check_unpushed_commits; then
                     if use_gum_confirm "Do you want to push these unpushed commits now?"; then
                         current_branch=$(git branch --show-current)
-                        # Check if upstream branch is set
-                        local push_output
-                        local push_exit_code
-                        local push_command
-                        if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                            # Upstream is set, a simple push is enough
-                            push_command="git push"
-                            push_output=$(git push 2>&1)
-                            push_exit_code=$?
-                        else
-                            # Upstream is not set, so we need to publish the branch
-                            echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                            push_command="git push --set-upstream origin \"$current_branch\""
-                            push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
-                            push_exit_code=$?
-                        fi
-
-                        # Display clean push output
-                        if [ -n "$push_output" ]; then
-                            # Extract branch info from push output (using -- to prevent shell interpretation of ->)
-                            branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
-                            if [ -n "$branch_info" ]; then
-                                colored_status "Push successful:" "success"
-                                echo "  ⎿ $current_branch"
-                                echo "    $branch_info"
-                            else
-                                colored_status "Push completed:" "success"
-                                echo "  ⎿ $push_command"
-                            fi
-                        fi
-
-                        if [ $push_exit_code -eq 0 ]; then
+                        
+                        # Use shared smart push function
+                        if simple_push_with_display "$current_branch"; then
                             # Display success message
                             colored_status "Changes pushed successfully!" "success"
                         else
@@ -652,38 +568,9 @@ else
             if check_unpushed_commits; then
                 if use_gum_confirm "Do you want to push these unpushed commits now?"; then
                     current_branch=$(git branch --show-current)
-                    # Check if upstream branch is set
-                    local push_output
-                    local push_exit_code
-                    local push_command
-                    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                        # Upstream is set, a simple push is enough
-                        push_command="git push"
-                        push_output=$(git push 2>&1)
-                        push_exit_code=$?
-                    else
-                        # Upstream is not set, so we need to publish the branch
-                        echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                        push_command="git push --set-upstream origin \"$current_branch\""
-                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
-                        push_exit_code=$?
-                    fi
-
-                    # Display clean push output
-                    if [ -n "$push_output" ]; then
-                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
-                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
-                        if [ -n "$branch_info" ]; then
-                            colored_status "Push successful:" "success"
-                            echo "  ⎿ $current_branch"
-                            echo "    $branch_info"
-                        else
-                            colored_status "Push completed:" "success"
-                            echo "  ⎿ $push_command"
-                        fi
-                    fi
-
-                    if [ $push_exit_code -eq 0 ]; then
+                    
+                    # Use shared smart push function
+                    if simple_push_with_display "$current_branch"; then
                         # Display success message
                         colored_status "Changes pushed successfully!" "success"
                     else
