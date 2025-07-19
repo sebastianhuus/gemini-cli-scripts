@@ -539,12 +539,8 @@ if ! git diff --cached --quiet; then
                     fi
 
                     if [ $push_exit_code -eq 0 ]; then
-                        # Display success message in bold using gum format
-                        if command -v gum &> /dev/null; then
-                            echo "**$(gum style --foreground 2 "⏺") Changes pushed successfully!**" | gum format
-                        else
-                            colored_status "Changes pushed successfully!" "success"
-                        fi
+                        # Display success message
+                        colored_status "Changes pushed successfully!" "success"
                         
                         # Check for auto_pr.zsh and handle PR creation
                         script_dir="${0:A:h}"
@@ -673,12 +669,8 @@ else
                     fi
 
                     if [ $push_exit_code -eq 0 ]; then
-                        # Display success message in bold using gum format
-                        if command -v gum &> /dev/null; then
-                            echo "**$(gum style --foreground 2 "⏺") Changes pushed successfully!**" | gum format
-                        else
-                            colored_status "Changes pushed successfully!" "success"
-                        fi
+                        # Display success message
+                        colored_status "Changes pushed successfully!" "success"
                         exit 0
                     else
                         colored_status "Failed to push changes." "error"
@@ -746,12 +738,8 @@ else
                         fi
 
                         if [ $push_exit_code -eq 0 ]; then
-                            # Display success message in bold using gum format
-                            if command -v gum &> /dev/null; then
-                                echo "**$(gum style --foreground 2 "⏺") Changes pushed successfully!**" | gum format
-                            else
-                                colored_status "Changes pushed successfully!" "success"
-                            fi
+                            # Display success message
+                            colored_status "Changes pushed successfully!" "success"
                         else
                             colored_status "Failed to push changes." "error"
                         fi
@@ -802,12 +790,8 @@ else
                     fi
 
                     if [ $push_exit_code -eq 0 ]; then
-                        # Display success message in bold using gum format
-                        if command -v gum &> /dev/null; then
-                            echo "**$(gum style --foreground 2 "⏺") Changes pushed successfully!**" | gum format
-                        else
-                            colored_status "Changes pushed successfully!" "success"
-                        fi
+                        # Display success message
+                        colored_status "Changes pushed successfully!" "success"
                     else
                         colored_status "Failed to push changes." "error"
                     fi
