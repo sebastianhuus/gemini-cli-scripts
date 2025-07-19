@@ -157,8 +157,39 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         case "$response" in
             "Yes" )
                 # Push current branch to remote
-                echo "Pushing current branch to remote..."
-                git push -u origin "$current_branch"
+                colored_status "Pushing current branch to remote..." "info"
+                
+                # Capture push output and exit code
+                local push_output
+                local push_exit_code
+                push_output=$(git push -u origin "$current_branch" 2>&1)
+                push_exit_code=$?
+                
+                # Handle push result
+                if [ $push_exit_code -eq 0 ]; then
+                    # Display clean push output
+                    if [ -n "$push_output" ]; then
+                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                        if [ -n "$branch_info" ]; then
+                            colored_status "Push successful:" "success"
+                            echo "  ⎿ $current_branch"
+                            echo "    $branch_info"
+                        else
+                            colored_status "Push completed:" "success"
+                            echo "  ⎿ git push -u origin \"$current_branch\""
+                        fi
+                    else
+                        colored_status "Push completed:" "success"
+                        echo "  ⎿ $current_branch"
+                    fi
+                else
+                    colored_status "Failed to push changes." "error"
+                    if [ -n "$push_output" ]; then
+                        echo "Error details: $push_output"
+                    fi
+                    break
+                fi
                 
                 # Create PR using the generated command
                 if command -v gh &> /dev/null; then
