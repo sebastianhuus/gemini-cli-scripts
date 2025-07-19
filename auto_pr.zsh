@@ -124,6 +124,26 @@ $commit_details"
     echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
 }
 
+# Function to display PR command in formatted block
+display_pr_command() {
+    local pr_command="$1"
+    
+    # Display generated PR command in quote block format
+    local pr_cmd_header="> **Generated PR create command:**"
+    local pr_cmd_content=$(wrap_quote_block_text "$pr_command")
+    local pr_cmd_block="$pr_cmd_header"$'\n'"$pr_cmd_content"
+    
+    # Display using gum format if available, otherwise fallback to echo
+    if command -v gum &> /dev/null; then
+        echo "$pr_cmd_block" | gum format
+        echo "> \\n" | gum format
+    else
+        echo "Generated PR create command:"
+        echo "$pr_command"
+        echo ""
+    fi
+}
+
 # Generate initial PR content
 pr_content_raw=$(generate_pr_content)
 
@@ -134,9 +154,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         # The LLM now generates a complete gh pr create command
         pr_create_command="$pr_content_raw"
 
-        echo "Generated PR create command:"
-        echo "$pr_create_command"
-        echo ""
+        display_pr_command "$pr_create_command"
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
