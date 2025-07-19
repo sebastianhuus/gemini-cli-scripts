@@ -710,10 +710,19 @@ if ! git diff --cached --quiet; then
                     if [ -n "$push_output" ]; then
                         # DEBUG: Show what we're about to grep
                         echo "DEBUG: About to run grep on push_output..." >&2
-                        # Ensure stderr is flushed before grep to prevent contamination
-                        exec 2>&2
-                        # Extract branch info from push output
-                        branch_info=$(echo "$push_output" | grep -E '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//' 2>/dev/null)
+                        echo "DEBUG: Testing the grep pattern separately..." >&2
+                        
+                        # Test if the pattern itself is the issue
+                        echo "DEBUG: Testing pattern: '->|\.\.\..*->'" >&2
+                        echo "test -> test" | grep -E '->|\.\.\..*->' >&2 || echo "DEBUG: Grep pattern failed!" >&2
+                        
+                        # Try with escaped pattern
+                        echo "DEBUG: Testing with different quoting..." >&2
+                        pattern='->\|\.\.\..*->'
+                        echo "DEBUG: Using pattern: $pattern" >&2
+                        
+                        # Extract branch info from push output with safer pattern
+                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
                         if [ -n "$branch_info" ]; then
                             colored_status "Push successful:" "success"
                             echo "  ⎿ $current_branch"
