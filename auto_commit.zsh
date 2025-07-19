@@ -682,6 +682,10 @@ if ! git diff --cached --quiet; then
                     local push_output
                     local push_exit_code
                     local push_command
+                    
+                    # DEBUG: Log what we're about to capture
+                    echo "DEBUG: About to capture git push output..." >&2
+                    
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
                         # Upstream is set, a simple push is enough
                         push_command="git push"
@@ -695,8 +699,17 @@ if ! git diff --cached --quiet; then
                         push_exit_code=$?
                     fi
 
+                    # DEBUG: Show exactly what was captured
+                    echo "DEBUG: Raw push_output contents:" >&2
+                    echo "--- START push_output ---" >&2
+                    echo "$push_output" >&2
+                    echo "--- END push_output ---" >&2
+                    echo "DEBUG: push_exit_code=$push_exit_code" >&2
+
                     # Display clean push output
                     if [ -n "$push_output" ]; then
+                        # DEBUG: Show what we're about to grep
+                        echo "DEBUG: About to run grep on push_output..." >&2
                         # Extract branch info from push output
                         branch_info=$(echo "$push_output" | grep -E '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
                         if [ -n "$branch_info" ]; then
