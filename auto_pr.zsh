@@ -135,9 +135,18 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         # The LLM now generates a complete gh pr create command
         pr_create_command="$pr_content_raw"
 
-        echo "Generated PR create command:"
-        echo "$pr_create_command"
-        echo ""
+        # Display the PR command in a formatted code block
+        if command -v gum &> /dev/null; then
+            echo ""
+            local code_block_title="**Generated PR create command:**"
+            local code_block="$pr_create_command"
+            echo "$code_block_title" | gum format
+            echo "$code_block" | gum format -t "code" -l "zsh"
+        else
+            echo "Generated PR create command:"
+            echo "$pr_create_command"
+            echo ""
+        fi
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
