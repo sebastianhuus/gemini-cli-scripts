@@ -753,12 +753,23 @@ if ! git diff --cached --quiet; then
                 continue
                 ;;
             "Quit" )
-                colored_status "Commit cancelled. You can commit manually with:" "cancel"
-                echo "git commit -m \"$final_commit_msg\""
+                # Unstage all staged changes before exiting
+                if git reset HEAD >/dev/null 2>&1; then
+                    colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
+                else
+                    colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
+                fi
+                echo "You can manually stage and commit later if needed."
                 break
                 ;;
             "Cancelled"|* )
-                colored_status "Commit cancelled." "cancel"
+                # Unstage all staged changes before exiting
+                if git reset HEAD >/dev/null 2>&1; then
+                    colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
+                else
+                    colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
+                fi
+                echo "You can manually stage and commit later if needed."
                 break
                 ;;
         esac
