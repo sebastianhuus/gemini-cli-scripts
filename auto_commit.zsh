@@ -878,18 +878,78 @@ else
         fi
     else
         colored_status "No staged changes found." "info"
-        if use_gum_confirm "Do you want to stage all changes?"; then
-            git add .
-            if command -v gum &> /dev/null; then
-                echo "**$(gum style --foreground 2 "⏺") All changes staged.**" | gum format
+        
+        # First check if there are any unstaged changes
+        if ! git diff --quiet; then
+            # Has unstaged changes - offer to stage them
+            if use_gum_confirm "Do you want to stage all changes?"; then
+                git add .
+                if command -v gum &> /dev/null; then
+                    echo "**$(gum style --foreground 2 "⏺") All changes staged.**" | gum format
+                else
+                    colored_status "All changes staged." "success"
+                fi
+                echo ""
+                # Re-run the script to proceed with commit message generation
+                exec "$0" "$@" --skip-env-info
             else
-                colored_status "All changes staged." "success"
+                colored_status "No changes staged. Commit cancelled." "cancel"
+                
+                # Check for unpushed commits before exiting
+                if check_unpushed_commits; then
+                    if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                        current_branch=$(git branch --show-current)
+                        # Check if upstream branch is set
+                        local push_output
+                        local push_exit_code
+                        local push_command
+                        if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                            # Upstream is set, a simple push is enough
+                            push_command="git push"
+                            push_output=$(git push 2>&1)
+                            push_exit_code=$?
+                        else
+                            # Upstream is not set, so we need to publish the branch
+                            echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                            push_command="git push --set-upstream origin \"$current_branch\""
+                            push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                            push_exit_code=$?
+                        fi
+
+                        # Display clean push output
+                        if [ -n "$push_output" ]; then
+                            # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                            branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                            if [ -n "$branch_info" ]; then
+                                colored_status "Push successful:" "success"
+                                echo "  ⎿ $current_branch"
+                                echo "    $branch_info"
+                            else
+                                colored_status "Push completed:" "success"
+                                echo "  ⎿ $push_command"
+                            fi
+                        fi
+
+                        if [ $push_exit_code -eq 0 ]; then
+                            # Display success message in bold using gum format
+                            if command -v gum &> /dev/null; then
+                                echo "**$(gum style --foreground 2 "⏺") Changes pushed successfully!**" | gum format
+                            else
+                                colored_status "Changes pushed successfully!" "success"
+                            fi
+                        else
+                            colored_status "Failed to push changes." "error"
+                        fi
+                    else
+                        colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
+                    fi
+                fi
+                
+                exit 0
             fi
-            echo ""
-            # Re-run the script to proceed with commit message generation
-            exec "$0" "$@" --skip-env-info
         else
-            colored_status "No changes staged. Commit cancelled." "cancel"
+            # No unstaged changes either - go directly to unpushed commits check
+            colored_status "No unstaged changes found either." "info"
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
