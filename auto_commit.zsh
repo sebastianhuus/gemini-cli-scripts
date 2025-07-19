@@ -212,7 +212,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
             manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
                 if git switch -c "$manual_branch_name"; then
-                    echo "⏺ Created and switched to branch '$manual_branch_name'"
+                    colored_status "Created and switched to branch '$manual_branch_name'" "info"
                     echo ""
                     exit 0
                 else
@@ -289,7 +289,7 @@ $staged_diff"
             echo ""
             echo "Generated branch name: $generated_branch_name"
             if git switch -c "$generated_branch_name"; then
-                echo "⏺ Created and switched to branch '$generated_branch_name'"
+                colored_status "Created and switched to branch '$generated_branch_name'" "info"
                 echo ""
             else
                 echo "❌ Failed to create branch. Exiting."
@@ -307,7 +307,7 @@ $staged_diff"
                 case "$branch_response" in
                     "Yes" )
                         if git switch -c "$generated_branch_name"; then
-                            echo "⏺ Created and switched to branch '$generated_branch_name'"
+                            colored_status "Created and switched to branch '$generated_branch_name'" "info"
                             echo ""
                         else
                             echo "⏺ Failed to create branch. Exiting."
@@ -380,12 +380,14 @@ if ! git diff --cached --quiet; then
     repository_context=$(get_repository_context)
     
     # Generate commit message using the utility function
-    final_commit_msg=$(generate_commit_message "$staged_diff" "$recent_commits" "$repository_context" "$gemini_context" "$1" "$script_dir")
+    generate_commit_message "$staged_diff" "$recent_commits" "$repository_context" "$gemini_context" "$1" "$script_dir"
     commit_generator_exit_code=$?
     
     case $commit_generator_exit_code in
         0)
-            # Commit message generated successfully, proceed with commit
+            # Commit message generated successfully, get it from the global variable
+            final_commit_msg="$GENERATED_COMMIT_MESSAGE"
+            
             # Capture git commit output
             commit_output=$(git commit -m "$final_commit_msg" 2>&1)
             commit_exit_code=$?

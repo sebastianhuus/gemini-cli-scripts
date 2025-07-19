@@ -3,6 +3,21 @@
 # Commit Message Generator Utility
 # Provides AI-powered commit message generation with interactive feedback loops
 
+# Get the script directory to source dependencies
+local util_script_dir="${0:A:h}"
+local gum_helpers_path="${util_script_dir}/../gum/gum_helpers.zsh"
+
+# Source gum helper functions for consistent UI
+if [ -f "$gum_helpers_path" ]; then
+    source "$gum_helpers_path"
+else
+    # Fallback: try relative to parent directory (when called from auto_commit.zsh)
+    local parent_gum_path="${util_script_dir}/../gum/gum_helpers.zsh"
+    if [ -f "$parent_gum_path" ]; then
+        source "$parent_gum_path"
+    fi
+fi
+
 # Function to build the commit prompt with all necessary context
 build_commit_prompt() {
     local staged_diff="$1"
@@ -141,7 +156,8 @@ generate_commit_message() {
 
         case "$response" in
             "Yes" )
-                echo "$final_commit_msg"
+                # Store the final commit message in a variable for the caller to access
+                GENERATED_COMMIT_MESSAGE="$final_commit_msg"
                 return 0
                 ;;
             "Append text" )
