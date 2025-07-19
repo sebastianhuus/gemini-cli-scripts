@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -*)
-            echo "Unknown option: $1"
+            colored_status "Unknown option: $1" "error"
             usage
             exit 1
             ;;
@@ -108,7 +108,7 @@ Current branch: $current_branch"
 }
 
 
-# Function to check for existing pull request
+# Function to check for existing pull request and detect new commits
 check_existing_pr() {
     local current_branch="$1"
     local pr_info=$(gh pr list --head "$current_branch" --json number,title,url 2>/dev/null)
@@ -123,10 +123,175 @@ check_existing_pr() {
         echo "  ⎿ Title: \"$pr_title\""
         echo "     View: gh pr view $pr_number --web"
         echo "     URL: $pr_url"
-        return 0  # PR exists
+        
+        # Check for new commits since PR creation by comparing with remote
+        local remote_branch="origin/$current_branch"
+        
+        # Fetch latest to ensure we have current remote state
+        git fetch origin "$current_branch" 2>/dev/null
+        
+        # Check if local is ahead of remote (has unpushed commits)
+        local unpushed_commits=$(git rev-list ${remote_branch}..HEAD --count 2>/dev/null)
+        
+        if [ "$unpushed_commits" -gt 0 ]; then
+            echo ""
+            colored_status "Found $unpushed_commits new commit(s) to push:" "info"
+            git log ${remote_branch}..HEAD --oneline --no-merges | sed 's/^/  • /'
+            
+            # Export PR number for use by calling function
+            export EXISTING_PR_NUMBER="$pr_number"
+            return 2  # PR exists with new commits
+        else
+            return 0  # PR exists, no new commits
+        fi
     else
         return 1  # No PR exists
     fi
+}
+
+# Function to update existing pull request with new commits
+update_existing_pr() {
+    local current_branch="$1"
+    local optional_context="$2"
+    local pr_number="$EXISTING_PR_NUMBER"
+    
+    echo ""
+    local update_choice=$(use_gum_choose "Update existing PR #${pr_number} with new commits?" "Yes" "View PR" "Skip")
+    
+    case "$update_choice" in
+        "Yes" )
+            colored_status "Generating updated PR content..." "info"
+            
+            # Get ALL commits for this PR (from main/master to current branch)
+            local base_branch="main"
+            if ! git show-ref --verify --quiet refs/heads/main; then
+                base_branch="master"
+            fi
+            local all_pr_commits=$(git log ${base_branch}..HEAD --pretty=format:"%h - %s%n%b" --no-merges)
+            
+            # Get existing PR content using Python for robust JSON parsing
+            local existing_title=""
+            local existing_body=""
+            local pr_content=$(gh pr view "$pr_number" --json title,body 2>/dev/null | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    title = data.get('title', '').replace('\n', '\\n')
+    body = data.get('body', '').replace('\n', '\\n')
+    print(f'TITLE:{title}')
+    print(f'BODY:{body}')
+except Exception:
+    print('TITLE:')
+    print('BODY:')
+" 2>/dev/null)
+            
+            if [ -n "$pr_content" ]; then
+                existing_title=$(echo "$pr_content" | grep '^TITLE:' | sed 's/^TITLE://' | sed 's/\\n/\n/g')
+                existing_body=$(echo "$pr_content" | grep '^BODY:' | sed 's/^BODY://' | sed 's/\\n/\n/g')
+            fi
+            
+            # Get repository context
+            local repository_context=$(get_repository_context)
+            
+            # Load PR content generator if available
+            if [ -f "${script_dir}/utils/pr_content_generator.zsh" ]; then
+                source "${script_dir}/utils/pr_content_generator.zsh"
+                
+                # Generate updated PR content using all commits and existing content
+                local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "" "$existing_title" "$existing_body")
+                
+                if [ $? -eq 0 ] && [ -n "$updated_content" ]; then
+                    # Parse TITLE: and BODY: from LLM response
+                    local new_title=$(echo "$updated_content" | grep "^TITLE:" | sed 's/^TITLE: *//' | head -n 1)
+                    local new_body=$(echo "$updated_content" | sed -n '/^BODY: */,$p' | sed '1s/^BODY: *//' | sed '$d' 2>/dev/null || echo "$updated_content" | sed -n '/^BODY: */,$p' | sed '1s/^BODY: *//')
+                    
+                    # Build the gh pr edit command ourselves with the correct PR number
+                    local pr_edit_command="gh pr edit $pr_number --title \"$new_title\" --body \"$new_body\""
+                    
+                    # Interactive loop for PR update confirmation
+                    while true; do
+                        
+                        # Display the updated PR content
+                        if command -v gum &> /dev/null; then
+                            echo ""
+                            echo "**Updated PR content:**" | gum format
+                            echo ""
+                            echo "**Title:**" | gum format
+                            echo "$new_title" | gum format -t "code"
+                            echo ""
+                            echo "**Body:**" | gum format
+                            gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$new_body")"
+                        else
+                            echo ""
+                            echo "Updated PR content:"
+                            echo "Title: $new_title"
+                            echo ""
+                            echo "Body:"
+                            echo "$new_body"
+                        fi
+                        
+                        local confirm_choice=$(use_gum_choose "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
+                        
+                        case "$confirm_choice" in
+                            "Yes" )
+                                # Push new commits first
+                                colored_status "Pushing new commits..." "info"
+                                if simple_push_with_display "$current_branch"; then
+                                    # Execute the generated PR edit command
+                                    if command -v gh &> /dev/null; then
+                                        # Execute the command (similar to auto_pr.zsh pattern)
+                                        escaped_command=$(echo "$pr_edit_command" | sed 's/`/\\`/g')
+                                        eval "$escaped_command"
+                                        
+                                        if [ $? -eq 0 ]; then
+                                            colored_status "PR #${pr_number} updated successfully!" "success"
+                                            echo "  ⎿ View updated PR: gh pr view $pr_number --web"
+                                            return 0
+                                        else
+                                            colored_status "Failed to update PR #${pr_number}" "error"
+                                            return 1
+                                        fi
+                                    else
+                                        colored_status "GitHub CLI (gh) not found" "error"
+                                        return 1
+                                    fi
+                                else
+                                    colored_status "Failed to push new commits" "error"
+                                    return 1
+                                fi
+                                ;;
+                            "Regenerate with feedback" )
+                                local feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
+                                colored_status "Regenerating PR content..." "info"
+                                updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "$feedback" "$existing_title" "$existing_body")
+                                if [ $? -ne 0 ] || [ -z "$updated_content" ]; then
+                                    colored_status "Failed to regenerate PR content" "error"
+                                fi
+                                ;;
+                            "Skip"|* )
+                                colored_status "PR update cancelled" "cancel"
+                                return 0
+                                ;;
+                        esac
+                    done
+                else
+                    colored_status "Failed to generate updated PR content" "error"
+                    return 1
+                fi
+            else
+                colored_status "PR content generator not found" "error"
+                return 1
+            fi
+            ;;
+        "View PR" )
+            gh pr view "$pr_number" --web
+            return 0
+            ;;
+        "Skip"|* )
+            colored_status "PR update skipped" "cancel"
+            return 0
+            ;;
+    esac
 }
 
 # Function to check for unpushed commits
@@ -203,14 +368,14 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                     exit 1
                 fi
             else
-                echo "Cannot generate branch name without staged changes."
-                echo "Either stage changes first or create branch manually."
+                colored_status "Cannot generate branch name without staged changes." "info"
+                colored_status "Either stage changes first or create branch manually." "info"
                 colored_status "Auto-commit cancelled. Stage changes manually and try again." "cancel"
                 exit 0
             fi
         fi
     else
-        echo "No changes found (staged or unstaged)."
+        colored_status "No changes found (staged or unstaged)." "info"
         if use_gum_confirm "Create empty branch anyway?"; then
             manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
@@ -219,16 +384,16 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                     echo ""
                     exit 0
                 else
-                    echo "⏺ Failed to create branch. Exiting."
+                    colored_status "Failed to create branch. Exiting." "error"
                     exit 1
                 fi
             else
-                echo "No branch name provided. Staying on '$current_branch'."
+                colored_status "No branch name provided. Staying on '$current_branch'." "info"
                 colored_status "Auto-commit cancelled. No branch name provided." "cancel"
                 exit 0
             fi
         else
-            echo "Staying on '$current_branch' branch."
+            colored_status "Staying on '$current_branch' branch." "info"
             colored_status "Auto-commit cancelled. Create changes and try again." "cancel"
             exit 0
         fi
@@ -238,7 +403,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     echo ""
     
     if [[ "$auto_branch" == true ]]; then
-        echo "Auto-creating new branch..."
+        colored_status "Auto-creating new branch..." "info"
         create_branch=true
     else
         if use_gum_confirm "Create a new branch?"; then
@@ -281,7 +446,7 @@ $staged_diff"
         generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
-            echo "Failed to generate branch name. Enter manually:"
+            colored_status "Failed to generate branch name. Enter manually:" "info"
             read -r manual_branch_name
             generated_branch_name="$manual_branch_name"
         fi
@@ -290,19 +455,19 @@ $staged_diff"
         if [[ "$auto_branch" == true ]]; then
             # Auto-create branch without confirmation
             echo ""
-            echo "Generated branch name: $generated_branch_name"
+            colored_status "Generated branch name: $generated_branch_name" "info"
             if git switch -c "$generated_branch_name"; then
                 colored_status "Created and switched to branch '$generated_branch_name'" "info"
                 echo ""
             else
-                echo "❌ Failed to create branch. Exiting."
+                colored_status "Failed to create branch. Exiting." "error"
                 exit 1
             fi
         else
             # Interactive confirmation loop
             while true; do
                 echo ""
-                echo "Generated branch name: $generated_branch_name"
+                colored_status "Generated branch name: $generated_branch_name" "info"
                 echo ""
                 
                 branch_response=$(use_gum_choose "Create branch '$generated_branch_name'?" "Yes" "Edit" "Regenerate" "Quit")
@@ -313,7 +478,7 @@ $staged_diff"
                             colored_status "Created and switched to branch '$generated_branch_name'" "info"
                             echo ""
                         else
-                            echo "⏺ Failed to create branch. Exiting."
+                            colored_status "Failed to create branch. Exiting." "error"
                             exit 1
                         fi
                         break
@@ -350,7 +515,7 @@ $staged_diff"
                         
                         generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
-                            echo "Failed to regenerate branch name."
+                            colored_status "Failed to regenerate branch name." "error"
                         fi
                         ;;
                     "Quit" )
@@ -365,7 +530,7 @@ $staged_diff"
             done
         fi
     else
-        echo "Continuing on '$current_branch' branch."
+        colored_status "Continuing on '$current_branch' branch." "info"
         echo ""
     fi
 fi
@@ -420,7 +585,7 @@ if ! git diff --cached --quiet; then
 
             echo ""
             if [[ "$auto_push" == true ]]; then
-                echo "⏺ Auto-pushing changes..."
+                colored_status "Auto-pushing changes..." "info"
                 should_push=true
             else
                 if use_gum_confirm "Do you want to push the changes now?"; then
@@ -447,21 +612,34 @@ if ! git diff --cached --quiet; then
                         # Only suggest PR creation if not on main/master
                         if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
                             # Check if PR already exists for this branch
-                            if check_existing_pr "$current_branch"; then
-                                echo ""
-                            else
-                                # No existing PR, proceed with creation
-                                if [[ "$auto_pr" == true ]]; then
-                                    echo ""
-                                    echo "Creating pull request automatically..."
-                                    "${script_dir}/auto_pr.zsh" "$1"
-                                else
-                                    echo ""
-                                    if use_gum_confirm "Create a pull request?"; then
-                                        "${script_dir}/auto_pr.zsh" "$1"
+                            check_existing_pr "$current_branch"
+                            pr_check_result=$?
+                            
+                            case $pr_check_result in
+                                0|2)
+                                    # PR exists - offer to update since we just pushed new commits
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        colored_status "Updating existing pull request automatically..." "info"
+                                        update_existing_pr "$current_branch" "$1"
+                                    else
+                                        update_existing_pr "$current_branch" "$1"
                                     fi
-                                fi
-                            fi
+                                    ;;
+                                1)
+                                    # No existing PR, proceed with creation
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        colored_status "Creating pull request automatically..." "info"
+                                        "${script_dir}/auto_pr.zsh" "$1"
+                                    else
+                                        echo ""
+                                        if use_gum_confirm "Create a pull request?"; then
+                                            "${script_dir}/auto_pr.zsh" "$1"
+                                        fi
+                                    fi
+                                    ;;
+                            esac
                         fi
                     fi
                 else
@@ -473,7 +651,7 @@ if ! git diff --cached --quiet; then
             ;;
         1)
             # Generation failed
-            echo "Failed to generate commit message. Please commit manually."
+            colored_status "Failed to generate commit message. Please commit manually." "error"
             exit 1
             ;;
         2)
@@ -484,7 +662,7 @@ if ! git diff --cached --quiet; then
             else
                 colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
             fi
-            echo "You can manually stage and commit later if needed."
+            colored_status "You can manually stage and commit later if needed." "info"
             exit 0
             ;;
         *)
@@ -503,7 +681,7 @@ else
             # Re-run the script to proceed with commit message generation
             exec "$0" "$@" --skip-env-info
         else
-            echo "⏺ No changes to stage."
+            colored_status "No changes to stage." "error"
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
