@@ -101,26 +101,57 @@ use_gum_input() {
     fi
 }
 
-# Function to display colored status messages
+# Function to display colored status messages with optional markdown support
 colored_status() {
-    local message="$1"
-    local type="$2"  # "success", "error", "info", "cancel"
+    local message=""
+    local type=""
+    local use_markdown=true
     
-    if command -v gum &> /dev/null; then
-        case "$type" in
-            "success")
-                echo "$(gum style --foreground 2 "⏺") $message"
-                ;;
-            "error")
-                echo "$(gum style --foreground 1 "⏺") $message"
-                ;;
-            "info"|"cancel")
-                echo "$(gum style --foreground 5 "⏺") $message"
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --no-markdown)
+                use_markdown=false
+                shift
                 ;;
             *)
-                echo "⏺ $message"
+                if [[ -z "$message" ]]; then
+                    message="$1"
+                elif [[ -z "$type" ]]; then
+                    type="$1"
+                fi
+                shift
                 ;;
         esac
+    done
+    
+    # Default type if not specified
+    if [[ -z "$type" ]]; then
+        type="info"
+    fi
+    
+    if command -v gum &> /dev/null; then
+        local status_indicator=""
+        case "$type" in
+            "success")
+                status_indicator="$(gum style --foreground 2 "⏺")"
+                ;;
+            "error")
+                status_indicator="$(gum style --foreground 1 "⏺")"
+                ;;
+            "info"|"cancel")
+                status_indicator="$(gum style --foreground 5 "⏺")"
+                ;;
+            *)
+                status_indicator="⏺"
+                ;;
+        esac
+        
+        if [[ "$use_markdown" == true ]]; then
+            echo "$status_indicator $message" | gum format --no-strip-ansi
+        else
+            echo "$status_indicator $message"
+        fi
     else
         echo "⏺ $message"
     fi
