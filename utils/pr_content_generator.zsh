@@ -84,7 +84,7 @@ Instructions:
 - Create an updated body that extends the existing content with any new information from recent commits
 - Maintain consistency with the existing structure and tone
 - Include any new issue references found in recent commits
-- IMPORTANT: Always start your command with \"gh pr edit PR_NUMBER_PLACEHOLDER\" - never substitute a different number"
+- IMPORTANT: Always start your command with \"gh pr edit PR_NUMBER_PLACEHOLDER\" - never substitute a different number
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
