@@ -21,6 +21,13 @@ display_env_info() {
     local env_info_block="> **Current Working Environment:**"
     env_info_block+=$'\n> 🏗️  Repository: '"$repo_name"
     env_info_block+=$'\n> 🌿 Branch: '"$current_branch"
+    
+    # Add warning if on main/master branch
+    if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+        env_info_block+=$'\n>'
+        env_info_block+=$'\n> ⚠️  **Warning:** You'\''re currently on the '\'''"$current_branch"'\'' branch.'
+        env_info_block+=$'\n> It'\''s recommended to create a feature branch for your changes.'
+    fi
 
     # Display using gum format if available, otherwise fallback to echo
     if command -v gum &> /dev/null; then
