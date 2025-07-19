@@ -8,6 +8,10 @@ if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     gemini_context=$(load_gemini_context)
 fi
 
+# Load shared gum helper functions
+source "${script_dir}/gum/gum_helpers.zsh"
+
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -29,35 +33,10 @@ check_existing_pr() {
     fi
 }
 
-# Function to display repository information
-display_repository_info() {
-    local repo_url=$(git remote get-url origin 2>/dev/null)
-    local current_branch=$(git branch --show-current 2>/dev/null)
-    
-    if [ -n "$repo_url" ]; then
-        # Extract repository name from different URL formats
-        local repo_name
-        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-            repo_name="${match[1]}"
-        else
-            # Fallback: use the URL as is
-            repo_name="$repo_url"
-        fi
-        
-        echo "🏗️  Repository: $repo_name"
-    else
-        echo "🏗️  Repository: (unable to detect remote)"
-    fi
-    
-    if [ -n "$current_branch" ]; then
-        echo "🌿 Branch: $current_branch"
-    fi
-    
-    echo ""
-}
 
-# Display repository information
-display_repository_info
+# Load and display repository information using the reusable utility
+source "${script_dir}/gum/env_display.zsh"
+display_env_info
 
 # Get optional prompt argument
 optional_prompt="$1"
@@ -158,11 +137,10 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         echo "Generated PR create command:"
         echo "$pr_create_command"
         echo ""
-        echo "Create PR with this command? [Y/r/q] (yes / regenerate with feedback / quit)"
-        read -r response
+        response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
-            [Yy]* | "" )
+            "Yes" )
                 # Push current branch to remote
                 echo "Pushing current branch to remote..."
                 git push -u origin "$current_branch"
@@ -186,10 +164,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     
                     # Prompt to switch to main and pull latest changes
                     echo ""
-                    echo "Do you want to switch to $base_branch and pull latest changes? [Y/n]"
-                    read -r switch_response
-                    
-                    if [[ "$switch_response" =~ ^[Yy]$ || -z "$switch_response" ]]; then
+                    if use_gum_confirm "Do you want to switch to $base_branch and pull latest changes?"; then
                         echo "Switching to $base_branch and pulling latest changes..."
                         if git switch "$base_branch" && git pull; then
                             echo "Successfully updated $base_branch branch!"
@@ -207,22 +182,22 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 fi
                 break
                 ;;
-            [Rr]* )
-                echo "What specific feedback would you like to incorporate? (or press Enter to regenerate without feedback)"
-                read -r feedback
+            "Regenerate with feedback" )
+                feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
                 echo "Regenerating PR content..."
                 pr_content_raw=$(generate_pr_content "$feedback")
                 if [ $? -ne 0 ] || [ -z "$pr_content_raw" ]; then
                     echo "Failed to regenerate PR content. Please try again."
                 fi
                 ;;
-            [Qq]* )
+            "Quit" )
                 echo "PR creation cancelled. You can create it manually with:"
                 echo "$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
                 exit 0
                 ;;
             * )
-                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                echo "PR creation cancelled."
+                exit 0
                 ;;
         esac
     done

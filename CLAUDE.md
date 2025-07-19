@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This repository contains Zsh automation scripts that use the Gemini CLI to automate Git workflows and GitHub issue management. The scripts leverage AI to generate commit messages, pull request descriptions, and handle issue operations through natural language processing.
+This repository contains Zsh automation scripts that use the Gemini CLI to automate Git workflows and GitHub issue management. The scripts leverage AI to generate commit messages, pull request descriptions, and handle issue operations through natural language processing. The scripts feature enhanced UI with Charmbracelet Gum for improved user experience and visual presentation.
 
 ## Core Scripts
 
@@ -15,9 +15,19 @@ Automated commit message generation using Gemini CLI with feedback loops:
 - Analyzes staged changes and recent commit history
 - Generates conventional commit messages 
 - Interactive feedback mechanism for message refinement
-- Optional push to remote after commit
+- Enhanced UI with gum for better user experience
+- Colored status indicators and formatted quote blocks
+- Environment context display for user verification
+- Optional branch creation, pushing, and PR creation
+- Smart text wrapping for terminal-aware display
 
-Usage: `./auto_commit.zsh [optional_context]`
+Usage: `./auto_commit.zsh [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]`
+
+Options:
+- `-s, --stage`: Automatically stage all changes before generating commit
+- `-b, --branch`: Automatically create new branch without confirmation  
+- `-pr, --pr`: Automatically create pull request after successful commit
+- `-p, --push`: Automatically push changes after successful commit
 
 #### auto_pr.zsh  
 Pull request creation automation:
@@ -85,45 +95,24 @@ Required tools:
 - Git
 - Gemini CLI (`gemini` command)
 - GitHub CLI (`gh` command)
+- Charmbracelet Gum (`gum` command) - For enhanced UI and interactive prompts
 
-## Issue Priority Labels
+## UI Features
 
-This repository uses priority labels to provide visual indicators of issue urgency and guide work prioritization:
+### Gum Integration
+The scripts use Charmbracelet Gum for enhanced user experience:
+- **Interactive prompts**: Confirm dialogs, multiple choice selections, text input
+- **Formatted output**: Quote blocks, colored status indicators, styled text
+- **Graceful fallbacks**: Scripts work without gum, enhanced when available
+- **Color-coded status messages**: 
+  - 🟢 Green ⏺ for success (staged successfully, pushed successfully)
+  - 🔴 Red ⏺ for errors (failed to commit, failed to push)
+  - 🟣 Magenta ⏺ for info/cancellation (commit cancelled, push cancelled)
 
-### Priority Label System
-- **`priority:critical`** - 🔴 Critical priority (Red #FF0000)
-  - Urgent, blocking issues requiring immediate attention
-  - System outages, security vulnerabilities, or complete feature failures
-  
-- **`priority:high`** - 🟠 High priority (Orange #FF6600)
-  - Important, time-sensitive issues
-  - Significant feature enhancements, performance issues, or user experience problems
-  
-- **`priority:normal`** - 🔵 Normal priority (Blue #0099FF)
-  - Standard workflow priority
-  - Regular feature requests, minor improvements, or standard bug fixes
-  
-- **`priority:low`** - 🟢 Low priority (Green #66CC00)
-  - Nice-to-have, non-urgent issues
-  - Code cleanup, documentation updates, or minor enhancements
-
-### Usage Guidelines
-- **No priority label** implies normal priority (standard workflow)
-- Priority labels work seamlessly with the existing `auto_issue.zsh` script
-- Labels are automatically discovered and available for AI-assisted issue management
-- Use priority labels during issue creation or apply them during triage
-
-### Examples with auto_issue.zsh
-```bash
-# Create issue with priority label
-./auto_issue.zsh "create critical issue about login system down"
-
-# Add priority label to existing issue
-./auto_issue.zsh "add priority:high label to issue 42"
-
-# Create issue and let AI determine priority
-./auto_issue.zsh "create issue about slow page loading"
-```
+### Smart Terminal Features
+- **Environment context display**: Shows repository and branch at script start
+- **Terminal-aware text wrapping**: Quote blocks respect `$COLUMNS` for proper formatting
+- **Responsive UI**: Adapts to terminal width to prevent broken quote block markers
 
 ## Common Commands
 
@@ -157,6 +146,12 @@ git submodule update --remote  # For updates
 3. Create new operation handler function following existing patterns
 4. Update `dispatch_operation()` with new case
 5. Update help documentation
+
+### Gum UI Patterns
+- Use `colored_status()` function for consistent status messaging with color codes
+- Use `wrap_quote_block_text()` for terminal-aware text wrapping in quote blocks
+- Always provide fallbacks when gum is not available
+- Follow the color scheme: green for success, red for errors, blue for info/cancel
 
 ### Gemini Response Handling
 - All scripts use `utils/gemini_clean.zsh` utility to clean auth-related output from responses

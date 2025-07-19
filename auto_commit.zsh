@@ -5,6 +5,7 @@ auto_stage=false
 auto_pr=false
 auto_branch=false
 auto_push=false
+skip_env_info=false
 
 # Usage function
 usage() {
@@ -44,6 +45,10 @@ while [[ $# -gt 0 ]]; do
             usage
             exit 0
             ;;
+        --skip-env-info)
+            skip_env_info=true
+            shift
+            ;;
         -*)
             echo "Unknown option: $1"
             usage
@@ -63,6 +68,9 @@ if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     source "${script_dir}/utils/gemini_context.zsh"
     gemini_context=$(load_gemini_context)
 fi
+
+# Load shared gum helper functions
+source "${script_dir}/gum/gum_helpers.zsh"
 
 # Function to get repository context for LLM
 get_repository_context() {
@@ -93,6 +101,7 @@ Current branch: $current_branch"
     echo "$context"
 }
 
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -104,42 +113,56 @@ check_existing_pr() {
         local pr_title=$(echo "$pr_info" | jq -r '.[0].title')
         local pr_url=$(echo "$pr_info" | jq -r '.[0].url')
         
-        echo "ℹ️  Pull request #${pr_number} already exists for branch '$current_branch'"
-        echo "   Title: \"$pr_title\""
-        echo "   View: gh pr view $pr_number --web"
-        echo "   URL: $pr_url"
+        colored_status "Pull request #${pr_number} already exists for branch '$current_branch'" "info"
+        echo "  ⎿ Title: \"$pr_title\""
+        echo "     View: gh pr view $pr_number --web"
+        echo "     URL: $pr_url"
         return 0  # PR exists
     else
         return 1  # No PR exists
     fi
 }
 
-# Function to display repository information
-display_repository_info() {
-    local repo_url=$(git remote get-url origin 2>/dev/null)
-    local current_branch=$(git branch --show-current 2>/dev/null)
+# Function to check for unpushed commits
+check_unpushed_commits() {
+    local current_branch=$(git branch --show-current)
     
-    if [ -n "$repo_url" ]; then
-        # Extract repository name from different URL formats
-        local repo_name
-        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-            repo_name="${match[1]}"
-        else
-            # Fallback: use the URL as is
-            repo_name="$repo_url"
-        fi
+    # Check if upstream branch is set
+    if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+        # No upstream branch set
+        return 1
+    fi
+    
+    # Count unpushed commits
+    local unpushed_count=$(git rev-list @{u}..HEAD --count 2>/dev/null)
+    
+    if [ $? -ne 0 ] || [ -z "$unpushed_count" ]; then
+        # Error getting unpushed commits (possibly no remote)
+        return 1
+    fi
+    
+    if [ "$unpushed_count" -gt 0 ]; then
+        # Display unpushed commits info
+        colored_status "Found $unpushed_count unpushed commit(s) on branch '$current_branch'." "info"
         
-        echo "🏗️  Repository: $repo_name"
+        # Show recent unpushed commits (first line only)
+        echo "Recent unpushed commits:"
+        git log @{u}..HEAD --no-merges -5 --pretty=format:"  • %h %f" | sed 's/-/ /g'
+        echo ""
+        
+        return 0  # Has unpushed commits
     else
-        echo "🏗️  Repository: (unable to detect remote)"
+        return 1  # No unpushed commits
     fi
-    
-    if [ -n "$current_branch" ]; then
-        echo "🌿 Branch: $current_branch"
-    fi
-    
-    echo ""
 }
+
+
+# Display environment information for user confirmation at start (unless skipped)
+if [ "$skip_env_info" != true ]; then
+    # Use the reusable environment display utility
+    source "${script_dir}/gum/env_display.zsh"
+    display_env_info
+fi
 
 # Check if we're on main/master branch and handle staging/branch creation
 current_branch=$(git branch --show-current)
@@ -153,62 +176,58 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     if ! git diff --cached --quiet; then
         # Already have staged changes
         staged_diff=$(git diff --cached)
-        echo "✅ Found staged changes for branch name generation."
+        colored_status "Found staged changes for branch name generation." "success"
     elif ! git diff --quiet; then
         # Have unstaged changes, auto-stage if flag is set or ask user
         if [[ "$auto_stage" == true ]]; then
-            echo "Auto-staging all changes..."
+            echo ""
+            colored_status "Auto-staging all changes..." "info"
             git add -A
             if ! git diff --cached --quiet; then
                 staged_diff=$(git diff --cached)
-                echo "✅ Changes staged successfully."
+                colored_status "Changes staged successfully." "success"
             else
-                echo "❌ No changes to stage."
+                colored_status "No changes to stage." "error"
                 exit 1
             fi
         else
-            echo "Found unstaged changes. Stage all changes? [Y/n]"
-            read -r stage_response
-            if [[ "$stage_response" =~ ^[Yy]$ || -z "$stage_response" ]]; then
+            if use_gum_confirm "Found unstaged changes. Stage all changes?"; then
                 git add .
                 if ! git diff --cached --quiet; then
                     staged_diff=$(git diff --cached)
-                    echo "✅ Changes staged successfully."
+                    colored_status "Changes staged successfully." "success"
                 else
-                    echo "❌ No changes to stage."
+                    colored_status "No changes to stage." "error"
                     exit 1
                 fi
             else
                 echo "Cannot generate branch name without staged changes."
                 echo "Either stage changes first or create branch manually."
-                echo "❌ Auto-commit cancelled. Stage changes manually and try again."
+                colored_status "Auto-commit cancelled. Stage changes manually and try again." "cancel"
                 exit 0
             fi
         fi
     else
         echo "No changes found (staged or unstaged)."
-        echo "Create empty branch anyway? [Y/n]"
-        read -r empty_branch_response
-        if [[ "$empty_branch_response" =~ ^[Yy]$ || -z "$empty_branch_response" ]]; then
-            echo "Enter branch name:"
-            read -r manual_branch_name
+        if use_gum_confirm "Create empty branch anyway?"; then
+            manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
                 if git switch -c "$manual_branch_name"; then
-                    echo "✅ Created and switched to branch '$manual_branch_name'"
+                    echo "⏺ Created and switched to branch '$manual_branch_name'"
                     echo ""
                     exit 0
                 else
-                    echo "❌ Failed to create branch. Exiting."
+                    echo "⏺ Failed to create branch. Exiting."
                     exit 1
                 fi
             else
                 echo "No branch name provided. Staying on '$current_branch'."
-                echo "❌ Auto-commit cancelled. No branch name provided."
+                colored_status "Auto-commit cancelled. No branch name provided." "cancel"
                 exit 0
             fi
         else
             echo "Staying on '$current_branch' branch."
-            echo "❌ Auto-commit cancelled. Create changes and try again."
+            colored_status "Auto-commit cancelled. Create changes and try again." "cancel"
             exit 0
         fi
     fi
@@ -218,13 +237,16 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     
     if [[ "$auto_branch" == true ]]; then
         echo "Auto-creating new branch..."
-        create_branch_response="y"
+        create_branch=true
     else
-        echo "Create a new branch? [Y/n]"
-        read -r create_branch_response
+        if use_gum_confirm "Create a new branch?"; then
+            create_branch=true
+        else
+            create_branch=false
+        fi
     fi
     
-    if [[ "$create_branch_response" =~ ^[Yy]$ || -z "$create_branch_response" ]]; then
+    if [[ "$create_branch" == true ]]; then
         # Generate branch name based on staged changes
         echo "Generating branch name based on staged changes..."
         
@@ -269,7 +291,7 @@ $staged_diff"
             echo "Generated branch name: $generated_branch_name"
             echo ""
             if git switch -c "$generated_branch_name"; then
-                echo "✅ Created and switched to branch '$generated_branch_name'"
+                echo "⏺ Created and switched to branch '$generated_branch_name'"
                 echo ""
             else
                 echo "❌ Failed to create branch. Exiting."
@@ -281,28 +303,27 @@ $staged_diff"
                 echo ""
                 echo "Generated branch name: $generated_branch_name"
                 echo ""
-                echo "Create branch '$generated_branch_name'? [Y/e/r/q] (YES / edit / regenerate / quit)"
-                read -r branch_response
+                
+                branch_response=$(use_gum_choose "Create branch '$generated_branch_name'?" "Yes" "Edit" "Regenerate" "Quit")
                 
                 case "$branch_response" in
-                    [Yy]* | "" )
+                    "Yes" )
                         if git switch -c "$generated_branch_name"; then
-                            echo "✅ Created and switched to branch '$generated_branch_name'"
+                            echo "⏺ Created and switched to branch '$generated_branch_name'"
                             echo ""
                         else
-                            echo "❌ Failed to create branch. Exiting."
+                            echo "⏺ Failed to create branch. Exiting."
                             exit 1
                         fi
                         break
                         ;;
-                    [Ee]* )
-                        echo "Enter new branch name:"
-                        read -r manual_branch_name
+                    "Edit" )
+                        manual_branch_name=$(use_gum_input "Enter new branch name:" "$generated_branch_name")
                         if [ -n "$manual_branch_name" ]; then
                             generated_branch_name="$manual_branch_name"
                         fi
                         ;;
-                    [Rr]* )
+                    "Regenerate" )
                         echo "Regenerating branch name..."
                         # Rebuild prompt for regeneration
                         branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
@@ -331,12 +352,13 @@ $staged_diff"
                             echo "Failed to regenerate branch name."
                         fi
                         ;;
-                    [Qq]* )
-                        echo "Branch creation cancelled. Staying on '$current_branch'."
+                    "Quit" )
+                        colored_status "Branch creation cancelled. Staying on '$current_branch'." "cancel"
                         exit 0
                         ;;
-                    * )
-                        echo "Invalid option. Please choose 'y', 'e', 'r', or 'q'."
+                    "Cancelled"|* )
+                        colored_status "Branch creation cancelled. Staying on '$current_branch'." "cancel"
+                        exit 0
                         ;;
                 esac
             done
@@ -349,8 +371,6 @@ fi
 
 # Check if there are staged changes
 if ! git diff --cached --quiet; then
-    # Display repository information
-    display_repository_info
     
     # Get the diff for context
     staged_diff=$(git diff --cached)
@@ -393,8 +413,20 @@ if ! git diff --cached --quiet; then
         full_prompt+="Focus on what changed and why, considering the recent development context. IMPORTANT: Start with the commit title on the first line immediately - do NOT wrap the commit message in code blocks (\``` marks). Use a bullet list under the title with dashes (-) for bullet points:"
 
         if [ "$should_generate" = true ]; then
-            echo "Staged files to be shown to Gemini:"
-            git diff --name-only --cached
+            # Create the staged files list with markdown formatting
+            staged_files=$(git diff --name-only --cached)
+            staged_files_block="> **Staged files to be shown to Gemini:**"
+            while IFS= read -r file; do
+                staged_files_block+=$'\n> '"$file"
+            done <<< "$staged_files"
+            
+            # Display using gum format if available, otherwise fallback to echo
+            if command -v gum &> /dev/null; then
+                echo "$staged_files_block" | gum format
+                echo "> \n" | gum format
+            else
+                echo "$staged_files_block"
+            fi
 
             # Generate the raw commit message from Gemini
             gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
@@ -415,39 +447,100 @@ if ! git diff --cached --quiet; then
             should_generate=false
         fi
 
-        echo "Generated commit message:\n$final_commit_msg"
-        echo ""
-        echo "Accept and commit? [Y/a/r/q] (yes / append / regenerate / quit)"
-        read -r response
+        # Display generated commit message in quote block format
+        commit_msg_header="> **Generated commit message:**"
+        commit_msg_content=$(wrap_quote_block_text "$final_commit_msg")
+        commit_msg_block="$commit_msg_header"$'\n'"$commit_msg_content"
+        
+        # Display using gum format if available, otherwise fallback to echo
+        if command -v gum &> /dev/null; then
+            echo "$commit_msg_block" | gum format
+            echo "> \\n" | gum format
+        else
+            echo "Generated commit message:"
+            echo "$final_commit_msg"
+            echo ""
+        fi
+        
+        response=$(use_gum_choose "Accept and commit?" "Yes" "Append text" "Regenerate" "Quit")
 
         case "$response" in
-            [Yy]* | "" )
-                git commit -m "$final_commit_msg"
-                echo "Changes committed successfully!"
+            "Yes" )
+                # Capture git commit output
+                commit_output=$(git commit -m "$final_commit_msg" 2>&1)
+                commit_exit_code=$?
+                
+                if [ $commit_exit_code -eq 0 ]; then
+                    # Display minimalistic commit summary
+                    current_branch=$(git branch --show-current)
+                    commit_title=$(echo "$final_commit_msg" | head -n 1)
+                    
+                    # Extract commit hash from git output
+                    commit_hash=$(echo "$commit_output" | grep -oE '\[[A-Fa-f0-9]{7,}\]' | tr -d '[]' | head -n 1)
+                    if [ -z "$commit_hash" ]; then
+                        # Fallback: extract any 7+ character hex string
+                        commit_hash=$(echo "$commit_output" | grep -oE '[A-Fa-f0-9]{7,}' | head -n 1)
+                    fi
+                    
+                    # Extract file statistics from git output
+                    file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
+                    
+                    colored_status "Commit successful:" "success"
+                    echo "  ⎿ [$current_branch $commit_hash] $file_stats"
+                    echo "     $commit_title"
+                else
+                    colored_status "Failed to commit changes." "error"
+                    break
+                fi
 
                 echo ""
                 if [[ "$auto_push" == true ]]; then
-                    echo "Auto-pushing changes..."
-                    push_response="y"
+                    echo "⏺ Auto-pushing changes..."
+                    should_push=true
                 else
-                    echo "Do you want to push the changes now? [Y/n]"
-                    read -r push_response
+                    if use_gum_confirm "Do you want to push the changes now?"; then
+                        should_push=true
+                    else
+                        should_push=false
+                    fi
                 fi
 
-                if [[ "$push_response" =~ ^[Yy]$ || -z "$push_response" ]]; then
+                if [[ "$should_push" == true ]]; then
                     current_branch=$(git branch --show-current)
                     # Check if upstream branch is set
+                    local push_output
+                    local push_exit_code
+                    local push_command
                     if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
                         # Upstream is set, a simple push is enough
-                        git push
+                        push_command="git push"
+                        push_output=$(git push 2>&1)
+                        push_exit_code=$?
                     else
                         # Upstream is not set, so we need to publish the branch
                         echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                        git push --set-upstream origin "$current_branch"
+                        push_command="git push --set-upstream origin \"$current_branch\""
+                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                        push_exit_code=$?
                     fi
 
-                    if [ $? -eq 0 ]; then
-                        echo "Changes pushed successfully!"
+                    # Display clean push output
+                    if [ -n "$push_output" ]; then
+                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                        if [ -n "$branch_info" ]; then
+                            colored_status "Push successful:" "success"
+                            echo "  ⎿ $current_branch"
+                            echo "    $branch_info"
+                        else
+                            colored_status "Push completed:" "success"
+                            echo "  ⎿ $push_command"
+                        fi
+                    fi
+
+                    if [ $push_exit_code -eq 0 ]; then
+                        # Display success message
+                        colored_status "Changes pushed successfully!" "success"
                         
                         # Check for auto_pr.zsh and handle PR creation
                         script_dir="${0:A:h}"
@@ -468,9 +561,7 @@ if ! git diff --cached --quiet; then
                                         "${script_dir}/auto_pr.zsh" "$1"
                                     else
                                         echo ""
-                                        echo "Create a pull request? [Y/n]"
-                                        read -r pr_response
-                                        if [[ "$pr_response" =~ ^[Yy]$ || -z "$pr_response" ]]; then
+                                        if use_gum_confirm "Create a pull request?"; then
                                             "${script_dir}/auto_pr.zsh" "$1"
                                         fi
                                     fi
@@ -478,16 +569,15 @@ if ! git diff --cached --quiet; then
                             fi
                         fi
                     else
-                        echo "Failed to push changes."
+                        colored_status "Failed to push changes." "error"
                     fi
                 else
-                    echo "Push cancelled. You can push manually later with 'git push'."
+                    colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
                 fi
                 break
                 ;;
-            [Aa]* )
-                echo "Enter text to append:"
-                read -r append_text
+            "Append text" )
+                append_text=$(use_gum_input "Enter text to append:" "Additional details here")
                 if [ -n "$append_text" ]; then
                     # Append to the raw message (before attribution)
                     last_commit_msg="$last_commit_msg"$'\n\n'"$append_text"
@@ -500,9 +590,8 @@ if ! git diff --cached --quiet; then
                 fi
                 continue
                 ;;
-            [Rr]* )
-                echo "Please provide feedback:"
-                read -r feedback_input
+            "Regenerate" )
+                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
                 if [ -n "$feedback_input" ]; then
                     user_feedback+="- $feedback_input\n"
                 fi
@@ -510,40 +599,203 @@ if ! git diff --cached --quiet; then
                 should_generate=true
                 continue
                 ;;
-            [Qq]* )
-                echo "Commit cancelled. You can commit manually with:"
-                echo "git commit -m \"$final_commit_msg\""
+            "Quit" )
+                # Unstage all staged changes before exiting
+                if git reset HEAD >/dev/null 2>&1; then
+                    colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
+                else
+                    colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
+                fi
+                echo "You can manually stage and commit later if needed."
                 break
                 ;;
-            * )
-                echo "Invalid option. Please choose 'y', 'a', 'r', or 'q'."
+            "Cancelled"|* )
+                # Unstage all staged changes before exiting
+                if git reset HEAD >/dev/null 2>&1; then
+                    colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
+                else
+                    colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
+                fi
+                echo "You can manually stage and commit later if needed."
+                break
                 ;;
         esac
     done
 else
     if [[ "$auto_stage" == true ]]; then
-        echo "No staged changes found. Auto-staging all changes..."
+        colored_status "No staged changes found." "info"
+        colored_status "Auto-staging all changes..." "info"
         git add -A
         if ! git diff --cached --quiet; then
-            echo "✅ All changes staged successfully."
+            colored_status "All changes staged successfully." "success"
             # Re-run the script to proceed with commit message generation
-            exec "$0" "$@"
+            exec "$0" "$@" --skip-env-info
         else
-            echo "❌ No changes to stage."
+            echo "⏺ No changes to stage."
+            
+            # Check for unpushed commits before exiting
+            if check_unpushed_commits; then
+                if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                    current_branch=$(git branch --show-current)
+                    # Check if upstream branch is set
+                    local push_output
+                    local push_exit_code
+                    local push_command
+                    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                        # Upstream is set, a simple push is enough
+                        push_command="git push"
+                        push_output=$(git push 2>&1)
+                        push_exit_code=$?
+                    else
+                        # Upstream is not set, so we need to publish the branch
+                        echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                        push_command="git push --set-upstream origin \"$current_branch\""
+                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                        push_exit_code=$?
+                    fi
+
+                    # Display clean push output
+                    if [ -n "$push_output" ]; then
+                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                        if [ -n "$branch_info" ]; then
+                            colored_status "Push successful:" "success"
+                            echo "  ⎿ $current_branch"
+                            echo "    $branch_info"
+                        else
+                            colored_status "Push completed:" "success"
+                            echo "  ⎿ $push_command"
+                        fi
+                    fi
+
+                    if [ $push_exit_code -eq 0 ]; then
+                        # Display success message
+                        colored_status "Changes pushed successfully!" "success"
+                        exit 0
+                    else
+                        colored_status "Failed to push changes." "error"
+                        exit 1
+                    fi
+                else
+                    colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
+                    exit 0
+                fi
+            fi
+            
             exit 1
         fi
     else
-        echo "No staged changes found."
-        echo "Do you want to stage all changes? [Y/n]"
-        read -r stage_response
+        colored_status "No staged changes found." "info"
+        
+        # First check if there are any unstaged changes
+        if ! git diff --quiet; then
+            # Has unstaged changes - offer to stage them
+            if use_gum_confirm "Do you want to stage all changes?"; then
+                git add .
+                colored_status "All changes staged." "success"
+                # Re-run the script to proceed with commit message generation
+                exec "$0" "$@" --skip-env-info
+            else
+                colored_status "No changes staged. Commit cancelled." "cancel"
+                
+                # Check for unpushed commits before exiting
+                if check_unpushed_commits; then
+                    if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                        current_branch=$(git branch --show-current)
+                        # Check if upstream branch is set
+                        local push_output
+                        local push_exit_code
+                        local push_command
+                        if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                            # Upstream is set, a simple push is enough
+                            push_command="git push"
+                            push_output=$(git push 2>&1)
+                            push_exit_code=$?
+                        else
+                            # Upstream is not set, so we need to publish the branch
+                            echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                            push_command="git push --set-upstream origin \"$current_branch\""
+                            push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                            push_exit_code=$?
+                        fi
 
-        if [[ "$stage_response" =~ ^[Yy]$ || -z "$stage_response" ]]; then
-            git add .
-            echo "All changes staged."
-            # Re-run the script to proceed with commit message generation
-            exec "$0" "$@"
+                        # Display clean push output
+                        if [ -n "$push_output" ]; then
+                            # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                            branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                            if [ -n "$branch_info" ]; then
+                                colored_status "Push successful:" "success"
+                                echo "  ⎿ $current_branch"
+                                echo "    $branch_info"
+                            else
+                                colored_status "Push completed:" "success"
+                                echo "  ⎿ $push_command"
+                            fi
+                        fi
+
+                        if [ $push_exit_code -eq 0 ]; then
+                            # Display success message
+                            colored_status "Changes pushed successfully!" "success"
+                        else
+                            colored_status "Failed to push changes." "error"
+                        fi
+                    else
+                        colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
+                    fi
+                fi
+                
+                exit 0
+            fi
         else
-            echo "No changes staged. Commit cancelled."
+            # No unstaged changes either - go directly to unpushed commits check
+            colored_status "No unstaged changes found either." "info"
+            
+            # Check for unpushed commits before exiting
+            if check_unpushed_commits; then
+                if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                    current_branch=$(git branch --show-current)
+                    # Check if upstream branch is set
+                    local push_output
+                    local push_exit_code
+                    local push_command
+                    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                        # Upstream is set, a simple push is enough
+                        push_command="git push"
+                        push_output=$(git push 2>&1)
+                        push_exit_code=$?
+                    else
+                        # Upstream is not set, so we need to publish the branch
+                        echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                        push_command="git push --set-upstream origin \"$current_branch\""
+                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                        push_exit_code=$?
+                    fi
+
+                    # Display clean push output
+                    if [ -n "$push_output" ]; then
+                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\.*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                        if [ -n "$branch_info" ]; then
+                            colored_status "Push successful:" "success"
+                            echo "  ⎿ $current_branch"
+                            echo "    $branch_info"
+                        else
+                            colored_status "Push completed:" "success"
+                            echo "  ⎿ $push_command"
+                        fi
+                    fi
+
+                    if [ $push_exit_code -eq 0 ]; then
+                        # Display success message
+                        colored_status "Changes pushed successfully!" "success"
+                    else
+                        colored_status "Failed to push changes." "error"
+                    fi
+                else
+                    colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
+                fi
+            fi
+            
             exit 0
         fi
     fi

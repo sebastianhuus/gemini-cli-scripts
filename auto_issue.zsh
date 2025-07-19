@@ -14,6 +14,9 @@ if [ -f "$(get_utils_path)/gemini_context.zsh" ]; then
     gemini_context=$(load_gemini_context)
 fi
 
+# Load shared gum helper functions
+source "${script_dir}/gum/gum_helpers.zsh"
+
 # GitHub Issue Natural Language Assistant with LLM Enhancement
 # 
 # Usage:
@@ -96,32 +99,9 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Function to display repository information
-display_repository_info() {
-    local repo_url=$(git remote get-url origin 2>/dev/null)
-    local current_branch=$(git branch --show-current 2>/dev/null)
-    
-    if [ -n "$repo_url" ]; then
-        # Extract repository name from different URL formats
-        local repo_name
-        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-            repo_name="${match[1]}"
-        else
-            # Fallback: use the URL as is
-            repo_name="$repo_url"
-        fi
-        
-        echo "🏗️  Repository: $repo_name"
-    else
-        echo "🏗️  Repository: (unable to detect remote)"
-    fi
-    
-    if [ -n "$current_branch" ]; then
-        echo "🌿 Branch: $current_branch"
-    fi
-    
-    echo ""
-}
+
+# Load reusable environment display utility
+source "${script_dir}/gum/env_display.zsh"
 
 # Function to validate that quotes are properly closed in a string
 validate_quotes() {
@@ -234,22 +214,22 @@ Please incorporate this feedback to improve the edit commands."
             echo "⚠️  Validation failed: Generated commands contain unclosed quotes."
             echo "Please regenerate the commands to fix this issue."
             echo ""
-            echo "Regenerate commands? [Y/q] (yes / quit)"
-            read -r validation_response
             
-            case "$validation_response" in
-                [Yy]* | "" )
+            validation_choice=$(use_gum_choose "What would you like to do?" "Regenerate commands" "Quit")
+            
+            case "$validation_choice" in
+                "Regenerate commands" )
                     echo "Regenerating edit commands..."
                     user_feedback+="- Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands.\n"
                     should_generate=true
                     continue
                     ;;
-                [Qq]* )
+                "Quit" )
                     echo "Edit cancelled."
                     return 1
                     ;;
                 * )
-                    echo "Invalid option. Edit cancelled."
+                    echo "Edit cancelled."
                     return 1
                     ;;
             esac
@@ -260,11 +240,10 @@ Please incorporate this feedback to improve the edit commands."
         echo "$edit_commands"
         echo "------------------------"
         echo ""
-        echo "Execute these commands? [Y/r/q] (yes / regenerate / quit)"
-        read -r response
+        response=$(use_gum_choose "Execute these commands?" "Yes" "Regenerate" "Quit")
         
         case "$response" in
-            [Yy]* | "" )
+            "Yes" )
                 echo "Executing edit commands..."
                 # Execute the entire command block, escaping backticks like in create_issue_with_llm
                 echo "Running: $edit_commands"
@@ -278,9 +257,8 @@ Please incorporate this feedback to improve the edit commands."
                 echo "Issue edit completed!"
                 return 0
                 ;;
-            [Rr]* )
-                echo "Please provide feedback:"
-                read -r feedback_input
+            "Regenerate" )
+                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
                 if [ -n "$feedback_input" ]; then
                     user_feedback+="- $feedback_input\n"
                 fi
@@ -288,12 +266,13 @@ Please incorporate this feedback to improve the edit commands."
                 should_generate=true
                 continue
                 ;;
-            [Qq]* )
+            "Quit" )
                 echo "Edit cancelled."
                 return 1
                 ;;
             * )
-                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                echo "Edit cancelled."
+                return 1
                 ;;
         esac
     done
@@ -419,13 +398,11 @@ confirm_operation() {
         echo ""
     fi
     
-    echo "Proceed with this operation? [Y/n]"
-    read -r response
-    
-    case "$response" in
-        [Yy]* | "" ) return 0 ;;
-        * ) return 1 ;;
-    esac
+    if use_gum_confirm "Proceed with this operation?"; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # Function to add comment to GitHub issue
@@ -548,11 +525,10 @@ Please incorporate this feedback to improve the comment."
         echo "$final_comment"
         echo "=================="
         echo ""
-        echo "Post this comment? [Y/r/q] (yes / regenerate / quit)"
-        read -r response
+        response=$(use_gum_choose "Post this comment?" "Yes" "Regenerate" "Quit")
         
         case "$response" in
-            [Yy]* | "" )
+            "Yes" )
                 echo "Posting comment to issue #$issue_number..."
                 gh issue comment "$issue_number" --body "$final_comment"
                 if [ $? -eq 0 ]; then
@@ -563,9 +539,8 @@ Please incorporate this feedback to improve the comment."
                     return 1
                 fi
                 ;;
-            [Rr]* )
-                echo "Please provide feedback:"
-                read -r feedback_input
+            "Regenerate" )
+                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
                 if [ -n "$feedback_input" ]; then
                     user_feedback+="- $feedback_input\n"
                 fi
@@ -573,12 +548,13 @@ Please incorporate this feedback to improve the comment."
                 should_generate=true
                 continue
                 ;;
-            [Qq]* )
+            "Quit" )
                 echo "Comment cancelled."
                 return 1
                 ;;
             * )
-                echo "Invalid option. Please choose 'y', 'r', or 'q'."
+                echo "Comment cancelled."
+                return 1
                 ;;
         esac
     done
@@ -741,11 +717,10 @@ Make sure to include appropriate labels and assignees based on the issue type an
     echo "$enhanced_command"
     echo "------------------------"
     echo ""
-    echo "Execute this command? [Y/r/q] (yes / regenerate with feedback / quit)"
-    read -r response
+    response=$(use_gum_choose "Execute this command?" "Yes" "Regenerate with feedback" "Quit")
     
     case "$response" in
-        [Yy]* | "" )
+        "Yes" )
             echo "Creating issue on GitHub..."
             # Escape backticks in the command to prevent shell interpretation
             escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
@@ -762,22 +737,21 @@ Make sure to include appropriate labels and assignees based on the issue type an
                 return 1
             fi
             ;;
-        [Rr]* )
-            echo "Please provide feedback:"
-            read -r feedback_input
+        "Regenerate with feedback" )
+            feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
             if [ -n "$feedback_input" ]; then
                 create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "$feedback_input" "$create_command"
             else
                 create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "" "$create_command"
             fi
             ;;
-        [Qq]* )
+        "Quit" )
             echo "Issue creation cancelled."
             return 1
             ;;
         * )
-            echo "Invalid option. Please choose 'y', 'r', or 'q'."
-            create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "$user_feedback" "$create_command"
+            echo "Issue creation cancelled."
+            return 1
             ;;
     esac
 }
@@ -889,7 +863,7 @@ handle_natural_language() {
     fi
     
     # Display repository information
-    display_repository_info
+    display_env_info
     
     echo "Processing natural language request..."
     
