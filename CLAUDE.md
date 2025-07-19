@@ -107,7 +107,7 @@ The scripts use Charmbracelet Gum for enhanced user experience:
 - **Color-coded status messages**: 
   - 🟢 Green ⏺ for success (staged successfully, pushed successfully)
   - 🔴 Red ⏺ for errors (failed to commit, failed to push)
-  - 🔵 Blue ⏺ for info/cancellation (commit cancelled, push cancelled)
+  - 🟣 Magenta ⏺ for info/cancellation (commit cancelled, push cancelled)
 
 ### Smart Terminal Features
 - **Environment context display**: Shows repository and branch at script start

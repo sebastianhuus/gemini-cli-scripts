@@ -692,11 +692,7 @@ else
             # Has unstaged changes - offer to stage them
             if use_gum_confirm "Do you want to stage all changes?"; then
                 git add .
-                if command -v gum &> /dev/null; then
-                    echo "**$(gum style --foreground 2 "⏺") All changes staged.**" | gum format
-                else
-                    colored_status "All changes staged." "success"
-                fi
+                colored_status "All changes staged." "success"
                 # Re-run the script to proceed with commit message generation
                 exec "$0" "$@" --skip-env-info
             else

@@ -42,15 +42,15 @@ gum style --foreground="blue" "text"     # Shows as black/default
 gum style --foreground 2 "text"          # ANSI color numbers (1-255)
 gum style --foreground "#00FF00" "text"  # Or hex codes
 gum style --foreground 1 "text"          # Red
-gum style --foreground 4 "text"          # Blue
+gum style --foreground 5 "text"          # Magenta
 ```
 
 ### Common ANSI Color Numbers
 - **1** = Red (errors, failures)
 - **2** = Green (success, completion) 
-- **4** = Blue (info, cancellation)
+- **5** = Magenta (info, cancellation)
 - **3** = Yellow (warnings)
-- **5** = Magenta
+- **4** = Blue
 - **6** = Cyan
 
 ## Practical Integration Patterns
@@ -154,7 +154,7 @@ colored_status() {
                 echo "$(gum style --foreground 1 "⏺") $message"
                 ;;
             "info"|"cancel")
-                echo "$(gum style --foreground 4 "⏺") $message"
+                echo "$(gum style --foreground 5 "⏺") $message"
                 ;;
             *)
                 echo "⏺ $message"
@@ -305,7 +305,7 @@ test_gum_colors() {
         echo "Testing gum colors:"
         echo "$(gum style --foreground 1 "Red text (error)")"
         echo "$(gum style --foreground 2 "Green text (success)")"
-        echo "$(gum style --foreground 4 "Blue text (info)")"
+        echo "$(gum style --foreground 5 "Magenta text (info)")"
         echo "**Bold text**" | gum format
     else
         echo "Gum not available"
