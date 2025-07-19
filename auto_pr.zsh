@@ -9,7 +9,12 @@ if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
 fi
 
 # Load shared gum helper functions
-source "${script_dir}/gum/gum_helpers.zsh"
+if [ -f "${script_dir}/gum/gum_helpers.zsh" ]; then
+    source "${script_dir}/gum/gum_helpers.zsh"
+else
+    echo "Error: Required gum helper functions not found at ${script_dir}/gum/gum_helpers.zsh"
+    exit 1
+fi
 
 
 # Function to check for existing pull request
