@@ -24,6 +24,14 @@ else
     exit 1
 fi
 
+# Load PR content generator utility
+if [ -f "${script_dir}/utils/pr_content_generator.zsh" ]; then
+    source "${script_dir}/utils/pr_content_generator.zsh"
+else
+    echo "Error: Required PR content generator utility not found at ${script_dir}/utils/pr_content_generator.zsh"
+    exit 1
+fi
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -96,49 +104,9 @@ echo ""
 commit_details=$(git log $base_branch..$current_branch --pretty=format:"%h - %s%n%b" --no-merges)
 
 
-# Function to generate PR content using Gemini
-generate_pr_content() {
-    local feedback_prompt="$1"
-    
-    local base_prompt="${optional_prompt} Based on the following git commit history, generate a complete gh pr create command. Ensure to include any relevant issue references (e.g., 'resolves #123', 'closes #456', 'fixes #789', 'connects to #101', 'relates to #202', 'contributes to #303') found in the commit messages.
-
-Generate a complete gh pr create command that includes:
-1. --title \"[concise, descriptive title]\"
-2. --body \"[detailed description with bullet points of changes and issue references]\"
-3. --assignee \"@me\" (to assign the PR to yourself)
-
-Format the output as the complete gh pr create command, ready to execute.
-
-Example format:
-gh pr create --title \"Fix: Resolve login timeout issue\" --body \"- Fixed session timeout handling...\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\" --assignee \"@me\"
-
-Always end the --body content with the attribution line:
-🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
-    
-    if [ -n "$gemini_context" ]; then
-        base_prompt+="
-
-Repository context from GEMINI.md:
-$gemini_context"
-    fi
-    
-    base_prompt+="
-
-Commit history:
-$commit_details"
-    
-    # Combine base prompt with feedback if provided
-    local full_prompt="$base_prompt"
-    if [ -n "$feedback_prompt" ]; then
-        full_prompt="$base_prompt\n\nAdditional feedback to consider: $feedback_prompt"
-    fi
-    
-    # Generate raw PR content from Gemini
-    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
-}
 
 # Generate initial PR content
-pr_content_raw=$(generate_pr_content)
+pr_content_raw=$(generate_pr_content "$optional_prompt" "$commit_details" "$gemini_context" "$script_dir")
 
 
 if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
@@ -221,7 +189,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
             "Regenerate with feedback" )
                 feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
                 echo "Regenerating PR content..."
-                pr_content_raw=$(generate_pr_content "$feedback")
+                pr_content_raw=$(generate_pr_content "$optional_prompt" "$commit_details" "$gemini_context" "$script_dir" "$feedback")
                 if [ $? -ne 0 ] || [ -z "$pr_content_raw" ]; then
                     echo "Failed to regenerate PR content. Please try again."
                 fi
