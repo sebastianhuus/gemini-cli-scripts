@@ -62,19 +62,20 @@ generate_pr_update_content() {
     local script_dir="$5"
     local feedback_prompt="$6"
     
-    local base_prompt="${optional_prompt} You are updating an existing PR #${pr_number}. Based on ALL the commits for this PR and the existing PR content, generate a complete gh pr edit command to update the PR.
+    # Use template replacement to ensure the actual PR number is embedded in the prompt
+    local base_prompt="${optional_prompt} You are updating an existing PR #PR_NUMBER_PLACEHOLDER. Based on ALL the commits for this PR and the existing PR content, generate a complete gh pr edit command to update the PR.
 
-CRITICAL: You MUST use PR number ${pr_number} in the command. Do NOT use any other PR numbers that may appear in commit messages or issue references.
+CRITICAL: You MUST use PR number PR_NUMBER_PLACEHOLDER in the command. Do NOT use any other PR numbers that may appear in commit messages or issue references.
 
 Generate a complete gh pr edit command that includes:
-1. The PR number: ${pr_number} (MUST use this exact number)
+1. The PR number: PR_NUMBER_PLACEHOLDER (MUST use this exact number)
 2. --title \"[updated, descriptive title that builds on existing title]\"
 3. --body \"[updated description that extends/refines the existing content]\"
 
 Format the output as the complete gh pr edit command, ready to execute.
 
 Example format:
-gh pr edit ${pr_number} --title \"Fix: Resolve login timeout and add validation\" --body \"## Summary\n- Fixed session timeout handling\n- Added input validation\n- Updated error messages\n\n## Recent Changes\n- Modified auth.js timeout logic\n- Added validation middleware\n- Improved error handling\n\nCloses #123\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\"
+gh pr edit PR_NUMBER_PLACEHOLDER --title \"Fix: Resolve login timeout and add validation\" --body \"## Summary\n- Fixed session timeout handling\n- Added input validation\n- Updated error messages\n\n## Recent Changes\n- Modified auth.js timeout logic\n- Added validation middleware\n- Improved error handling\n\nCloses #123\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\"
 
 Instructions:
 - Review the existing PR title and body provided below
@@ -83,7 +84,7 @@ Instructions:
 - Create an updated body that extends the existing content with any new information from recent commits
 - Maintain consistency with the existing structure and tone
 - Include any new issue references found in recent commits
-- IMPORTANT: Always start your command with \"gh pr edit ${pr_number}\" - never substitute a different number
+- IMPORTANT: Always start your command with \"gh pr edit PR_NUMBER_PLACEHOLDER\" - never substitute a different number"
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
@@ -114,6 +115,9 @@ $all_pr_commits"
     if [ -n "$feedback_prompt" ]; then
         full_prompt="$base_prompt\n\nAdditional feedback to consider: $feedback_prompt"
     fi
+    
+    # Replace placeholder with actual PR number in the final prompt
+    full_prompt=$(echo "$full_prompt" | sed "s/PR_NUMBER_PLACEHOLDER/$pr_number/g")
     
     # Generate PR update content from Gemini
     gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
