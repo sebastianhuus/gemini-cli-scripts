@@ -176,7 +176,16 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 if command -v gh &> /dev/null; then
                     # Add the base and head parameters to the generated command
                     enhanced_command="$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
-                    echo "Executing: $enhanced_command"
+                    
+                    # Display the execution command using the same formatting pattern
+                    if command -v gum &> /dev/null; then
+                        echo ""
+                        local exec_block_title="**Executing PR command:**"
+                        echo "$exec_block_title" | gum format
+                        echo "$enhanced_command" | gum format -t "code" -l "zsh"
+                    else
+                        echo "Executing: $enhanced_command"
+                    fi
                     
                     # Execute the command (similar to auto_issue.zsh pattern)
                     escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
