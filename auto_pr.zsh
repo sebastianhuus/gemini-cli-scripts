@@ -75,9 +75,29 @@ if [ -z "$commits" ]; then
     exit 1
 fi
 
-echo "Found commits to include in PR:"
-echo "$commits"
-echo ""
+# Function to display commits in formatted block
+display_commits_to_include() {
+    local commits="$1"
+    local commits_block="> **Found commits to include in PR:**"
+    
+    while IFS= read -r commit; do
+        if [ -n "$commit" ]; then
+            commits_block+=$'\n> '"$commit"
+        fi
+    done <<< "$commits"
+    
+    # Display using gum format if available, otherwise fallback to echo
+    if command -v gum &> /dev/null; then
+        echo "$commits_block" | gum format
+        echo "> \\n" | gum format
+    else
+        echo "Found commits to include in PR:"
+        echo "$commits"
+        echo ""
+    fi
+}
+
+display_commits_to_include "$commits"
 
 # Get detailed commit information for better context
 commit_details=$(git log $base_branch..$current_branch --pretty=format:"%h - %s%n%b" --no-merges)
