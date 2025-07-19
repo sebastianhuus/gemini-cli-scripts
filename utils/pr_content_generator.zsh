@@ -62,20 +62,31 @@ generate_pr_update_content() {
     local script_dir="$5"
     local feedback_prompt="$6"
     
-    # Use template replacement to ensure the actual PR number is embedded in the prompt
-    local base_prompt="${optional_prompt} You are updating an existing PR #PR_NUMBER_PLACEHOLDER. Based on ALL the commits for this PR and the existing PR content, generate a complete gh pr edit command to update the PR.
+    # Nuclear approach: Only ask for title and body, we'll build the command ourselves
+    local base_prompt="${optional_prompt} You are updating an existing PR. Based on ALL the commits for this PR and the existing PR content, generate ONLY an updated title and body for the PR.
 
-CRITICAL: You MUST use PR number PR_NUMBER_PLACEHOLDER in the command. Do NOT use any other PR numbers that may appear in commit messages or issue references.
+DO NOT include any gh pr edit command or PR numbers in your response.
+DO NOT include any command structure.
 
-Generate a complete gh pr edit command that includes:
-1. The PR number: PR_NUMBER_PLACEHOLDER (MUST use this exact number)
-2. --title \"[updated, descriptive title that builds on existing title]\"
-3. --body \"[updated description that extends/refines the existing content]\"
+Generate ONLY:
+TITLE: [updated, descriptive title that builds on existing title]
+BODY: [updated description that extends/refines the existing content]
 
-Format the output as the complete gh pr edit command, ready to execute.
+Format your response exactly like this:
+TITLE: Fix: Resolve login timeout and add validation
+BODY: ## Summary
+- Fixed session timeout handling
+- Added input validation
+- Updated error messages
 
-Example format:
-gh pr edit PR_NUMBER_PLACEHOLDER --title \"Fix: Resolve login timeout and add validation\" --body \"## Summary\n- Fixed session timeout handling\n- Added input validation\n- Updated error messages\n\n## Recent Changes\n- Modified auth.js timeout logic\n- Added validation middleware\n- Improved error handling\n\nCloses #123\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\"
+## Recent Changes
+- Modified auth.js timeout logic
+- Added validation middleware
+- Improved error handling
+
+Closes #123
+
+🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 Instructions:
 - Review the existing PR title and body provided below
@@ -84,7 +95,7 @@ Instructions:
 - Create an updated body that extends the existing content with any new information from recent commits
 - Maintain consistency with the existing structure and tone
 - Include any new issue references found in recent commits
-- IMPORTANT: Always start your command with \"gh pr edit PR_NUMBER_PLACEHOLDER\" - never substitute a different number
+- Output ONLY the TITLE: and BODY: lines as shown above
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
@@ -116,9 +127,6 @@ $all_pr_commits"
         full_prompt="$base_prompt\n\nAdditional feedback to consider: $feedback_prompt"
     fi
     
-    # Replace placeholder with actual PR number in the final prompt
-    full_prompt=$(echo "$full_prompt" | sed "s/PR_NUMBER_PLACEHOLDER/$pr_number/g")
-    
-    # Generate PR update content from Gemini
+    # Generate only title and body from Gemini (no command structure)
     gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
 }

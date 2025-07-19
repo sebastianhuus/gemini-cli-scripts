@@ -201,29 +201,33 @@ except Exception:
                 local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "" "$existing_title" "$existing_body")
                 
                 if [ $? -eq 0 ] && [ -n "$updated_content" ]; then
-                    # Validate that the generated command uses the correct PR number
-                    if ! echo "$updated_content" | grep -q "gh pr edit $pr_number"; then
-                        colored_status "Warning: Generated command uses wrong PR number. Expected #$pr_number" "error"
-                        echo "Generated: $updated_content"
-                        # Try to fix by replacing any pr edit number with the correct one
-                        updated_content=$(echo "$updated_content" | sed "s/gh pr edit [0-9]\+/gh pr edit $pr_number/")
-                        colored_status "Auto-corrected to use PR #$pr_number" "info"
-                    fi
+                    # Parse TITLE: and BODY: from LLM response
+                    local new_title=$(echo "$updated_content" | grep "^TITLE:" | sed 's/^TITLE: *//' | head -n 1)
+                    local new_body=$(echo "$updated_content" | sed -n '/^BODY: */,$p' | sed '1s/^BODY: *//' | sed '$d' 2>/dev/null || echo "$updated_content" | sed -n '/^BODY: */,$p' | sed '1s/^BODY: *//')
+                    
+                    # Build the gh pr edit command ourselves with the correct PR number
+                    local pr_edit_command="gh pr edit $pr_number --title \"$new_title\" --body \"$new_body\""
                     
                     # Interactive loop for PR update confirmation
                     while true; do
-                        # The LLM generates a complete gh pr edit command
-                        local pr_edit_command="$updated_content"
                         
-                        # Display the PR update command
+                        # Display the updated PR content
                         if command -v gum &> /dev/null; then
                             echo ""
-                            echo "**Generated PR update command:**" | gum format
-                            echo "$pr_edit_command" | gum format -t "code" -l "zsh"
+                            echo "**Updated PR content:**" | gum format
+                            echo ""
+                            echo "**Title:**" | gum format
+                            echo "$new_title" | gum format -t "code"
+                            echo ""
+                            echo "**Body:**" | gum format
+                            echo "$new_body" | gum format -t "code"
                         else
                             echo ""
-                            echo "Generated PR update command:"
-                            echo "$pr_edit_command"
+                            echo "Updated PR content:"
+                            echo "Title: $new_title"
+                            echo ""
+                            echo "Body:"
+                            echo "$new_body"
                         fi
                         
                         local confirm_choice=$(use_gum_choose "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
