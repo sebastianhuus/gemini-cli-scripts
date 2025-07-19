@@ -72,6 +72,9 @@ fi
 # Load shared gum helper functions
 source "${script_dir}/gum/gum_helpers.zsh"
 
+# Load commit message generator utility
+source "${script_dir}/utils/commit_message_generator.zsh"
+
 # Function to get repository context for LLM
 get_repository_context() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -381,246 +384,144 @@ if ! git diff --cached --quiet; then
     # Get repository context for LLM
     repository_context=$(get_repository_context)
     
-    user_feedback=""
-    last_commit_msg=""
-    should_generate=true
-
-    while true; do
-        # Create a more focused prompt for the commit message with recent history context
-        base_prompt="Based on the following git diff and recent commit history, generate a concise, conventional commit message (e.g., 'feat:', 'fix:', 'docs:', etc.)."
-        
-        feedback_prompt=""
-        if [ -n "$last_commit_msg" ]; then
-            feedback_prompt="\n\nThe previous attempt was:\n---\n$last_commit_msg\n---\n\nPlease incorporate the following cumulative feedback to improve the message:\n$user_feedback"
-        fi
-
-        optional_prompt="$1"
-
-        full_prompt="$base_prompt$feedback_prompt"
-        
-        if [ -n "$repository_context" ]; then
-            full_prompt+="\n\nRepository context:\n$repository_context"
-        fi
-        
-        if [ -n "$gemini_context" ]; then
-            full_prompt+="\n\nRepository context from GEMINI.md:\n$gemini_context"
-        fi
-        
-        full_prompt+="\n\nRecent commits for context:\n$recent_commits\n\nCurrent staged changes:\n$staged_diff\n\n"
-        if [ -n "$optional_prompt" ]; then
-            full_prompt+="Additional context from user: $optional_prompt\n\n"
-        fi
-        full_prompt+="Focus on what changed and why, considering the recent development context. IMPORTANT: Start with the commit title on the first line immediately - do NOT wrap the commit message in code blocks (\``` marks). Use a bullet list under the title with dashes (-) for bullet points:"
-
-        if [ "$should_generate" = true ]; then
-            # Create the staged files list with markdown formatting
-            staged_files=$(git diff --name-only --cached)
-            staged_files_block="> **Staged files to be shown to Gemini:**"
-            while IFS= read -r file; do
-                staged_files_block+=$'\n> '"$file"
-            done <<< "$staged_files"
+    # Generate commit message using the utility function
+    final_commit_msg=$(generate_commit_message "$staged_diff" "$recent_commits" "$repository_context" "$gemini_context" "$1" "$script_dir")
+    commit_generator_exit_code=$?
+    
+    case $commit_generator_exit_code in
+        0)
+            # Commit message generated successfully, proceed with commit
+            # Capture git commit output
+            commit_output=$(git commit -m "$final_commit_msg" 2>&1)
+            commit_exit_code=$?
             
-            # Display using gum format if available, otherwise fallback to echo
-            if command -v gum &> /dev/null; then
-                echo "$staged_files_block" | gum format
-                echo "> \n" | gum format
+            if [ $commit_exit_code -eq 0 ]; then
+                # Display minimalistic commit summary
+                current_branch=$(git branch --show-current)
+                commit_title=$(echo "$final_commit_msg" | head -n 1)
+                
+                # Extract commit hash from git output
+                commit_hash=$(echo "$commit_output" | grep -oE '\[[A-Fa-f0-9]{7,}\]' | tr -d '[]' | head -n 1)
+                if [ -z "$commit_hash" ]; then
+                    # Fallback: extract any 7+ character hex string
+                    commit_hash=$(echo "$commit_output" | grep -oE '[A-Fa-f0-9]{7,}' | head -n 1)
+                fi
+                
+                # Extract file statistics from git output
+                file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
+                
+                colored_status "Commit successful:" "success"
+                echo "  ⎿ [$current_branch $commit_hash] $file_stats"
+                echo "     $commit_title"
             else
-                echo "$staged_files_block"
-            fi
-
-            # Generate the raw commit message from Gemini
-            gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
-            
-            # Check for generation failure before proceeding
-            if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then
-                echo "Failed to generate commit message. Please commit manually."
+                colored_status "Failed to commit changes." "error"
                 exit 1
             fi
 
-            # Store the raw message for the next iteration's feedback loop (without attribution)
-            last_commit_msg=$gemini_raw_msg
-
-            # Create the final commit message with attribution for display and commit
-            final_commit_msg="$gemini_raw_msg"
-            final_commit_msg+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
-            
-            should_generate=false
-        fi
-
-        # Display generated commit message in quote block format
-        commit_msg_header="> **Generated commit message:**"
-        commit_msg_content=$(wrap_quote_block_text "$final_commit_msg")
-        commit_msg_block="$commit_msg_header"$'\n'"$commit_msg_content"
-        
-        # Display using gum format if available, otherwise fallback to echo
-        if command -v gum &> /dev/null; then
-            echo "$commit_msg_block" | gum format
-            echo "> \\n" | gum format
-        else
-            echo "Generated commit message:"
-            echo "$final_commit_msg"
             echo ""
-        fi
-        
-        response=$(use_gum_choose "Accept and commit?" "Yes" "Append text" "Regenerate" "Quit")
-
-        case "$response" in
-            "Yes" )
-                # Capture git commit output
-                commit_output=$(git commit -m "$final_commit_msg" 2>&1)
-                commit_exit_code=$?
-                
-                if [ $commit_exit_code -eq 0 ]; then
-                    # Display minimalistic commit summary
-                    current_branch=$(git branch --show-current)
-                    commit_title=$(echo "$final_commit_msg" | head -n 1)
-                    
-                    # Extract commit hash from git output
-                    commit_hash=$(echo "$commit_output" | grep -oE '\[[A-Fa-f0-9]{7,}\]' | tr -d '[]' | head -n 1)
-                    if [ -z "$commit_hash" ]; then
-                        # Fallback: extract any 7+ character hex string
-                        commit_hash=$(echo "$commit_output" | grep -oE '[A-Fa-f0-9]{7,}' | head -n 1)
-                    fi
-                    
-                    # Extract file statistics from git output
-                    file_stats=$(echo "$commit_output" | grep -E "file.*changed" | head -n 1)
-                    
-                    colored_status "Commit successful:" "success"
-                    echo "  ⎿ [$current_branch $commit_hash] $file_stats"
-                    echo "     $commit_title"
-                else
-                    colored_status "Failed to commit changes." "error"
-                    break
-                fi
-
-                echo ""
-                if [[ "$auto_push" == true ]]; then
-                    echo "⏺ Auto-pushing changes..."
+            if [[ "$auto_push" == true ]]; then
+                echo "⏺ Auto-pushing changes..."
+                should_push=true
+            else
+                if use_gum_confirm "Do you want to push the changes now?"; then
                     should_push=true
                 else
-                    if use_gum_confirm "Do you want to push the changes now?"; then
-                        should_push=true
+                    should_push=false
+                fi
+            fi
+
+            if [[ "$should_push" == true ]]; then
+                current_branch=$(git branch --show-current)
+                # Check if upstream branch is set
+                local push_output
+                local push_exit_code
+                local push_command
+                if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+                    # Upstream is set, a simple push is enough
+                    push_command="git push"
+                    push_output=$(git push 2>&1)
+                    push_exit_code=$?
+                else
+                    # Upstream is not set, so we need to publish the branch
+                    echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
+                    push_command="git push --set-upstream origin \"$current_branch\""
+                    push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
+                    push_exit_code=$?
+                fi
+
+                # Display clean push output
+                if [ -n "$push_output" ]; then
+                    # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                    branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                    if [ -n "$branch_info" ]; then
+                        colored_status "Push successful:" "success"
+                        echo "  ⎿ $current_branch"
+                        echo "    $branch_info"
                     else
-                        should_push=false
+                        colored_status "Push completed:" "success"
+                        echo "  ⎿ $push_command"
                     fi
                 fi
 
-                if [[ "$should_push" == true ]]; then
-                    current_branch=$(git branch --show-current)
-                    # Check if upstream branch is set
-                    local push_output
-                    local push_exit_code
-                    local push_command
-                    if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
-                        # Upstream is set, a simple push is enough
-                        push_command="git push"
-                        push_output=$(git push 2>&1)
-                        push_exit_code=$?
-                    else
-                        # Upstream is not set, so we need to publish the branch
-                        echo "No upstream branch found for '$current_branch'. Publishing to 'origin/$current_branch'..."
-                        push_command="git push --set-upstream origin \"$current_branch\""
-                        push_output=$(git push --set-upstream origin "$current_branch" 2>&1)
-                        push_exit_code=$?
-                    fi
-
-                    # Display clean push output
-                    if [ -n "$push_output" ]; then
-                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
-                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
-                        if [ -n "$branch_info" ]; then
-                            colored_status "Push successful:" "success"
-                            echo "  ⎿ $current_branch"
-                            echo "    $branch_info"
-                        else
-                            colored_status "Push completed:" "success"
-                            echo "  ⎿ $push_command"
-                        fi
-                    fi
-
-                    if [ $push_exit_code -eq 0 ]; then
-                        # Display success message
-                        colored_status "Changes pushed successfully!" "success"
+                if [ $push_exit_code -eq 0 ]; then
+                    # Display success message
+                    colored_status "Changes pushed successfully!" "success"
+                    
+                    # Check for auto_pr.zsh and handle PR creation
+                    script_dir="${0:A:h}"
+                    if [ -f "${script_dir}/auto_pr.zsh" ]; then
+                        # Get current branch for PR check
+                        current_branch=$(git branch --show-current)
                         
-                        # Check for auto_pr.zsh and handle PR creation
-                        script_dir="${0:A:h}"
-                        if [ -f "${script_dir}/auto_pr.zsh" ]; then
-                            # Get current branch for PR check
-                            current_branch=$(git branch --show-current)
-                            
-                            # Only suggest PR creation if not on main/master
-                            if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
-                                # Check if PR already exists for this branch
-                                if check_existing_pr "$current_branch"; then
+                        # Only suggest PR creation if not on main/master
+                        if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
+                            # Check if PR already exists for this branch
+                            if check_existing_pr "$current_branch"; then
+                                echo ""
+                            else
+                                # No existing PR, proceed with creation
+                                if [[ "$auto_pr" == true ]]; then
                                     echo ""
+                                    echo "Creating pull request automatically..."
+                                    "${script_dir}/auto_pr.zsh" "$1"
                                 else
-                                    # No existing PR, proceed with creation
-                                    if [[ "$auto_pr" == true ]]; then
-                                        echo ""
-                                        echo "Creating pull request automatically..."
+                                    echo ""
+                                    if use_gum_confirm "Create a pull request?"; then
                                         "${script_dir}/auto_pr.zsh" "$1"
-                                    else
-                                        echo ""
-                                        if use_gum_confirm "Create a pull request?"; then
-                                            "${script_dir}/auto_pr.zsh" "$1"
-                                        fi
                                     fi
                                 fi
                             fi
                         fi
-                    else
-                        colored_status "Failed to push changes." "error"
                     fi
                 else
-                    colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
+                    colored_status "Failed to push changes." "error"
                 fi
-                break
-                ;;
-            "Append text" )
-                append_text=$(use_gum_input "Enter text to append:" "Additional details here")
-                if [ -n "$append_text" ]; then
-                    # Append to the raw message (before attribution)
-                    last_commit_msg="$last_commit_msg"$'\n\n'"$append_text"
-                    # Recreate final message with attribution
-                    final_commit_msg="$last_commit_msg"
-                    final_commit_msg+=$'\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)'
-                    echo "Text appended successfully."
-                else
-                    echo "No text entered, keeping original message."
-                fi
-                continue
-                ;;
-            "Regenerate" )
-                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
-                if [ -n "$feedback_input" ]; then
-                    user_feedback+="- $feedback_input\n"
-                fi
-                echo "Regenerating commit message..."
-                should_generate=true
-                continue
-                ;;
-            "Quit" )
-                # Unstage all staged changes before exiting
-                if git reset HEAD >/dev/null 2>&1; then
-                    colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
-                else
-                    colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
-                fi
-                echo "You can manually stage and commit later if needed."
-                break
-                ;;
-            "Cancelled"|* )
-                # Unstage all staged changes before exiting
-                if git reset HEAD >/dev/null 2>&1; then
-                    colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
-                else
-                    colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
-                fi
-                echo "You can manually stage and commit later if needed."
-                break
-                ;;
-        esac
-    done
+            else
+                colored_status "Push cancelled. You can push manually later with 'git push'." "cancel"
+            fi
+            ;;
+        1)
+            # Generation failed
+            echo "Failed to generate commit message. Please commit manually."
+            exit 1
+            ;;
+        2)
+            # User cancelled or quit
+            # Unstage all staged changes before exiting
+            if git reset HEAD >/dev/null 2>&1; then
+                colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
+            else
+                colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
+            fi
+            echo "You can manually stage and commit later if needed."
+            exit 0
+            ;;
+        *)
+            # Unknown exit code
+            colored_status "Unexpected error in commit generation." "error"
+            exit 1
+            ;;
+    esac
 else
     if [[ "$auto_stage" == true ]]; then
         colored_status "No staged changes found." "info"
