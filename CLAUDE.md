@@ -131,6 +131,22 @@ Since this is a shell script repository without build systems:
 ./auto_issue.zsh "comment on issue 5 that this is resolved"
 ```
 
+### Development Testing Tools
+
+#### test/test_commit_generator.zsh
+Standalone test script for the commit message generator utility:
+```bash
+# Test commit message generation without affecting git repository
+./test/test_commit_generator.zsh
+```
+
+Features:
+- Tests the `generate_commit_message()` function in isolation
+- Uses simulated staged diff and repository context
+- Validates the full interactive flow (display, user choices, return mechanism)
+- Shows both user experience and technical results
+- Useful for debugging commit generation issues without staging real files
+
 ### Installation Pattern
 Designed to be used as a git submodule:
 ```bash
