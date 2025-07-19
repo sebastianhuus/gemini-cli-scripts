@@ -308,31 +308,9 @@ check_existing_pr() {
 
 # Display environment information for user confirmation at start (unless skipped)
 if [ "$skip_env_info" != true ]; then
-    repo_url=$(git remote get-url origin 2>/dev/null)
-    current_branch=$(git branch --show-current 2>/dev/null)
-
-    # Extract repository name from URL
-    repo_name=""
-    if [ -n "$repo_url" ]; then
-        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-            repo_name="${match[1]}"
-        else
-            repo_name="$repo_url"
-        fi
-    fi
-
-    env_info_block="> **Current Working Environment:**"
-    env_info_block+=$'\n> 🏗️  Repository: '"$repo_name"
-    env_info_block+=$'\n> 🌿 Branch: '"$current_branch"
-
-    # Display using gum format if available, otherwise fallback to echo
-    if command -v gum &> /dev/null; then
-        echo "$env_info_block" | gum format
-        echo "> \\n" | gum format
-    else
-        echo "$env_info_block"
-        echo ""
-    fi
+    # Use the reusable environment display utility
+    source "${script_dir}/gum/env_display.zsh"
+    display_env_info
 fi
 
 # Check if we're on main/master branch and handle staging/branch creation
