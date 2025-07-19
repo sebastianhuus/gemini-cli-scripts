@@ -122,35 +122,10 @@ check_existing_pr() {
     fi
 }
 
-# Function to display repository information
-display_repository_info() {
-    local repo_url=$(git remote get-url origin 2>/dev/null)
-    local current_branch=$(git branch --show-current 2>/dev/null)
-    
-    if [ -n "$repo_url" ]; then
-        # Extract repository name from different URL formats
-        local repo_name
-        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-            repo_name="${match[1]}"
-        else
-            # Fallback: use the URL as is
-            repo_name="$repo_url"
-        fi
-        
-        echo "🏗️  Repository: $repo_name"
-    else
-        echo "🏗️  Repository: (unable to detect remote)"
-    fi
-    
-    if [ -n "$current_branch" ]; then
-        echo "🌿 Branch: $current_branch"
-    fi
-    
-    echo ""
-}
 
-# Display repository information
-display_repository_info
+# Load and display repository information using the reusable utility
+source "${script_dir}/gum/env_display.zsh"
+display_env_info
 
 # Get optional prompt argument
 optional_prompt="$1"
