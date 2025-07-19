@@ -75,31 +75,10 @@ if [ -z "$commits" ]; then
     exit 1
 fi
 
-# Function to display commits in formatted block
-display_commits_to_include() {
-    local commits="$1"
-    local commits_block="> **Found commits to include in PR:**"
-    
-    while IFS= read -r commit; do
-        if [ -n "$commit" ]; then
-            # Use wrap_quote_block_text to properly wrap each commit line
-            local wrapped_commit=$(wrap_quote_block_text "$commit")
-            commits_block+=$'\n'"$wrapped_commit"
-        fi
-    done <<< "$commits"
-    
-    # Display using gum format if available, otherwise fallback to echo
-    if command -v gum &> /dev/null; then
-        echo "$commits_block" | gum format
-        echo "> \\n" | gum format
-    else
-        echo "Found commits to include in PR:"
-        echo "$commits"
-        echo ""
-    fi
-}
-
-display_commits_to_include "$commits"
+# Display commits using the same pattern as auto_commit.zsh
+colored_status "Found commits to include in PR:" "info"
+git log $base_branch..$current_branch --no-merges --pretty=format:"  • %h %s"
+echo ""
 
 # Get detailed commit information for better context
 commit_details=$(git log $base_branch..$current_branch --pretty=format:"%h - %s%n%b" --no-merges)
