@@ -62,22 +62,25 @@ generate_pr_update_content() {
     local script_dir="$5"
     local feedback_prompt="$6"
     
-    local base_prompt="${optional_prompt} Based on the following NEW git commits that will be added to existing PR #${pr_number}, generate a complete gh pr edit command to update the PR.
+    local base_prompt="${optional_prompt} You are updating an existing PR #${pr_number}. Based on ALL the commits for this PR and the existing PR content, generate a complete gh pr edit command to update the PR.
 
 Generate a complete gh pr edit command that includes:
 1. The PR number: ${pr_number}
-2. --title \"[updated, descriptive title]\"
-3. --body \"[updated description focusing on new changes with bullet points]\"
+2. --title \"[updated, descriptive title that builds on existing title]\"
+3. --body \"[updated description that extends/refines the existing content]\"
 
 Format the output as the complete gh pr edit command, ready to execute.
 
 Example format:
 gh pr edit ${pr_number} --title \"Fix: Resolve login timeout and add validation\" --body \"## Summary\n- Fixed session timeout handling\n- Added input validation\n- Updated error messages\n\n## Recent Changes\n- Modified auth.js timeout logic\n- Added validation middleware\n- Improved error handling\n\nCloses #123\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\"
 
-Focus on the NEW commits provided and generate content that builds upon the existing PR. Structure the body with:
-- ## Summary (brief overview of all changes including new ones)
-- ## Recent Changes (bullet points of the new commits being added)  
-- Issue references if applicable
+Instructions:
+- Review the existing PR title and body provided below
+- Look at ALL commits for this PR to understand the full scope
+- Generate an updated title that builds upon or refines the existing one
+- Create an updated body that extends the existing content with any new information from recent commits
+- Maintain consistency with the existing structure and tone
+- Include any new issue references found in recent commits
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"
@@ -89,10 +92,19 @@ Repository context from GEMINI.md:
 $gemini_context"
     fi
     
+    # Add existing PR content if available
+    if [ -n "$existing_title" ] || [ -n "$existing_body" ]; then
+        base_prompt+="
+
+EXISTING PR CONTENT:
+Title: $existing_title
+Body: $existing_body"
+    fi
+    
     base_prompt+="
 
-New commits being added to PR:
-$new_commits"
+ALL COMMITS FOR THIS PR:
+$all_pr_commits"
     
     # Combine base prompt with feedback if provided
     local full_prompt="$base_prompt"

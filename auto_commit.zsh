@@ -162,9 +162,21 @@ update_existing_pr() {
         "Yes" )
             colored_status "Generating updated PR content..." "info"
             
-            # Get new commits for content generation
-            local remote_branch="origin/$current_branch"
-            local new_commits=$(git log ${remote_branch}..HEAD --pretty=format:"%h - %s%n%b" --no-merges)
+            # Get ALL commits for this PR (from main/master to current branch)
+            local base_branch="main"
+            if ! git show-ref --verify --quiet refs/heads/main; then
+                base_branch="master"
+            fi
+            local all_pr_commits=$(git log ${base_branch}..HEAD --pretty=format:"%h - %s%n%b" --no-merges)
+            
+            # Get existing PR content
+            local existing_pr_json=$(gh pr view "$pr_number" --json title,body 2>/dev/null)
+            local existing_title=""
+            local existing_body=""
+            if [ $? -eq 0 ] && [ -n "$existing_pr_json" ]; then
+                existing_title=$(echo "$existing_pr_json" | jq -r '.title // ""')
+                existing_body=$(echo "$existing_pr_json" | jq -r '.body // ""')
+            fi
             
             # Get repository context
             local repository_context=$(get_repository_context)
@@ -173,8 +185,8 @@ update_existing_pr() {
             if [ -f "${script_dir}/utils/pr_content_generator.zsh" ]; then
                 source "${script_dir}/utils/pr_content_generator.zsh"
                 
-                # Generate updated PR content using new commits
-                local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$new_commits" "$gemini_context" "$script_dir")
+                # Generate updated PR content using all commits and existing content
+                local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "" "$existing_title" "$existing_body")
                 
                 if [ $? -eq 0 ] && [ -n "$updated_content" ]; then
                     # Interactive loop for PR update confirmation
@@ -226,7 +238,7 @@ update_existing_pr() {
                             "Regenerate with feedback" )
                                 local feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
                                 colored_status "Regenerating PR content..." "info"
-                                updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$new_commits" "$gemini_context" "$script_dir" "$feedback")
+                                updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "$feedback" "$existing_title" "$existing_body")
                                 if [ $? -ne 0 ] || [ -z "$updated_content" ]; then
                                     colored_status "Failed to regenerate PR content" "error"
                                 fi
