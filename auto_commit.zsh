@@ -169,13 +169,25 @@ update_existing_pr() {
             fi
             local all_pr_commits=$(git log ${base_branch}..HEAD --pretty=format:"%h - %s%n%b" --no-merges)
             
-            # Get existing PR content
-            local existing_pr_json=$(gh pr view "$pr_number" --json title,body 2>/dev/null)
+            # Get existing PR content using Python for robust JSON parsing
             local existing_title=""
             local existing_body=""
-            if [ $? -eq 0 ] && [ -n "$existing_pr_json" ]; then
-                existing_title=$(echo "$existing_pr_json" | jq -r '.title // ""')
-                existing_body=$(echo "$existing_pr_json" | jq -r '.body // ""')
+            local pr_content=$(gh pr view "$pr_number" --json title,body 2>/dev/null | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    title = data.get('title', '').replace('\n', '\\n')
+    body = data.get('body', '').replace('\n', '\\n')
+    print(f'TITLE:{title}')
+    print(f'BODY:{body}')
+except Exception:
+    print('TITLE:')
+    print('BODY:')
+" 2>/dev/null)
+            
+            if [ -n "$pr_content" ]; then
+                existing_title=$(echo "$pr_content" | grep '^TITLE:' | sed 's/^TITLE://' | sed 's/\\n/\n/g')
+                existing_body=$(echo "$pr_content" | grep '^BODY:' | sed 's/^BODY://' | sed 's/\\n/\n/g')
             fi
             
             # Get repository context
