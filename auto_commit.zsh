@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -*)
-            echo "Unknown option: $1"
+            colored_status "Unknown option: $1" "error"
             usage
             exit 1
             ;;
@@ -327,14 +327,14 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                     exit 1
                 fi
             else
-                echo "Cannot generate branch name without staged changes."
-                echo "Either stage changes first or create branch manually."
+                colored_status "Cannot generate branch name without staged changes." "info"
+                colored_status "Either stage changes first or create branch manually." "info"
                 colored_status "Auto-commit cancelled. Stage changes manually and try again." "cancel"
                 exit 0
             fi
         fi
     else
-        echo "No changes found (staged or unstaged)."
+        colored_status "No changes found (staged or unstaged)." "info"
         if use_gum_confirm "Create empty branch anyway?"; then
             manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
@@ -343,16 +343,16 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
                     echo ""
                     exit 0
                 else
-                    echo "⏺ Failed to create branch. Exiting."
+                    colored_status "Failed to create branch. Exiting." "error"
                     exit 1
                 fi
             else
-                echo "No branch name provided. Staying on '$current_branch'."
+                colored_status "No branch name provided. Staying on '$current_branch'." "info"
                 colored_status "Auto-commit cancelled. No branch name provided." "cancel"
                 exit 0
             fi
         else
-            echo "Staying on '$current_branch' branch."
+            colored_status "Staying on '$current_branch' branch." "info"
             colored_status "Auto-commit cancelled. Create changes and try again." "cancel"
             exit 0
         fi
@@ -362,7 +362,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     echo ""
     
     if [[ "$auto_branch" == true ]]; then
-        echo "Auto-creating new branch..."
+        colored_status "Auto-creating new branch..." "info"
         create_branch=true
     else
         if use_gum_confirm "Create a new branch?"; then
@@ -405,7 +405,7 @@ $staged_diff"
         generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
-            echo "Failed to generate branch name. Enter manually:"
+            colored_status "Failed to generate branch name. Enter manually:" "info"
             read -r manual_branch_name
             generated_branch_name="$manual_branch_name"
         fi
@@ -414,19 +414,19 @@ $staged_diff"
         if [[ "$auto_branch" == true ]]; then
             # Auto-create branch without confirmation
             echo ""
-            echo "Generated branch name: $generated_branch_name"
+            colored_status "Generated branch name: $generated_branch_name" "info"
             if git switch -c "$generated_branch_name"; then
                 colored_status "Created and switched to branch '$generated_branch_name'" "info"
                 echo ""
             else
-                echo "❌ Failed to create branch. Exiting."
+                colored_status "Failed to create branch. Exiting." "error"
                 exit 1
             fi
         else
             # Interactive confirmation loop
             while true; do
                 echo ""
-                echo "Generated branch name: $generated_branch_name"
+                colored_status "Generated branch name: $generated_branch_name" "info"
                 echo ""
                 
                 branch_response=$(use_gum_choose "Create branch '$generated_branch_name'?" "Yes" "Edit" "Regenerate" "Quit")
@@ -437,7 +437,7 @@ $staged_diff"
                             colored_status "Created and switched to branch '$generated_branch_name'" "info"
                             echo ""
                         else
-                            echo "⏺ Failed to create branch. Exiting."
+                            colored_status "Failed to create branch. Exiting." "error"
                             exit 1
                         fi
                         break
@@ -474,7 +474,7 @@ $staged_diff"
                         
                         generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
-                            echo "Failed to regenerate branch name."
+                            colored_status "Failed to regenerate branch name." "error"
                         fi
                         ;;
                     "Quit" )
@@ -489,7 +489,7 @@ $staged_diff"
             done
         fi
     else
-        echo "Continuing on '$current_branch' branch."
+        colored_status "Continuing on '$current_branch' branch." "info"
         echo ""
     fi
 fi
@@ -544,7 +544,7 @@ if ! git diff --cached --quiet; then
 
             echo ""
             if [[ "$auto_push" == true ]]; then
-                echo "⏺ Auto-pushing changes..."
+                colored_status "Auto-pushing changes..." "info"
                 should_push=true
             else
                 if use_gum_confirm "Do you want to push the changes now?"; then
@@ -583,7 +583,7 @@ if ! git diff --cached --quiet; then
                                     # No existing PR, proceed with creation
                                     if [[ "$auto_pr" == true ]]; then
                                         echo ""
-                                        echo "Creating pull request automatically..."
+                                        colored_status "Creating pull request automatically..." "info"
                                         "${script_dir}/auto_pr.zsh" "$1"
                                     else
                                         echo ""
@@ -596,7 +596,7 @@ if ! git diff --cached --quiet; then
                                     # PR exists with new commits, offer to update
                                     if [[ "$auto_pr" == true ]]; then
                                         echo ""
-                                        echo "Updating existing pull request automatically..."
+                                        colored_status "Updating existing pull request automatically..." "info"
                                         update_existing_pr "$current_branch" "$1"
                                     else
                                         update_existing_pr "$current_branch" "$1"
@@ -614,7 +614,7 @@ if ! git diff --cached --quiet; then
             ;;
         1)
             # Generation failed
-            echo "Failed to generate commit message. Please commit manually."
+            colored_status "Failed to generate commit message. Please commit manually." "error"
             exit 1
             ;;
         2)
@@ -625,7 +625,7 @@ if ! git diff --cached --quiet; then
             else
                 colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
             fi
-            echo "You can manually stage and commit later if needed."
+            colored_status "You can manually stage and commit later if needed." "info"
             exit 0
             ;;
         *)
@@ -644,7 +644,7 @@ else
             # Re-run the script to proceed with commit message generation
             exec "$0" "$@" --skip-env-info
         else
-            echo "⏺ No changes to stage."
+            colored_status "No changes to stage." "error"
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
