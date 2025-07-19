@@ -327,11 +327,9 @@ check_unpushed_commits() {
         # Display unpushed commits info
         colored_status "Found $unpushed_count unpushed commit(s) on branch '$current_branch'." "info"
         
-        # Show recent unpushed commits
+        # Show recent unpushed commits (first line only)
         echo "Recent unpushed commits:"
-        git log @{u}..HEAD --oneline --no-merges -5 | while IFS= read -r line; do
-            echo "  • $line"
-        done
+        git log @{u}..HEAD --no-merges -5 --pretty=format:"  • %h %f" | sed 's/-/ /g'
         echo ""
         
         return 0  # Has unpushed commits
