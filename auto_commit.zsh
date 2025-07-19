@@ -113,10 +113,10 @@ check_existing_pr() {
         local pr_title=$(echo "$pr_info" | jq -r '.[0].title')
         local pr_url=$(echo "$pr_info" | jq -r '.[0].url')
         
-        echo "ℹ️  Pull request #${pr_number} already exists for branch '$current_branch'"
-        echo "   Title: \"$pr_title\""
-        echo "   View: gh pr view $pr_number --web"
-        echo "   URL: $pr_url"
+        colored_status "Pull request #${pr_number} already exists for branch '$current_branch'" "info"
+        echo "  ⎿ Title: \"$pr_title\""
+        echo "     View: gh pr view $pr_number --web"
+        echo "     URL: $pr_url"
         return 0  # PR exists
     else
         return 1  # No PR exists
