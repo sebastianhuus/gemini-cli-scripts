@@ -575,9 +575,15 @@ if ! git diff --cached --quiet; then
                             pr_check_result=$?
                             
                             case $pr_check_result in
-                                0)
-                                    # PR exists, no new commits
-                                    echo ""
+                                0|2)
+                                    # PR exists - offer to update since we just pushed new commits
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        colored_status "Updating existing pull request automatically..." "info"
+                                        update_existing_pr "$current_branch" "$1"
+                                    else
+                                        update_existing_pr "$current_branch" "$1"
+                                    fi
                                     ;;
                                 1)
                                     # No existing PR, proceed with creation
@@ -590,16 +596,6 @@ if ! git diff --cached --quiet; then
                                         if use_gum_confirm "Create a pull request?"; then
                                             "${script_dir}/auto_pr.zsh" "$1"
                                         fi
-                                    fi
-                                    ;;
-                                2)
-                                    # PR exists with new commits, offer to update
-                                    if [[ "$auto_pr" == true ]]; then
-                                        echo ""
-                                        colored_status "Updating existing pull request automatically..." "info"
-                                        update_existing_pr "$current_branch" "$1"
-                                    else
-                                        update_existing_pr "$current_branch" "$1"
                                     fi
                                     ;;
                             esac
