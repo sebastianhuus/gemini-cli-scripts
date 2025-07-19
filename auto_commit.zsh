@@ -174,28 +174,23 @@ update_existing_pr() {
                 source "${script_dir}/utils/pr_content_generator.zsh"
                 
                 # Generate updated PR content using new commits
-                local updated_content=$(generate_pr_content "$optional_context" "$new_commits" "$gemini_context" "$script_dir")
+                local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$new_commits" "$gemini_context" "$script_dir")
                 
                 if [ $? -eq 0 ] && [ -n "$updated_content" ]; then
                     # Interactive loop for PR update confirmation
                     while true; do
-                        # Extract title and body from the generated command
-                        local new_title=$(echo "$updated_content" | sed -n 's/.*--title "\([^"]*\)".*/\1/p')
-                        local new_body=$(echo "$updated_content" | sed -n 's/.*--body "\(.*\)" --assignee.*/\1/p')
+                        # The LLM generates a complete gh pr edit command
+                        local pr_edit_command="$updated_content"
                         
-                        # Display the update content
+                        # Display the PR update command
                         if command -v gum &> /dev/null; then
                             echo ""
-                            echo "**Updated PR content:**" | gum format
-                            echo "Title: $new_title" | gum format -t "code"
-                            echo ""
-                            echo "Body:" | gum format
-                            echo "$new_body" | gum format -t "code"
+                            echo "**Generated PR update command:**" | gum format
+                            echo "$pr_edit_command" | gum format -t "code" -l "zsh"
                         else
                             echo ""
-                            echo "Updated PR content:"
-                            echo "Title: $new_title"
-                            echo "Body: $new_body"
+                            echo "Generated PR update command:"
+                            echo "$pr_edit_command"
                         fi
                         
                         local confirm_choice=$(use_gum_choose "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
@@ -205,13 +200,22 @@ update_existing_pr() {
                                 # Push new commits first
                                 colored_status "Pushing new commits..." "info"
                                 if simple_push_with_display "$current_branch"; then
-                                    # Update the PR using gh pr edit
-                                    if gh pr edit "$pr_number" --title "$new_title" --body "$new_body"; then
-                                        colored_status "PR #${pr_number} updated successfully!" "success"
-                                        echo "  ⎿ View updated PR: gh pr view $pr_number --web"
-                                        return 0
+                                    # Execute the generated PR edit command
+                                    if command -v gh &> /dev/null; then
+                                        # Execute the command (similar to auto_pr.zsh pattern)
+                                        escaped_command=$(echo "$pr_edit_command" | sed 's/`/\\`/g')
+                                        eval "$escaped_command"
+                                        
+                                        if [ $? -eq 0 ]; then
+                                            colored_status "PR #${pr_number} updated successfully!" "success"
+                                            echo "  ⎿ View updated PR: gh pr view $pr_number --web"
+                                            return 0
+                                        else
+                                            colored_status "Failed to update PR #${pr_number}" "error"
+                                            return 1
+                                        fi
                                     else
-                                        colored_status "Failed to update PR #${pr_number}" "error"
+                                        colored_status "GitHub CLI (gh) not found" "error"
                                         return 1
                                     fi
                                 else
@@ -222,7 +226,7 @@ update_existing_pr() {
                             "Regenerate with feedback" )
                                 local feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
                                 colored_status "Regenerating PR content..." "info"
-                                updated_content=$(generate_pr_content "$optional_context" "$new_commits" "$gemini_context" "$script_dir" "$feedback")
+                                updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$new_commits" "$gemini_context" "$script_dir" "$feedback")
                                 if [ $? -ne 0 ] || [ -z "$updated_content" ]; then
                                     colored_status "Failed to regenerate PR content" "error"
                                 fi
