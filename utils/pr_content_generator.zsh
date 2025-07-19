@@ -64,8 +64,10 @@ generate_pr_update_content() {
     
     local base_prompt="${optional_prompt} You are updating an existing PR #${pr_number}. Based on ALL the commits for this PR and the existing PR content, generate a complete gh pr edit command to update the PR.
 
+CRITICAL: You MUST use PR number ${pr_number} in the command. Do NOT use any other PR numbers that may appear in commit messages or issue references.
+
 Generate a complete gh pr edit command that includes:
-1. The PR number: ${pr_number}
+1. The PR number: ${pr_number} (MUST use this exact number)
 2. --title \"[updated, descriptive title that builds on existing title]\"
 3. --body \"[updated description that extends/refines the existing content]\"
 
@@ -81,6 +83,7 @@ Instructions:
 - Create an updated body that extends the existing content with any new information from recent commits
 - Maintain consistency with the existing structure and tone
 - Include any new issue references found in recent commits
+- IMPORTANT: Always start your command with \"gh pr edit ${pr_number}\" - never substitute a different number
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"

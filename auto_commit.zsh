@@ -201,6 +201,15 @@ except Exception:
                 local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "" "$existing_title" "$existing_body")
                 
                 if [ $? -eq 0 ] && [ -n "$updated_content" ]; then
+                    # Validate that the generated command uses the correct PR number
+                    if ! echo "$updated_content" | grep -q "gh pr edit $pr_number"; then
+                        colored_status "Warning: Generated command uses wrong PR number. Expected #$pr_number" "error"
+                        echo "Generated: $updated_content"
+                        # Try to fix by replacing any pr edit number with the correct one
+                        updated_content=$(echo "$updated_content" | sed "s/gh pr edit [0-9]\+/gh pr edit $pr_number/")
+                        colored_status "Auto-corrected to use PR #$pr_number" "info"
+                    fi
+                    
                     # Interactive loop for PR update confirmation
                     while true; do
                         # The LLM generates a complete gh pr edit command
