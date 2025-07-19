@@ -82,7 +82,9 @@ display_commits_to_include() {
     
     while IFS= read -r commit; do
         if [ -n "$commit" ]; then
-            commits_block+=$'\n> '"$commit"
+            # Use wrap_quote_block_text to properly wrap each commit line
+            local wrapped_commit=$(wrap_quote_block_text "$commit")
+            commits_block+=$'\n'"$wrapped_commit"
         fi
     done <<< "$commits"
     
