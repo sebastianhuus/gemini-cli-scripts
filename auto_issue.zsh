@@ -14,6 +14,9 @@ if [ -f "$(get_utils_path)/gemini_context.zsh" ]; then
     gemini_context=$(load_gemini_context)
 fi
 
+# Load shared gum helper functions
+source "${script_dir}/gum/gum_helpers.zsh"
+
 # GitHub Issue Natural Language Assistant with LLM Enhancement
 # 
 # Usage:
@@ -96,98 +99,6 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Function to check if gum is available and provide fallback
-use_gum_confirm() {
-    local prompt="$1"
-    local default_yes="${2:-true}"
-    
-    if command -v gum &> /dev/null; then
-        local result
-        if [ "$default_yes" = true ]; then
-            if gum confirm "$prompt"; then
-                result="Yes"
-            else
-                result="No"
-            fi
-        else
-            if gum confirm "$prompt" --default=false; then
-                result="Yes"
-            else
-                result="No"
-            fi
-        fi
-        echo "# $prompt" | gum format >&2
-        gum style --faint "> $result" >&2
-        # Return the original exit code
-        if [ "$result" = "Yes" ]; then
-            return 0
-        else
-            return 1
-        fi
-    else
-        # Fallback to traditional prompt
-        echo "$prompt [Y/n]"
-        read -r response
-        case "$response" in
-            [Yy]* | "" ) return 0 ;;
-            * ) return 1 ;;
-        esac
-    fi
-}
-
-use_gum_choose() {
-    local prompt="$1"
-    shift
-    local options=("$@")
-    
-    if command -v gum &> /dev/null; then
-        local result
-        result=$(gum choose --header="$prompt" "${options[@]}")
-        echo "# $prompt" | gum format >&2
-        gum style --faint "> $result" >&2
-        echo "$result"
-    else
-        # Fallback to traditional prompt
-        echo "$prompt"
-        local i=1
-        for option in "${options[@]}"; do
-            echo "$i) $option"
-            ((i++))
-        done
-        read -r choice
-        local result
-        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#options[@]} ]; then
-            result="${options[$((choice-1))]}"
-        else
-            result="${options[0]}" # Default to first option
-        fi
-        echo "> $result"
-        echo "$result"
-    fi
-}
-
-use_gum_input() {
-    local prompt="$1"
-    local placeholder="${2:-}"
-    
-    if command -v gum &> /dev/null; then
-        local result
-        if [ -n "$placeholder" ]; then
-            result=$(gum input --placeholder="$placeholder" --header="$prompt")
-        else
-            result=$(gum input --header="$prompt")
-        fi
-        echo "# $prompt" | gum format >&2
-        gum style --faint "> $result" >&2
-        echo "$result"
-    else
-        # Fallback to traditional prompt
-        echo "$prompt"
-        read -r response
-        echo "> $response"
-        echo "$response"
-    fi
-}
 
 # Load reusable environment display utility
 source "${script_dir}/gum/env_display.zsh"
