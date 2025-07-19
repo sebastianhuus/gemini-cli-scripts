@@ -31,8 +31,3 @@ display_env_info() {
         echo ""
     fi
 }
-
-# If script is called directly, run the function
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]] || [[ "${(%):-%x}" == "${0}" ]]; then
-    display_env_info
-fi

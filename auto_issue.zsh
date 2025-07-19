@@ -189,32 +189,8 @@ use_gum_input() {
     fi
 }
 
-# Function to display repository information
-display_repository_info() {
-    local repo_url=$(git remote get-url origin 2>/dev/null)
-    local current_branch=$(git branch --show-current 2>/dev/null)
-    
-    if [ -n "$repo_url" ]; then
-        # Extract repository name from different URL formats
-        local repo_name
-        if [[ "$repo_url" =~ github\.com[:/]([^/]+/[^/]+)(\.git)?$ ]]; then
-            repo_name="${match[1]}"
-        else
-            # Fallback: use the URL as is
-            repo_name="$repo_url"
-        fi
-        
-        echo "🏗️  Repository: $repo_name"
-    else
-        echo "🏗️  Repository: (unable to detect remote)"
-    fi
-    
-    if [ -n "$current_branch" ]; then
-        echo "🌿 Branch: $current_branch"
-    fi
-    
-    echo ""
-}
+# Load reusable environment display utility
+source "${script_dir}/gum/env_display.zsh"
 
 # Function to validate that quotes are properly closed in a string
 validate_quotes() {
@@ -976,7 +952,7 @@ handle_natural_language() {
     fi
     
     # Display repository information
-    display_repository_info
+    display_env_info
     
     echo "Processing natural language request..."
     
