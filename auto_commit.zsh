@@ -170,10 +170,6 @@ fi
 # Check if we're on main/master branch and handle staging/branch creation
 current_branch=$(git branch --show-current)
 if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
-    echo "⚠️  You're currently on the '$current_branch' branch."
-    echo "It's recommended to create a feature branch for your changes."
-    echo ""
-    
     # First, handle staging if needed
     staged_diff=""
     if ! git diff --cached --quiet; then
@@ -251,7 +247,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
     
     if [[ "$create_branch" == true ]]; then
         # Generate branch name based on staged changes
-        echo "Generating branch name based on staged changes..."
+        colored_status "Generating branch name based on staged changes..." "info"
         
         # Get repository context for LLM
         repository_context=$(get_repository_context)
@@ -292,7 +288,6 @@ $staged_diff"
             # Auto-create branch without confirmation
             echo ""
             echo "Generated branch name: $generated_branch_name"
-            echo ""
             if git switch -c "$generated_branch_name"; then
                 echo "⏺ Created and switched to branch '$generated_branch_name'"
                 echo ""
@@ -327,7 +322,7 @@ $staged_diff"
                         fi
                         ;;
                     "Regenerate" )
-                        echo "Regenerating branch name..."
+                        colored_status "Regenerating branch name..." "info"
                         # Rebuild prompt for regeneration
                         branch_name_prompt="Based on the following git diff, generate a concise git branch name following conventional naming patterns (e.g., 'feat/user-login', 'fix/memory-leak', 'docs/api-guide'). Use kebab-case and include a category prefix. Output ONLY the branch name, no explanations or code blocks:"
                         
