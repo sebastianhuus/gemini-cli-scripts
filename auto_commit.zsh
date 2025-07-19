@@ -697,8 +697,8 @@ if ! git diff --cached --quiet; then
 
                     # Display clean push output
                     if [ -n "$push_output" ]; then
-                        # Extract branch info from push output
-                        branch_info=$(echo "$push_output" | grep -E '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
+                        # Extract branch info from push output (using -- to prevent shell interpretation of ->)
+                        branch_info=$(echo "$push_output" | grep -E -- '->|\.\.\..*->' | head -n 1 | sed 's/^[[:space:]]*//')
                         if [ -n "$branch_info" ]; then
                             colored_status "Push successful:" "success"
                             echo "  ⎿ $current_branch"
@@ -788,7 +788,6 @@ if ! git diff --cached --quiet; then
 else
     if [[ "$auto_stage" == true ]]; then
         colored_status "No staged changes found." "info"
-        echo ""
         colored_status "Auto-staging all changes..." "info"
         git add -A
         if ! git diff --cached --quiet; then
