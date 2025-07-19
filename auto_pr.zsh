@@ -77,7 +77,7 @@ fi
 
 # Display commits using the same pattern as auto_commit.zsh
 colored_status "Found commits to include in PR:" "info"
-git log $base_branch..$current_branch --no-merges --pretty=format:"  • %h %s"
+git log $base_branch..$current_branch --no-merges --pretty=format:"  • %h %f" | sed 's/-/ /g'
 echo ""
 
 # Get detailed commit information for better context
