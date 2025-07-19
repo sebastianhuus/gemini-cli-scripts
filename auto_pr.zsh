@@ -9,7 +9,12 @@ if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
 fi
 
 # Load shared gum helper functions
-source "${script_dir}/gum/gum_helpers.zsh"
+if [ -f "${script_dir}/gum/gum_helpers.zsh" ]; then
+    source "${script_dir}/gum/gum_helpers.zsh"
+else
+    echo "Error: Required gum helper functions not found at ${script_dir}/gum/gum_helpers.zsh"
+    exit 1
+fi
 
 
 # Function to check for existing pull request
@@ -75,8 +80,9 @@ if [ -z "$commits" ]; then
     exit 1
 fi
 
-echo "Found commits to include in PR:"
-echo "$commits"
+# Display commits using the same pattern as auto_commit.zsh
+colored_status "Found commits to include in PR:" "info"
+git log $base_branch..$current_branch --no-merges --pretty=format:"  • %h %f" | sed 's/-/ /g'
 echo ""
 
 # Get detailed commit information for better context
@@ -134,9 +140,18 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         # The LLM now generates a complete gh pr create command
         pr_create_command="$pr_content_raw"
 
-        echo "Generated PR create command:"
-        echo "$pr_create_command"
-        echo ""
+        # Display the PR command in a formatted code block
+        if command -v gum &> /dev/null; then
+            echo ""
+            local code_block_title="**Generated PR create command:**"
+            local code_block="$pr_create_command"
+            echo "$code_block_title" | gum format
+            echo "$code_block" | gum format -t "code" -l "zsh"
+        else
+            echo "Generated PR create command:"
+            echo "$pr_create_command"
+            echo ""
+        fi
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
