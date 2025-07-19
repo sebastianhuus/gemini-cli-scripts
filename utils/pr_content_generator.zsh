@@ -21,7 +21,12 @@ Generate a complete gh pr create command that includes:
 Format the output as the complete gh pr create command, ready to execute.
 
 Example format:
-gh pr create --title \"Fix: Resolve login timeout issue\" --body \"- Fixed session timeout handling...\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\" --assignee \"@me\"
+gh pr create --title \"Fix: Resolve login timeout issue\" --body \"## Summary\n- Fixed session timeout handling\n- Updated error messages\n\n## Changes\n- Modified auth.js timeout logic\n- Added better error handling\n\nCloses #123\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)\" --assignee \"@me\"
+
+For PR updates, focus on the NEW commits provided and generate content that builds upon or updates the existing PR. Structure the body with:
+- ## Summary (brief overview of changes)  
+- ## Changes (bullet points of specific modifications)
+- Issue references if applicable
 
 Always end the --body content with the attribution line:
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)"

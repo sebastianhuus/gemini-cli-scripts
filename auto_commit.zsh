@@ -108,7 +108,7 @@ Current branch: $current_branch"
 }
 
 
-# Function to check for existing pull request
+# Function to check for existing pull request and detect new commits
 check_existing_pr() {
     local current_branch="$1"
     local pr_info=$(gh pr list --head "$current_branch" --json number,title,url 2>/dev/null)
@@ -123,10 +123,134 @@ check_existing_pr() {
         echo "  ⎿ Title: \"$pr_title\""
         echo "     View: gh pr view $pr_number --web"
         echo "     URL: $pr_url"
-        return 0  # PR exists
+        
+        # Check for new commits since PR creation by comparing with remote
+        local remote_branch="origin/$current_branch"
+        
+        # Fetch latest to ensure we have current remote state
+        git fetch origin "$current_branch" 2>/dev/null
+        
+        # Check if local is ahead of remote (has unpushed commits)
+        local unpushed_commits=$(git rev-list ${remote_branch}..HEAD --count 2>/dev/null)
+        
+        if [ "$unpushed_commits" -gt 0 ]; then
+            echo ""
+            colored_status "Found $unpushed_commits new commit(s) to push:" "info"
+            git log ${remote_branch}..HEAD --oneline --no-merges | sed 's/^/  • /'
+            
+            # Export PR number for use by calling function
+            export EXISTING_PR_NUMBER="$pr_number"
+            return 2  # PR exists with new commits
+        else
+            return 0  # PR exists, no new commits
+        fi
     else
         return 1  # No PR exists
     fi
+}
+
+# Function to update existing pull request with new commits
+update_existing_pr() {
+    local current_branch="$1"
+    local optional_context="$2"
+    local pr_number="$EXISTING_PR_NUMBER"
+    
+    echo ""
+    local update_choice=$(use_gum_choose "Update existing PR #${pr_number} with new commits?" "Yes" "View PR" "Skip")
+    
+    case "$update_choice" in
+        "Yes" )
+            colored_status "Generating updated PR content..." "info"
+            
+            # Get new commits for content generation
+            local remote_branch="origin/$current_branch"
+            local new_commits=$(git log ${remote_branch}..HEAD --pretty=format:"%h - %s%n%b" --no-merges)
+            
+            # Get repository context
+            local repository_context=$(get_repository_context)
+            
+            # Load PR content generator if available
+            if [ -f "${script_dir}/utils/pr_content_generator.zsh" ]; then
+                source "${script_dir}/utils/pr_content_generator.zsh"
+                
+                # Generate updated PR content using new commits
+                local updated_content=$(generate_pr_content "$optional_context" "$new_commits" "$gemini_context" "$script_dir")
+                
+                if [ $? -eq 0 ] && [ -n "$updated_content" ]; then
+                    # Interactive loop for PR update confirmation
+                    while true; do
+                        # Extract title and body from the generated command
+                        local new_title=$(echo "$updated_content" | sed -n 's/.*--title "\([^"]*\)".*/\1/p')
+                        local new_body=$(echo "$updated_content" | sed -n 's/.*--body "\(.*\)" --assignee.*/\1/p')
+                        
+                        # Display the update content
+                        if command -v gum &> /dev/null; then
+                            echo ""
+                            echo "**Updated PR content:**" | gum format
+                            echo "Title: $new_title" | gum format -t "code"
+                            echo ""
+                            echo "Body:" | gum format
+                            echo "$new_body" | gum format -t "code"
+                        else
+                            echo ""
+                            echo "Updated PR content:"
+                            echo "Title: $new_title"
+                            echo "Body: $new_body"
+                        fi
+                        
+                        local confirm_choice=$(use_gum_choose "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
+                        
+                        case "$confirm_choice" in
+                            "Yes" )
+                                # Push new commits first
+                                colored_status "Pushing new commits..." "info"
+                                if simple_push_with_display "$current_branch"; then
+                                    # Update the PR using gh pr edit
+                                    if gh pr edit "$pr_number" --title "$new_title" --body "$new_body"; then
+                                        colored_status "PR #${pr_number} updated successfully!" "success"
+                                        echo "  ⎿ View updated PR: gh pr view $pr_number --web"
+                                        return 0
+                                    else
+                                        colored_status "Failed to update PR #${pr_number}" "error"
+                                        return 1
+                                    fi
+                                else
+                                    colored_status "Failed to push new commits" "error"
+                                    return 1
+                                fi
+                                ;;
+                            "Regenerate with feedback" )
+                                local feedback=$(use_gum_input "What specific feedback would you like to incorporate?" "Enter feedback or leave empty")
+                                colored_status "Regenerating PR content..." "info"
+                                updated_content=$(generate_pr_content "$optional_context" "$new_commits" "$gemini_context" "$script_dir" "$feedback")
+                                if [ $? -ne 0 ] || [ -z "$updated_content" ]; then
+                                    colored_status "Failed to regenerate PR content" "error"
+                                fi
+                                ;;
+                            "Skip"|* )
+                                colored_status "PR update cancelled" "cancel"
+                                return 0
+                                ;;
+                        esac
+                    done
+                else
+                    colored_status "Failed to generate updated PR content" "error"
+                    return 1
+                fi
+            else
+                colored_status "PR content generator not found" "error"
+                return 1
+            fi
+            ;;
+        "View PR" )
+            gh pr view "$pr_number" --web
+            return 0
+            ;;
+        "Skip"|* )
+            colored_status "PR update skipped" "cancel"
+            return 0
+            ;;
+    esac
 }
 
 # Function to check for unpushed commits
@@ -447,21 +571,38 @@ if ! git diff --cached --quiet; then
                         # Only suggest PR creation if not on main/master
                         if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
                             # Check if PR already exists for this branch
-                            if check_existing_pr "$current_branch"; then
-                                echo ""
-                            else
-                                # No existing PR, proceed with creation
-                                if [[ "$auto_pr" == true ]]; then
+                            check_existing_pr "$current_branch"
+                            pr_check_result=$?
+                            
+                            case $pr_check_result in
+                                0)
+                                    # PR exists, no new commits
                                     echo ""
-                                    echo "Creating pull request automatically..."
-                                    "${script_dir}/auto_pr.zsh" "$1"
-                                else
-                                    echo ""
-                                    if use_gum_confirm "Create a pull request?"; then
+                                    ;;
+                                1)
+                                    # No existing PR, proceed with creation
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        echo "Creating pull request automatically..."
                                         "${script_dir}/auto_pr.zsh" "$1"
+                                    else
+                                        echo ""
+                                        if use_gum_confirm "Create a pull request?"; then
+                                            "${script_dir}/auto_pr.zsh" "$1"
+                                        fi
                                     fi
-                                fi
-                            fi
+                                    ;;
+                                2)
+                                    # PR exists with new commits, offer to update
+                                    if [[ "$auto_pr" == true ]]; then
+                                        echo ""
+                                        echo "Updating existing pull request automatically..."
+                                        update_existing_pr "$current_branch" "$1"
+                                    else
+                                        update_existing_pr "$current_branch" "$1"
+                                    fi
+                                    ;;
+                            esac
                         fi
                     fi
                 else
