@@ -67,8 +67,8 @@ get_input_with_default() {
     local description="$3"
     
     if [ -n "$description" ]; then
-        echo "$description"
-        echo ""
+        echo "$description" >&2
+        echo "" >&2
     fi
     
     # Use default as both placeholder and default value
