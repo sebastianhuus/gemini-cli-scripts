@@ -79,7 +79,7 @@ source "${script_dir}/utils/commit_message_generator.zsh"
 source "${script_dir}/utils/git_push_helpers.zsh"
 
 # Load PR display utility
-source "${script_dir}/utils/pr_display.zsh"
+source "${script_dir}/utils/display/pr_display.zsh"
 
 # Function to get repository context for LLM
 get_repository_context() {

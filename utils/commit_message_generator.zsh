@@ -6,7 +6,7 @@
 # Get the script directory to source dependencies
 local util_script_dir="${0:A:h}"
 local gum_helpers_path="${util_script_dir}/../gum/gum_helpers.zsh"
-local commit_display_helpers_path="${util_script_dir}/commit_display.zsh"
+local commit_display_helpers_path="${util_script_dir}/display/commit_display.zsh"
 
 source "$commit_display_helpers_path"
 
