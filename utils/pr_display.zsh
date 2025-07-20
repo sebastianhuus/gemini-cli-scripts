@@ -22,7 +22,7 @@ display_pr_content() {
         pr_content+="# $title"$'\n'$'\n'
         pr_content+="$body"
 
-        gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$pr_content")"
+        gum style --border=normal --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$pr_content")"
     else
         echo ""
         echo "Updated PR content:"
