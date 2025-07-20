@@ -71,9 +71,10 @@ get_input_with_default() {
         echo ""
     fi
     
-    local result=$(use_gum_input "$prompt" "$default")
+    # Use default as both placeholder and default value
+    local result=$(use_gum_input "$prompt" "$default" "$default")
     
-    # Return default if empty
+    # Return default if empty (backup safety check)
     if [ -z "$result" ]; then
         echo "$default"
     else

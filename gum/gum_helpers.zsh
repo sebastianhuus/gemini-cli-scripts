@@ -81,6 +81,7 @@ use_gum_choose() {
 use_gum_input() {
     local prompt="$1"
     local placeholder="${2:-}"
+    local default_value="${3:-}"
     
     if command -v gum &> /dev/null; then
         local result
@@ -89,13 +90,29 @@ use_gum_input() {
         else
             result=$(gum input --header="$prompt")
         fi
+        
+        # If no input provided and we have a default, use the default
+        if [ -z "$result" ] && [ -n "$default_value" ]; then
+            result="$default_value"
+        fi
+        
         echo "# $prompt" | gum format >&2
         gum style --faint "> $result" >&2
         echo "$result"
     else
         # Fallback to traditional prompt
-        echo "$prompt"
+        if [ -n "$default_value" ]; then
+            echo "$prompt (default: $default_value)"
+        else
+            echo "$prompt"
+        fi
         read -r response
+        
+        # Use default if empty response
+        if [ -z "$response" ] && [ -n "$default_value" ]; then
+            response="$default_value"
+        fi
+        
         echo "> $response"
         echo "$response"
     fi
