@@ -126,58 +126,23 @@ get_workflow_preset() {
     
     case "$choice" in
         "Conservative"*)
-            echo "conservative"
+            WORKFLOW_PRESET_CHOICE="conservative"
             ;;
         "Balanced"*)
-            echo "balanced"
+            WORKFLOW_PRESET_CHOICE="balanced"
             ;;
         "Fast"*)
-            echo "fast"
+            WORKFLOW_PRESET_CHOICE="fast"
             ;;
         "Custom"*)
-            echo "custom"
+            WORKFLOW_PRESET_CHOICE="custom"
             ;;
         *)
-            echo "balanced"
+            WORKFLOW_PRESET_CHOICE="balanced"
             ;;
     esac
 }
 
-# Function to apply workflow preset
-apply_workflow_preset() {
-    local preset="$1"
-    
-    case "$preset" in
-        "conservative")
-            CONFIG_AUTO_STAGE="false"
-            CONFIG_AUTO_PR="false"  
-            CONFIG_AUTO_BRANCH="false"
-            CONFIG_AUTO_PUSH="false"
-            CONFIG_SKIP_ENV_INFO="false"
-            CONFIG_AUTO_PUSH_AFTER_PR="false"
-            ;;
-        "balanced")
-            CONFIG_AUTO_STAGE="true"
-            CONFIG_AUTO_PR="false"
-            CONFIG_AUTO_BRANCH="false"
-            CONFIG_AUTO_PUSH="false"
-            CONFIG_SKIP_ENV_INFO="false"
-            CONFIG_AUTO_PUSH_AFTER_PR="false"
-            ;;
-        "fast")
-            CONFIG_AUTO_STAGE="true"
-            CONFIG_AUTO_PR="false"
-            CONFIG_AUTO_BRANCH="true"
-            CONFIG_AUTO_PUSH="true"
-            CONFIG_SKIP_ENV_INFO="false"
-            CONFIG_AUTO_PUSH_AFTER_PR="false"
-            ;;
-        "custom")
-            # Will be configured individually later
-            return 0
-            ;;
-    esac
-}
 
 # Function to configure individual settings
 configure_individual_settings() {
@@ -351,7 +316,11 @@ EOF
 display_config_summary() {
     print_header "Configuration Summary"
     
-    echo "Model: $CONFIG_GEMINI_MODEL"
+    echo "Model: Select the Gemini model to use for all AI operations:"
+    echo "• gemini-2.5-flash: Fast and efficient (recommended for most users)"
+    echo "• gemini-2.5-pro: More capable for complex tasks, but may have usage limits"
+    echo ""
+    echo "$CONFIG_GEMINI_MODEL"
     echo ""
     echo "Auto-behaviors:"
     echo "  Auto-stage changes: $CONFIG_AUTO_STAGE"
@@ -362,10 +331,18 @@ display_config_summary() {
     echo "  Auto-push after PR: $CONFIG_AUTO_PUSH_AFTER_PR"
     echo ""
     echo "Branch naming:"
-    echo "  Feature prefix: $CONFIG_BRANCH_PREFIX_FEAT"
-    echo "  Fix prefix: $CONFIG_BRANCH_PREFIX_FIX"
-    echo "  Docs prefix: $CONFIG_BRANCH_PREFIX_DOCS"
-    echo "  Refactor prefix: $CONFIG_BRANCH_PREFIX_REFACTOR"
+    echo "  Feature prefix: Used for new features and enhancements."
+    echo ""
+    echo "$CONFIG_BRANCH_PREFIX_FEAT"
+    echo "  Fix prefix: Used for bug fixes and patches."
+    echo ""
+    echo "$CONFIG_BRANCH_PREFIX_FIX"
+    echo "  Docs prefix: Used for documentation updates."
+    echo ""
+    echo "$CONFIG_BRANCH_PREFIX_DOCS"
+    echo "  Refactor prefix: Used for code refactoring and cleanup."
+    echo ""
+    echo "$CONFIG_BRANCH_PREFIX_REFACTOR"
     echo "  Naming style: $CONFIG_BRANCH_NAMING_STYLE"
     echo ""
 }
@@ -385,13 +362,39 @@ main() {
     
     # Step 2: Workflow preset
     print_header "Workflow Configuration"
-    local preset=$(get_workflow_preset)
-    apply_workflow_preset "$preset"
+    get_workflow_preset
     
-    # Step 3: Individual settings (if custom was chosen)
-    if [ "$preset" = "custom" ]; then
-        configure_individual_settings
-    fi
+    # Apply preset settings in main scope
+    case "$WORKFLOW_PRESET_CHOICE" in
+        "conservative")
+            CONFIG_AUTO_STAGE="false"
+            CONFIG_AUTO_PR="false"  
+            CONFIG_AUTO_BRANCH="false"
+            CONFIG_AUTO_PUSH="false"
+            CONFIG_SKIP_ENV_INFO="false"
+            CONFIG_AUTO_PUSH_AFTER_PR="false"
+            ;;
+        "balanced")
+            CONFIG_AUTO_STAGE="true"
+            CONFIG_AUTO_PR="false"
+            CONFIG_AUTO_BRANCH="false"
+            CONFIG_AUTO_PUSH="false"
+            CONFIG_SKIP_ENV_INFO="false"
+            CONFIG_AUTO_PUSH_AFTER_PR="false"
+            ;;
+        "fast")
+            CONFIG_AUTO_STAGE="true"
+            CONFIG_AUTO_PR="false"
+            CONFIG_AUTO_BRANCH="true"
+            CONFIG_AUTO_PUSH="true"
+            CONFIG_SKIP_ENV_INFO="false"
+            CONFIG_AUTO_PUSH_AFTER_PR="false"
+            ;;
+        "custom")
+            # Configure each setting individually
+            configure_individual_settings
+            ;;
+    esac
     
     # Step 4: Branch naming
     configure_branch_naming
