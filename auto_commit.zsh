@@ -78,6 +78,9 @@ source "${script_dir}/utils/commit_message_generator.zsh"
 # Load shared git push helper functions
 source "${script_dir}/utils/git_push_helpers.zsh"
 
+# Load PR display utility
+source "${script_dir}/utils/pr_display.zsh"
+
 # Function to get repository context for LLM
 get_repository_context() {
     local repo_url=$(git remote get-url origin 2>/dev/null)
@@ -211,24 +214,8 @@ except Exception:
                     # Interactive loop for PR update confirmation
                     while true; do
                         
-                        # Display the updated PR content
-                        if command -v gum &> /dev/null; then
-                            echo ""
-                            echo "**Updated PR content:**" | gum format
-                            echo ""
-                            echo "**Title:**" | gum format
-                            echo "$new_title" | gum format -t "code"
-                            echo ""
-                            echo "**Body:**" | gum format
-                            gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$new_body")"
-                        else
-                            echo ""
-                            echo "Updated PR content:"
-                            echo "Title: $new_title"
-                            echo ""
-                            echo "Body:"
-                            echo "$new_body"
-                        fi
+                        # Display the updated PR content using utility function
+                        display_pr_content "$new_title" "$new_body"
                         
                         local confirm_choice=$(use_gum_choose "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
                         
