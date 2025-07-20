@@ -18,14 +18,11 @@ display_pr_content() {
     
     # Display the updated PR content with gum formatting or fallback
     if command -v gum &> /dev/null; then
-        echo ""
-        echo "**Updated PR content:**" | gum format
-        echo ""
-        echo "**Title:**" | gum format
-        echo "$title" | gum format -t "code"
-        echo ""
-        echo "**Body:**" | gum format
-        gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$body")"
+        local pr_content=""
+        pr_content+="# $title"$'\n'$'\n'
+        pr_content+="$body"
+
+        gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$pr_content")"
     else
         echo ""
         echo "Updated PR content:"
