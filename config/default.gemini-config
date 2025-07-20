@@ -1,0 +1,26 @@
+# Default Configuration for Gemini CLI Scripts
+# This file contains the system defaults for all configurable options
+# 
+# Override these settings by creating:
+# - Repository-specific: .gemini-config in your project root
+# - User global: ~/.config/gemini-cli/.gemini-config
+
+# Gemini Model Configuration
+GEMINI_MODEL=gemini-2.5-flash
+
+# Auto-commit Default Behaviors
+AUTO_STAGE=false
+AUTO_PR=false
+AUTO_BRANCH=false
+AUTO_PUSH=false
+SKIP_ENV_INFO=false
+
+# Auto-PR Default Behaviors  
+AUTO_PUSH_AFTER_PR=false
+
+# Branch Naming Configuration
+BRANCH_PREFIX_FEAT=feat/
+BRANCH_PREFIX_FIX=fix/
+BRANCH_PREFIX_DOCS=docs/
+BRANCH_PREFIX_REFACTOR=refactor/
+BRANCH_NAMING_STYLE=kebab-case

@@ -1,11 +1,18 @@
 #!/usr/bin/env zsh
 
-# Default options
-auto_stage=false
-auto_pr=false
-auto_branch=false
-auto_push=false
-skip_env_info=false
+# Get script directory early for configuration loading
+script_dir="${0:A:h}"
+
+# Load configuration system
+source "${script_dir}/config/config_loader.zsh"
+load_gemini_config
+
+# Set default options from configuration (can be overridden by command-line flags)
+auto_stage=$(is_config_true "$CONFIG_AUTO_STAGE" && echo true || echo false)
+auto_pr=$(is_config_true "$CONFIG_AUTO_PR" && echo true || echo false)
+auto_branch=$(is_config_true "$CONFIG_AUTO_BRANCH" && echo true || echo false)
+auto_push=$(is_config_true "$CONFIG_AUTO_PUSH" && echo true || echo false)
+skip_env_info=$(is_config_true "$CONFIG_SKIP_ENV_INFO" && echo true || echo false)
 
 # Usage function
 usage() {
@@ -61,8 +68,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Load context utility if available
-script_dir="${0:A:h}"
+# Load context utility if available  
 gemini_context=""
 if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     source "${script_dir}/utils/gemini_context.zsh"
@@ -430,7 +436,7 @@ Current staged changes:
 $staged_diff"
         
         # Generate branch name with Gemini (using prompt embedding, not pipe)
-        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
             colored_status "Failed to generate branch name. Enter manually:" "info"
@@ -500,7 +506,7 @@ $gemini_context"
 Current staged changes:
 $staged_diff"
                         
-                        generated_branch_name=$(gemini -m gemini-2.5-flash --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
                             colored_status "Failed to regenerate branch name." "error"
                         fi
