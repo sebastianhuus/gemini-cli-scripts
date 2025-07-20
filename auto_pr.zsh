@@ -1,7 +1,13 @@
 #!/usr/bin/env zsh
 
-# Load context utility if available
+# Get script directory early for configuration loading
 script_dir="${0:A:h}"
+
+# Load configuration system
+source "${script_dir}/config/config_loader.zsh"
+load_gemini_config
+
+# Load context utility if available
 gemini_context=""
 if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     source "${script_dir}/utils/gemini_context.zsh"

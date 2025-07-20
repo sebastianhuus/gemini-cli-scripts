@@ -1,0 +1,86 @@
+# Example Gemini CLI Configuration File
+# Copy this file to .gemini-config in your project root or ~/.config/gemini-cli/.gemini-config for user-wide settings
+#
+# Priority Order (highest to lowest):
+# 1. Repository-specific: .gemini-config in project root
+# 2. User global: ~/.config/gemini-cli/.gemini-config  
+# 3. System defaults: Built into the scripts
+
+# ============================================================================
+# Model Configuration
+# ============================================================================
+
+# Gemini model to use for all operations
+# Options: gemini-2.5-flash, gemini-1.5-pro, gemini-1.5-flash, etc.
+GEMINI_MODEL=gemini-2.5-flash
+
+# ============================================================================
+# Auto-Commit Default Behaviors
+# ============================================================================
+
+# Automatically stage all changes before generating commit (equivalent to --stage flag)
+AUTO_STAGE=true
+
+# Automatically create pull request after successful commit (equivalent to --pr flag)
+AUTO_PR=false
+
+# Automatically create new branch without confirmation (equivalent to --branch flag)
+AUTO_BRANCH=true
+
+# Automatically push changes after successful commit (equivalent to --push flag)
+AUTO_PUSH=false
+
+# Skip environment information display at script start
+SKIP_ENV_INFO=false
+
+# ============================================================================
+# Auto-PR Default Behaviors
+# ============================================================================
+
+# Automatically push changes after creating pull request
+AUTO_PUSH_AFTER_PR=false
+
+# ============================================================================
+# Branch Naming Configuration
+# ============================================================================
+
+# Prefix for feature branches
+BRANCH_PREFIX_FEAT=feat/
+
+# Prefix for bug fix branches
+BRANCH_PREFIX_FIX=fix/
+
+# Prefix for documentation branches
+BRANCH_PREFIX_DOCS=docs/
+
+# Prefix for refactoring branches
+BRANCH_PREFIX_REFACTOR=refactor/
+
+# Branch naming style (currently supports: kebab-case)
+BRANCH_NAMING_STYLE=kebab-case
+
+# ============================================================================
+# Example Configurations for Different Workflows
+# ============================================================================
+
+# Conservative workflow (manual confirmations):
+# AUTO_STAGE=false
+# AUTO_PR=false
+# AUTO_BRANCH=false
+# AUTO_PUSH=false
+
+# Fast development workflow (minimal prompts):
+# AUTO_STAGE=true
+# AUTO_PR=true
+# AUTO_BRANCH=true
+# AUTO_PUSH=true
+
+# CI/CD friendly workflow:
+# AUTO_STAGE=true
+# AUTO_PUSH=true
+# AUTO_BRANCH=false
+# AUTO_PR=false
+
+# Custom model for different environments:
+# GEMINI_MODEL=gemini-1.5-pro  # For more complex projects
+# GEMINI_MODEL=gemini-2.5-flash  # For faster, lighter operations
