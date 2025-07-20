@@ -82,5 +82,5 @@ BRANCH_NAMING_STYLE=kebab-case
 # AUTO_PR=false
 
 # Custom model for different environments:
-# GEMINI_MODEL=gemini-1.5-pro  # For more complex projects
+# GEMINI_MODEL=gemini-2.5-pro  # For more complex projects
 # GEMINI_MODEL=gemini-2.5-flash  # For faster, lighter operations
