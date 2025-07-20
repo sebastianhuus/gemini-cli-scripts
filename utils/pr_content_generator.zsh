@@ -3,6 +3,13 @@
 # PR Content Generator Utility
 # Provides AI-powered pull request content generation using Gemini CLI
 
+# Load configuration if not already loaded
+if [ -z "$CONFIG_GEMINI_MODEL" ]; then
+    local util_script_dir="${0:A:h}"
+    source "${util_script_dir}/../config/config_loader.zsh"
+    load_gemini_config
+fi
+
 # Function to generate PR content using Gemini
 generate_pr_content() {
     local optional_prompt="$1"
@@ -50,7 +57,7 @@ $commit_details"
     fi
     
     # Generate raw PR content from Gemini
-    echo "$commit_details" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
+    echo "$commit_details" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
 }
 
 # Function to generate PR update content for existing PRs
@@ -128,5 +135,5 @@ $all_pr_commits"
     fi
     
     # Generate only title and body from Gemini (no command structure)
-    gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
+    gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
 }

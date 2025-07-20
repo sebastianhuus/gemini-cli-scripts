@@ -8,6 +8,12 @@ local util_script_dir="${0:A:h}"
 local gum_helpers_path="${util_script_dir}/../gum/gum_helpers.zsh"
 local commit_display_helpers_path="${util_script_dir}/display/commit_display.zsh"
 
+# Load configuration if not already loaded
+if [ -z "$CONFIG_GEMINI_MODEL" ]; then
+    source "${util_script_dir}/../config/config_loader.zsh"
+    load_gemini_config
+fi
+
 source "$commit_display_helpers_path"
 
 # Source gum helper functions for consistent UI
@@ -64,7 +70,7 @@ call_gemini_for_commit() {
     local script_dir="$3"
     
     # Generate the raw commit message from Gemini
-    local gemini_raw_msg=$(echo "$staged_diff" | gemini -m gemini-2.5-flash --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+    local gemini_raw_msg=$(echo "$staged_diff" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
     
     # Check for generation failure
     if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then

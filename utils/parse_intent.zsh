@@ -2,6 +2,13 @@
 
 # GitHub Issue Intent Parser - Enhanced Version
 # Extracts structured intent from natural language requests with enhanced parameter extraction
+
+# Load configuration if not already loaded
+if [ -z "$CONFIG_GEMINI_MODEL" ]; then
+    local util_script_dir="${0:A:h}"
+    source "${util_script_dir}/../config/config_loader.zsh"
+    load_gemini_config
+fi
 #
 # Usage:
 #   ./parse_intent.zsh "user input" [gemini_context]
@@ -131,7 +138,7 @@ SPECIAL_INSTRUCTIONS: NONE
 Be precise and extract everything mentioned, including implied parameters from context."
     
     # Generate enhanced intent parsing from Gemini
-    local intent_output=$(echo "$parser_prompt" | gemini -m gemini-2.5-flash --prompt "$parser_prompt" | "$(get_utils_path)/gemini_clean.zsh")
+    local intent_output=$(echo "$parser_prompt" | gemini -m "$(get_gemini_model)" --prompt "$parser_prompt" | "$(get_utils_path)/gemini_clean.zsh")
     
     if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
         echo "OPERATION: unknown"
