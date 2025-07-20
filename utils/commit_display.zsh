@@ -5,9 +5,8 @@
 # This utility provides functions for displaying commit messages with enhanced formatting
 # using Charmbracelet Gum when available, with graceful fallbacks.
 
-# Source the PR display utility for shared functions
-script_dir="${0:A:h}"
-source "${script_dir}/pr_display.zsh"
+# Source shared text formatting utility
+source "${script_dir}/utils/text_formatting.zsh"
 
 # Function to display commit message with enhanced formatting
 # Usage: display_commit_message "full_commit_message"
