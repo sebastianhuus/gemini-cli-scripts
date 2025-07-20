@@ -3,8 +3,9 @@
 # Test script for PR display utility
 # Tests the display_pr_content function with sample data
 
-# Get script directory and source the PR display utility
+# Get script directory and source utilities
 script_dir="${0:A:h}/.."
+source "${script_dir}/utils/text_formatting.zsh"
 source "${script_dir}/utils/pr_display.zsh"
 
 echo "🧪 Testing PR Display Utility"

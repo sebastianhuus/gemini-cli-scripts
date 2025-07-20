@@ -5,25 +5,8 @@
 # This utility provides functions for displaying PR content with enhanced formatting
 # using Charmbracelet Gum when available, with graceful fallbacks.
 
-# Function to make issue/PR references bold in text
-# Usage: make_issue_refs_bold "text with #123 references"
-make_issue_refs_bold() {
-    local text="$1"
-    
-    if [ -z "$text" ]; then
-        echo ""
-        return 0
-    fi
-    
-    # Replace #number patterns with **#number** for markdown bold formatting using Python
-    echo "$text" | python3 -c "
-import re
-import sys
-text = sys.stdin.read().rstrip()
-result = re.sub(r'#(\d+)', r'**#\1**', text)
-print(result)
-"
-}
+# Source shared text formatting utility
+source "${script_dir}/utils/text_formatting.zsh"
 
 # Function to display PR content with formatted title and body
 # Usage: display_pr_content "title" "body"

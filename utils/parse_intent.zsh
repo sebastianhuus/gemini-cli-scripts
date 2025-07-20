@@ -20,11 +20,11 @@
 #   SPECIAL_INSTRUCTIONS: [any specific formatting/content requests or NONE]
 
 # Get script directory for utility access
-script_dir="${0:A:h}"
+local_script_dir="${0:A:h}"
 
 # Function to get absolute path to utils directory
 get_utils_path() {
-    echo "${script_dir:A}"
+    echo "${local_script_dir:A}"
 }
 
 # Enhanced intent parsing function
