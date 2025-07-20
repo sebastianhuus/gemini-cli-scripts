@@ -391,7 +391,7 @@ main() {
     # Step 5: Show summary and confirm
     display_config_summary
     
-    if ! use_gum_confirm "Save this configuration?"; then
+    if ! use_gum_confirm "Proceed with saving this configuration?"; then
         print_info "Configuration cancelled."
         exit 0
     fi
