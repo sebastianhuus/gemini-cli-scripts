@@ -6,6 +6,9 @@
 # Get the script directory to source dependencies
 local util_script_dir="${0:A:h}"
 local gum_helpers_path="${util_script_dir}/../gum/gum_helpers.zsh"
+local commit_display_helpers_path="${util_script_dir}/commit_display.zsh"
+
+source "$commit_display_helpers_path"
 
 # Source gum helper functions for consistent UI
 if [ -f "$gum_helpers_path" ]; then
@@ -85,26 +88,6 @@ display_staged_files() {
         echo "> \n" | gum format
     else
         echo "$staged_files_block"
-    fi
-}
-
-# Function to display commit message in formatted block
-display_commit_message() {
-    local final_commit_msg="$1"
-    
-    # Display generated commit message in quote block format
-    local commit_msg_header="> **Generated commit message:**"
-    local commit_msg_content=$(wrap_quote_block_text "$final_commit_msg")
-    local commit_msg_block="$commit_msg_header"$'\n'"$commit_msg_content"
-    
-    # Display using gum format if available, otherwise fallback to echo
-    if command -v gum &> /dev/null; then
-        echo "$commit_msg_block" | gum format
-        echo "> \\n" | gum format
-    else
-        echo "Generated commit message:"
-        echo "$final_commit_msg"
-        echo ""
     fi
 }
 
