@@ -11,6 +11,32 @@ echo "🧪 Testing PR Display Utility"
 echo "============================="
 echo ""
 
+# Test the make_issue_refs_bold function
+echo "Testing make_issue_refs_bold function..."
+echo "----------------------------------------"
+
+test_cases=(
+    "Closes #92"
+    "Refs #106" 
+    "Fixes #123 and resolves #456"
+    "No issue references here"
+    "Multiple #1 #22 #333 #4444 references"
+    "Mixed content with #99 in the middle"
+)
+
+for test_case in "${test_cases[@]}"; do
+    result=$(make_issue_refs_bold "$test_case")
+    echo "Input:  $test_case"
+    echo "Output: $result"
+    echo ""
+done
+
+echo "✅ make_issue_refs_bold tests completed!"
+echo ""
+echo "Testing full PR display..."
+echo "=========================="
+echo ""
+
 # Sample data from user
 sample_title="feat(auto-commit): Enhance PR update, fix PR number generation, and improve display rendering"
 

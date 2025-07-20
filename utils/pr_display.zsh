@@ -5,6 +5,26 @@
 # This utility provides functions for displaying PR content with enhanced formatting
 # using Charmbracelet Gum when available, with graceful fallbacks.
 
+# Function to make issue/PR references bold in text
+# Usage: make_issue_refs_bold "text with #123 references"
+make_issue_refs_bold() {
+    local text="$1"
+    
+    if [ -z "$text" ]; then
+        echo ""
+        return 0
+    fi
+    
+    # Replace #number patterns with **#number** for markdown bold formatting using Python
+    echo "$text" | python3 -c "
+import re
+import sys
+text = sys.stdin.read().rstrip()
+result = re.sub(r'#(\d+)', r'**#\1**', text)
+print(result)
+"
+}
+
 # Function to display PR content with formatted title and body
 # Usage: display_pr_content "title" "body"
 display_pr_content() {
@@ -18,9 +38,10 @@ display_pr_content() {
     
     # Display the updated PR content with gum formatting or fallback
     if command -v gum &> /dev/null; then
+        local enhanced_body=$(make_issue_refs_bold "$body")
         local pr_content=""
         pr_content+="# $title"$'\n'$'\n'
-        pr_content+="$body"
+        pr_content+="$enhanced_body"
 
         gum style --border=normal --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$pr_content")"
     else
