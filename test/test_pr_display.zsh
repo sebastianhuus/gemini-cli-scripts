@@ -17,30 +17,30 @@ sample_title="feat(auto-commit): Enhance PR update, fix PR number generation, an
 sample_body='## Summary
 
 - Implemented automatic PR update for existing branches, streamlining continuous development workflows.
-- Significantly improved the robustness and accuracy of PR number generation and handling within gh pr edit commands, addressing persistent issues.
+- Significantly improved the robustness and accuracy of PR number generation and handling within `gh pr edit` commands, addressing persistent issues.
 - Enhanced PR content generation by providing the LLM with full context, leading to more comprehensive and relevant titles and bodies.
 - Introduced markdown rendering and display width adjustments for PR body content, improving readability in the terminal.
 - Refactored PR content parsing for increased robustness and streamlined update logic.
 
 ## Recent Changes
 
-- Automatic PR Update: Enhanced auto_commit.zsh to detect unpushed commits on branches with open PRs and provide an interactive flow to update them.
+- Automatic PR Update: Enhanced `auto_commit.zsh` to detect unpushed commits on branches with open PRs and provide an interactive flow to update them.
 - PR Number Fixes:
-  - Introduced PR_NUMBER_PLACEHOLDER and sed replacement to ensure correct PR numbers.
+  - Introduced `PR_NUMBER_PLACEHOLDER` and `sed` replacement to ensure correct PR numbers.
   - Corrected prompt instructions for LLM to use placeholders effectively.
-  - Built gh pr edit command internally from LLM output, ensuring accuracy.
+  - Built `gh pr edit` command internally from LLM output, ensuring accuracy.
   - Added validation and auto-correction for PR numbers in LLM-generated commands.
 - Improved PR Content Generation:
   - Passed all PR commits and existing PR content to the LLM for more context-aware updates.
-  - Delegated full gh pr edit command generation to the LLM for flexibility.
+  - Delegated full `gh pr edit` command generation to the LLM for flexibility.
 - Display Enhancements:
-  - Implemented markdown rendering for PR bodies using gum format.
-  - Correctly nested gum format within gum style for consistent rendering.
-  - Added --width parameter to gum style to adjust PR body display width, preventing overflow.
+  - Implemented markdown rendering for PR bodies using `gum format`.
+  - Correctly nested `gum format` within `gum style` for consistent rendering.
+  - Added `--width` parameter to `gum style` to adjust PR body display width, preventing overflow.
 - Code Refinements:
-  - Replaced jq with a Python script for more robust PR content parsing.
+  - Replaced `jq` with a Python script for more robust PR content parsing.
   - Streamlined PR update logic by merging conditional flows.
-  - Replaced echo with colored_status for consistent and readable output.
+  - Replaced `echo` with `colored_status` for consistent and readable output.
 
 Closes #92
 Refs #106'
