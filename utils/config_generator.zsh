@@ -228,13 +228,13 @@ configure_branch_naming() {
 
 # Function to choose config location
 choose_config_location() {
-    echo "Where would you like to save the configuration?"
-    echo ""
-    echo "• Repository-specific: .gemini-config in current directory"
-    echo "  (Only affects this project)"
-    echo "• User-wide: ~/.config/gemini-cli/.gemini-config"
-    echo "  (Affects all projects for your user)"
-    echo ""
+    echo "Where would you like to save the configuration?" >&2
+    echo "" >&2
+    echo "• Repository-specific: .gemini-config in current directory" >&2
+    echo "  (Only affects this project)" >&2
+    echo "• User-wide: ~/.config/gemini-cli/.gemini-config" >&2
+    echo "  (Affects all projects for your user)" >&2
+    echo "" >&2
     
     local locations=("Repository-specific (recommended)" "User-wide")
     local choice=$(use_gum_choose "Choose configuration location:" "${locations[@]}")
