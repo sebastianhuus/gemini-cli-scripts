@@ -6,7 +6,7 @@
 # Get script directory and source utilities
 script_dir="${0:A:h}/.."
 source "${script_dir}/utils/text_formatting.zsh"
-source "${script_dir}/utils/pr_display.zsh"
+source "${script_dir}/utils/display/pr_display.zsh"
 
 echo "🧪 Testing PR Display Utility"
 echo "============================="

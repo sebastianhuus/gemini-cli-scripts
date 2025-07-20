@@ -7,7 +7,7 @@
 script_dir="${0:A:h}"
 
 # Source the commit message generator
-source "${script_dir}/utils/commit_message_generator.zsh"
+source "${script_dir}/../utils/commit_message_generator.zsh"
 
 # Test data - simulate what auto_commit would pass
 echo "🧪 Testing Commit Message Generator"
