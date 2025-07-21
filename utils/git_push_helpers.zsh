@@ -47,7 +47,8 @@ smart_git_push() {
         PUSH_EXIT_CODE=$?
     else
         # Upstream is not set, so we need to publish the branch
-        echo "No upstream branch found for '$branch_name'. Publishing to 'origin/$branch_name'..."
+        colored_status "No upstream branch found for '$branch_name'" "info"
+        echo "  ⎿ Publishing to 'origin/$branch_name'..."
         PUSH_COMMAND="git push --set-upstream origin \"$branch_name\""
         PUSH_OUTPUT=$(git push --set-upstream origin "$branch_name" 2>&1)
         PUSH_EXIT_CODE=$?
