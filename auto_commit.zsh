@@ -1,7 +1,8 @@
 #!/usr/bin/env zsh
 
 # Get script directory early for configuration loading
-script_dir="${0:A:h}"
+source "$(dirname "${0:A}")/utils/path_resolver.zsh"
+script_dir="$(find_script_base)"
 
 # Load configuration system
 source "${script_dir}/config/config_loader.zsh"
