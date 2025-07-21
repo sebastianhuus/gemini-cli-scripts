@@ -38,7 +38,17 @@ load_gemini_context() {
     if [ -z "$content" ]; then
         return 0
     fi
-    
+
+    if command -v gum &> /dev/null;then
+        echo ""
+        echo "**Using GEMINI.md at $context_file**" | gum format >&2
+        echo ""
+    else
+        echo ""
+        echo "Using GEMINI.md at $context_file" >&2
+        echo ""
+    fi
+
     # Return formatted context
     echo "$content"
 }
