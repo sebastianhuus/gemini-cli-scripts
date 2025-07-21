@@ -337,7 +337,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
         # Already have staged changes
         staged_diff=$(git diff --cached)
         colored_status "Found staged changes for branch name generation." "success"
-    elif ! git diff --quiet; then
+    elif [ -n "$(git status --porcelain)" ]; then
         # Have unstaged changes, auto-stage if flag is set or ask user
         if [[ "$auto_stage" == true ]]; then
             echo ""
@@ -352,7 +352,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
             fi
         else
             if use_gum_confirm "Found unstaged changes. Stage all changes?"; then
-                git add .
+                git add -A
                 if ! git diff --cached --quiet; then
                     staged_diff=$(git diff --cached)
                     colored_status "Changes staged successfully." "success"
@@ -702,10 +702,10 @@ else
         colored_status "No staged changes found." "info"
         
         # First check if there are any unstaged changes
-        if ! git diff --quiet; then
+        if [ -n "$(git status --porcelain)" ]; then
             # Has unstaged changes - offer to stage them
             if use_gum_confirm "Do you want to stage all changes?"; then
-                git add .
+                git add -A
                 colored_status "All changes staged." "success"
                 # Re-run the script to proceed with commit message generation
                 exec "$0" "$@" --skip-env-info
