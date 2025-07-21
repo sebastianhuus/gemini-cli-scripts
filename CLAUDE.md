@@ -21,7 +21,9 @@ Automated commit message generation using Gemini CLI with feedback loops:
 - Optional branch creation, pushing, and PR creation
 - Smart text wrapping for terminal-aware display
 
-Usage: `./auto_commit.zsh [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]`
+**PATH-compatible usage:**
+- `auto-commit [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]`
+- `./auto_commit.zsh [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]` (local execution)
 
 Options:
 - `-s, --stage`: Automatically stage all changes before generating commit
@@ -36,7 +38,9 @@ Pull request creation automation:
 - Extracts issue references from commit messages
 - Integrates with GitHub CLI for PR creation
 
-Usage: `./auto_pr.zsh [optional_context]`
+**PATH-compatible usage:**
+- `auto-pr [optional_context]`
+- `./auto_pr.zsh [optional_context]` (local execution)
 
 #### auto_issue.zsh
 Natural language GitHub issue management:
@@ -46,9 +50,20 @@ Natural language GitHub issue management:
 - Repository context awareness (labels, milestones, collaborators)
 - Priority label support for visual issue urgency indication
 
-Usage: `./auto_issue.zsh "natural language request"`
+**PATH-compatible usage:**
+- `auto-issue "natural language request"`
+- `./auto_issue.zsh "natural language request"` (local execution)
 
 ### Utility Scripts (utils/)
+
+#### utils/path_resolver.zsh
+**NEW**: PATH compatibility utility for symlink resolution:
+- Provides `find_script_base()` function for locating repository structure
+- Resolves symlinks to find actual script location and utils/ directory
+- Enables scripts to work both as git submodules and PATH executables
+- Automatically sourced by all main scripts for PATH compatibility
+
+Usage: Automatically loaded by main scripts via `source "$(dirname "${0:A}")/utils/path_resolver.zsh"`
 
 #### utils/gemini_clean.zsh
 Utility script for cleaning Gemini CLI responses:
@@ -70,11 +85,33 @@ Usage: Automatically loaded by main scripts when present
 
 ## Architecture
 
+### PATH Compatibility
+The scripts now support both traditional git submodule usage and system-wide PATH installation:
+
+**Directory Resolution Pattern:**
+```zsh
+# All main scripts use this pattern for PATH compatibility
+source "$(dirname "${0:A}")/utils/path_resolver.zsh"
+script_dir="$(find_script_base)"
+```
+
+**find_script_base() Function:**
+- Uses `"${0:A}"` to resolve symlinks to actual script location
+- Searches for `utils/` directory in script location and parent directory
+- Falls back gracefully to script directory if structure not found
+- Enables seamless operation from PATH or local execution
+
+**Installation Methods:**
+1. **System-wide**: `./install.zsh` creates symlinks in `/usr/local/bin`
+2. **Git submodule**: Traditional project-specific installation
+3. **Manual**: Copy scripts while preserving directory structure
+
 ### Common Patterns
 - All scripts use `gemini-2.5-flash` model via Gemini CLI
 - Consistent attribution footer: `🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)`
 - Error handling with fallback to manual operation
 - Interactive confirmation before execution
+- PATH-aware utility sourcing for cross-platform compatibility
 
 ### Key Functions in auto_issue.zsh
 - `convert_question_to_command()`: Converts conversational requests to direct commands
@@ -120,13 +157,15 @@ Since this is a shell script repository without build systems:
 
 ### Testing Scripts
 ```bash
-# Test in a git repository with staged changes
+# Test with PATH installation (recommended)
+auto-commit "fix login bug"
+auto-pr "resolves #123"
+auto-issue "create issue about dark mode"
+auto-issue "comment on issue 5 that this is resolved"
+
+# Test with local execution (git submodule)
 ./auto_commit.zsh "fix login bug"
-
-# Test PR creation from feature branch  
 ./auto_pr.zsh "resolves #123"
-
-# Test issue management
 ./auto_issue.zsh "create issue about dark mode"
 ./auto_issue.zsh "comment on issue 5 that this is resolved"
 ```
@@ -147,12 +186,25 @@ Features:
 - Shows both user experience and technical results
 - Useful for debugging commit generation issues without staging real files
 
-### Installation Pattern
-Designed to be used as a git submodule:
+### Installation Patterns
+
+#### System-wide Installation (Recommended)
+```bash
+git clone https://github.com/sebastianhuus/gemini-cli-scripts.git
+cd gemini-cli-scripts
+chmod +x install.zsh
+./install.zsh
+```
+
+This creates symlinks in `/usr/local/bin` for system-wide access.
+
+#### Git Submodule Installation
 ```bash
 git submodule add https://github.com/sebastianhuus/gemini-cli-scripts.git <path>
 git submodule update --remote  # For updates
 ```
+
+Traditional project-specific installation.
 
 ## Development Notes
 
