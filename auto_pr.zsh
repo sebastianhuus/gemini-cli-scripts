@@ -38,6 +38,15 @@ else
     exit 1
 fi
 
+# Load PR display utility
+if [ -f "${script_dir}/utils/display/pr_display.zsh" ]; then
+    source "${script_dir}/utils/display/pr_display.zsh"
+else
+    echo "Error: Required PR display utility not found at ${script_dir}/utils/display/pr_display.zsh"
+    exit 1
+fi
+
+
 # Function to check for existing pull request
 check_existing_pr() {
     local current_branch="$1"
@@ -103,7 +112,7 @@ fi
 
 # Display commits using the same pattern as auto_commit.zsh
 colored_status "Found commits to include in PR:" "info"
-git log $base_branch..$current_branch --no-merges --pretty=format:"  • %h %f" | sed 's/-/ /g'
+git log $base_branch..$current_branch --no-merges --pretty=format:"     • %h %f" | sed 's/-/ /g'
 echo ""
 
 # Get detailed commit information for better context
@@ -121,18 +130,31 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         # The LLM now generates a complete gh pr create command
         pr_create_command="$pr_content_raw"
 
-        # Display the PR command in a formatted code block
-        if command -v gum &> /dev/null; then
-            echo ""
-            local code_block_title="**Generated PR create command:**"
-            local code_block="$pr_create_command"
-            echo "$code_block_title" | gum format
-            echo "$code_block" | gum format -t "code" -l "zsh"
+        # Extract title and body from the generated command
+        local pr_title=$(extract_pr_title "$pr_create_command")
+        local pr_body=$(extract_pr_body "$pr_create_command")
+
+        echo ""
+        if command -v gum &> /dev/null;then
+            echo "**Generated PR content:**" | gum format
         else
-            echo "Generated PR create command:"
-            echo "$pr_create_command"
-            echo ""
+            echo "Generated PR content:"
         fi
+        
+        # Display the extracted PR content using the PR display utility
+        if [ -n "$pr_title" ] && [ -n "$pr_body" ]; then
+            display_pr_content "$pr_title" "$pr_body"
+        else
+            # Fallback to command display if extraction fails
+            display_styled_content "Generated PR create command" "" "$pr_create_command"
+        fi
+
+        if command -v gum &> /dev/null;then
+            echo "$pr_create_command" | gum format -t "code" -l "zsh"
+        else
+            echo "$pr_create_command"
+        fi
+
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
@@ -151,15 +173,9 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     # Add the base and head parameters to the generated command
                     enhanced_command="$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
                     
-                    # Display the execution command using the same formatting pattern
-                    if command -v gum &> /dev/null; then
-                        echo ""
-                        local exec_block_title="**Executing PR command:**"
-                        echo "$exec_block_title" | gum format
-                        echo "$enhanced_command" | gum format -t "code" -l "zsh"
-                    else
-                        echo "Executing: $enhanced_command"
-                    fi
+                    # Display the execution command using PR display utility
+                    colored_status "Executing PR command" "info" 
+                    echo "$enhanced_command" | gum format -t "code" -l "zsh"
                     
                     # Execute the command (similar to auto_issue.zsh pattern)
                     escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
