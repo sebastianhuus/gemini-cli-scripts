@@ -174,7 +174,8 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     enhanced_command="$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
                     
                     # Display the execution command using PR display utility
-                    display_styled_content "Executing PR command" "" "$enhanced_command"
+                    colored_status "Executing PR command" "info" 
+                    echo "$enhanced_command" | gum format -t "code" -l "zsh"
                     
                     # Execute the command (similar to auto_issue.zsh pattern)
                     escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
