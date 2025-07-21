@@ -262,6 +262,10 @@ auto-commit -s "emergency fix"
 auto-commit -s -b -pr -p "feature complete"
 ```
 
+## Technical Documentation
+
+For developers and contributors interested in the internal architecture, utility functions, and development guidelines, see the comprehensive technical documentation in [utils/README.md](utils/README.md).
+
 ## Usage
 
 ### Requirements
