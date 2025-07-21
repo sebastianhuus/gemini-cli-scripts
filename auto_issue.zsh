@@ -23,6 +23,22 @@ fi
 # Load shared gum helper functions
 source "${script_dir}/gum/gum_helpers.zsh"
 
+# Load shared command extraction utility
+if [ -f "${script_dir}/utils/gh_command_extraction.zsh" ]; then
+    source "${script_dir}/utils/gh_command_extraction.zsh"
+else
+    echo "Error: Required command extraction utility not found at ${script_dir}/utils/gh_command_extraction.zsh"
+    exit 1
+fi
+
+# Load issue display utility
+if [ -f "${script_dir}/utils/display/issue_display.zsh" ]; then
+    source "${script_dir}/utils/display/issue_display.zsh"
+else
+    echo "Error: Required issue display utility not found at ${script_dir}/utils/display/issue_display.zsh"
+    exit 1
+fi
+
 # GitHub Issue Natural Language Assistant with LLM Enhancement
 # 
 # Usage:
@@ -718,10 +734,23 @@ Make sure to include appropriate labels and assignees based on the issue type an
     # The LLM now includes attribution directly in the body, so no post-processing needed
     enhanced_command="$create_command"
     
-    echo "Generated create command:"
-    echo "------------------------"
-    echo "$enhanced_command"
-    echo "------------------------"
+    # Extract title and body from the generated command for enhanced display
+    local issue_title=$(extract_gh_title "$enhanced_command")
+    local issue_body=$(extract_gh_body "$enhanced_command")
+    
+    if [ -n "$issue_title" ] && [ -n "$issue_body" ]; then
+        display_issue_content "$issue_title" "$issue_body"
+    else
+        # Fallback: show raw command when extraction fails
+        echo "Generated create command:"
+        if command -v gum &> /dev/null; then
+            echo "$enhanced_command" | gum format -t "code" -l "zsh"
+        else
+            echo "------------------------"
+            echo "$enhanced_command"
+            echo "------------------------"
+        fi
+    fi
     echo ""
     response=$(use_gum_choose "Execute this command?" "Yes" "Regenerate with feedback" "Quit")
     
