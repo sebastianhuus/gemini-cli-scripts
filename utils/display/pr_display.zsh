@@ -8,9 +8,6 @@
 # Source shared text formatting utility
 source "${script_dir}/utils/text_formatting.zsh"
 
-# Source shared command extraction utility
-source "${script_dir}/utils/gh_command_extraction.zsh"
-
 # Function to display PR content with formatted title and body
 # Usage: display_pr_content "title" "body"
 display_pr_content() {
