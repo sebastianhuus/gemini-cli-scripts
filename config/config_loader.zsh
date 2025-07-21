@@ -6,8 +6,9 @@
 # 2. User global: $HOME/.config/gemini-cli/.gemini-config  
 # 3. System defaults: $script_dir/config/default.gemini-config
 
-# Get the script directory for finding default config
-SCRIPT_DIR="${0:A:h:h}"  # Go up one level from config/ to script root
+# Script directory will be passed as parameter to load_gemini_config()
+# No longer using ${0:A} since this file is sourced, not executed directly
+SCRIPT_DIR=""
 
 # Default configuration values
 DEFAULT_GEMINI_MODEL="gemini-2.5-flash"
@@ -67,8 +68,14 @@ load_config_file() {
 }
 
 # Main function to load configuration from all sources
-# Usage: load_gemini_config
+# Usage: load_gemini_config [script_directory]
 load_gemini_config() {
+    local script_dir_param="$1"
+    
+    # Set SCRIPT_DIR from parameter if provided
+    if [ -n "$script_dir_param" ]; then
+        SCRIPT_DIR="$script_dir_param"
+    fi
     # Load in reverse priority order (later sources override earlier ones)
     
     # 3. System defaults (lowest priority)

@@ -5,7 +5,7 @@ script_dir="$(dirname "${0:A}")"
 
 # Load configuration system
 source "${script_dir}/config/config_loader.zsh"
-load_gemini_config
+load_gemini_config "$script_dir"
 
 # Set default options from configuration (can be overridden by command-line flags)
 auto_stage=$(is_config_true "$CONFIG_AUTO_STAGE" && echo true || echo false)

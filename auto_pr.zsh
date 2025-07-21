@@ -5,7 +5,7 @@ script_dir="$(dirname "${0:A}")"
 
 # Load configuration system
 source "${script_dir}/config/config_loader.zsh"
-load_gemini_config
+load_gemini_config "$script_dir"
 
 # Load context utility if available
 gemini_context=""
