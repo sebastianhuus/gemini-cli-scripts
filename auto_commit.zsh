@@ -5,7 +5,7 @@ script_dir="$(dirname "${0:A}")"
 
 # Load configuration system
 source "${script_dir}/config/config_loader.zsh"
-load_gemini_config
+load_gemini_config "$script_dir"
 
 # Set default options from configuration (can be overridden by command-line flags)
 auto_stage=$(is_config_true "$CONFIG_AUTO_STAGE" && echo true || echo false)
@@ -72,7 +72,7 @@ done
 gemini_context=""
 if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
     source "${script_dir}/utils/gemini_context.zsh"
-    gemini_context=$(load_gemini_context)
+    gemini_context=$(load_gemini_context "${script_dir}")
 fi
 
 # Load shared gum helper functions
