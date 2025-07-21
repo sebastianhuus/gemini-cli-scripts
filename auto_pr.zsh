@@ -38,6 +38,14 @@ else
     exit 1
 fi
 
+# Load shared command extraction utility
+if [ -f "${script_dir}/utils/gh_command_extraction.zsh" ]; then
+    source "${script_dir}/utils/gh_command_extraction.zsh"
+else
+    echo "Error: Required command extraction utility not found at ${script_dir}/utils/gh_command_extraction.zsh"
+    exit 1
+fi
+
 # Load PR display utility
 if [ -f "${script_dir}/utils/display/pr_display.zsh" ]; then
     source "${script_dir}/utils/display/pr_display.zsh"
