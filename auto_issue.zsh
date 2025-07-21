@@ -17,7 +17,7 @@ get_utils_path() {
 gemini_context=""
 if [ -f "$(get_utils_path)/gemini_context.zsh" ]; then
     source "$(get_utils_path)/gemini_context.zsh"
-    gemini_context=$(load_gemini_context)
+    gemini_context=$(load_gemini_context "$script_dir")
 fi
 
 # Load shared gum helper functions

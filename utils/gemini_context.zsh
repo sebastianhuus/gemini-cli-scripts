@@ -4,7 +4,15 @@
 # Provides repository-specific context from GEMINI.md file to enhance AI understanding
 
 # Function to load and format GEMINI.md context
+# Usage: load_gemini_context [script_dir]
 load_gemini_context() {
+    local script_dir="$1"
+    
+    # Source gum helpers if available
+    if [ -n "$script_dir" ] && [ -f "$script_dir/../gum/gum_helpers.zsh" ]; then
+        source "$script_dir/../gum/gum_helpers.zsh"
+    fi
+    
     local context_file=""
     local search_dir="$(pwd)"
     local git_root=""
@@ -39,14 +47,11 @@ load_gemini_context() {
         return 0
     fi
 
-    if command -v gum &> /dev/null;then
-        echo ""
-        echo "**Using GEMINI.md at $context_file**" | gum format >&2
-        echo ""
+    # Show status when context is loaded
+    if command -v colored_status &> /dev/null; then
+        colored_status "Using GEMINI.md context from $(basename "$context_file")" "info" >&2
     else
-        echo ""
-        echo "Using GEMINI.md at $context_file" >&2
-        echo ""
+        echo "⏺ Using GEMINI.md context from $context_file" >&2
     fi
 
     # Return formatted context
@@ -54,7 +59,9 @@ load_gemini_context() {
 }
 
 # Function to check if context is available
+# Usage: has_gemini_context [script_dir]
 has_gemini_context() {
-    local context=$(load_gemini_context)
+    local script_dir="$1"
+    local context=$(load_gemini_context "$script_dir")
     [ -n "$context" ]
 }
