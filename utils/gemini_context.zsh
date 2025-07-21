@@ -9,7 +9,9 @@ load_gemini_context() {
     local script_dir="$1"
     
     # Source gum helpers if available
-    if [ -n "$script_dir" ] && [ -f "$script_dir/../gum/gum_helpers.zsh" ]; then
+    if [ -n "$script_dir" ] && [ -f "$script_dir/gum/gum_helpers.zsh" ]; then
+        source "$script_dir/gum/gum_helpers.zsh"
+    elif [ -n "$script_dir" ] && [ -f "$script_dir/../gum/gum_helpers.zsh" ]; then
         source "$script_dir/../gum/gum_helpers.zsh"
     fi
     
