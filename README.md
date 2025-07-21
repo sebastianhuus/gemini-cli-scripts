@@ -329,6 +329,7 @@ auto-commit -s          # Auto-stage all changes
 auto-commit -b          # Auto-create new branch
 auto-commit -pr         # Auto-create PR after commit
 auto-commit -p          # Auto-push after commit
+auto-commit --help      # Show help and usage information
 auto-commit -s -b -pr   # Combine multiple options
 ```
 
@@ -368,6 +369,13 @@ All scripts support various flags for automation:
 - `-b, --branch` - Auto-create new branch without confirmation  
 - `-pr, --pr` - Auto-create pull request after commit
 - `-p, --push` - Auto-push changes after commit
+- `-h, --help` - Show help message and usage information
+
+**`auto-issue` options:**
+- `--help` or `-h` - Show help message and usage examples
+
+**`auto-pr` options:**
+- No command-line flags (accepts optional context as argument)
 
 **Combine for full automation:**
 ```bash
