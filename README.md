@@ -100,80 +100,123 @@ This approach ensures accuracy while maintaining the convenience of natural lang
 
 ## Usage
 
-To use these scripts, ensure you have the necessary tools installed and configured.
-
 ### Requirements
 - Zsh shell
 - Git
-- Gemini command-line tool (configured with access to Gemini models)
-- GitHub CLI (`gh`) (for `auto_pr.zsh` and `auto_issue.zsh` functionality)
+- [Gemini CLI](https://github.com/google-gemini/gemini-cli) (configured with API access)
+- [GitHub CLI](https://cli.github.com/) (`gh`) (for PR and issue functionality)
+- [Charmbracelet Gum](https://github.com/charmbracelet/gum) (optional, for enhanced UI)
 
 ### Installation
-I recommend installing this repository as a git submodule in your own project. 
 
-`git submodule add https://github.com/sebastianhuus/gemini-cli-scripts.git <path_to_your_scripts>`
+#### Option 1: System-wide Installation (Recommended)
+Install scripts to your PATH for use from anywhere:
 
-This lets you keep these out of your main repo code and reuse it elsewhere.
-
-To pull updates from this repo, run
-
-`git submodule update --remote`
-
-#### Files in this repository:
-- `auto_commit.zsh` - Automated commit message generation
-- `auto_pr.zsh` - Pull request creation automation
-- `auto_issue.zsh` - Natural language GitHub issue management
-- `gemini_context.zsh` - Context utility for loading project context
-- `GEMINI.md` - Example project context file
-- `CLAUDE.md` - Instructions for Claude Code integration
-
-### Running the Scripts
-
-To run the scripts, simply drag the `.zsh` file into your terminal window (e.g., in VS Code or iTerm2) and press Enter. This will execute the script directly. They use git and Github CLI under the hood, so commands will be called on your repository based on your terminal's current working directory. 
-
-#### `auto_commit.zsh`
 ```bash
-./auto_commit.zsh [optional_additional_context]
-```
-Run this script in your Git repository when you have staged changes. It will propose a commit message and guide you through the commit process.
+# Clone the repository
+git clone https://github.com/sebastianhuus/gemini-cli-scripts.git
+cd gemini-cli-scripts
 
-#### `auto_pr.zsh`
-```bash
-./auto_pr.zsh [optional_additional_context]
-```
-Run this script on a feature branch to generate and create a pull request. It will analyze your commit history and suggest a PR title and description.
-
-#### `auto_issue.zsh`
-```bash
-./auto_issue.zsh "natural language request"
-./auto_issue.zsh --help
-```
-Run this script anywhere in your Git repository to manage GitHub issues through natural language. It supports creating, editing, commenting on, and viewing issues using conversational commands.
-
-**Natural Language Examples:**
-```bash
-./auto_issue.zsh "create issue about dark mode implementation"
-./auto_issue.zsh "comment on issue 15 that the bug is fixed"
-./auto_issue.zsh "edit issue 8 title to include severity level"
-./auto_issue.zsh "I need to report a performance issue with the API"
+# Run the installer
+chmod +x install.zsh
+./install.zsh
 ```
 
-### Context System (`GEMINI.md`)
+This creates symlinks in `/usr/local/bin`, allowing you to use the scripts from any directory:
 
-The scripts automatically load project-specific context from a `GEMINI.md` file to enhance AI understanding. This system:
+```bash
+# Use from anywhere on your system
+cd ~/any/project
+auto-commit "fix login bug"
+auto-pr "resolves #123"
+auto-issue "create issue about dark mode"
+```
 
-- **Automatically discovers** `GEMINI.md` in your current directory or git root
-- **Provides context** about your project structure, conventions, and preferences
-- **Improves AI responses** by giving Gemini relevant background information
-- **Optimizes tokens** by limiting context size while maintaining effectiveness
+#### Option 2: Git Submodule (For Project-specific Use)
+Add as a submodule to individual projects:
 
-To use the context system, create a `GEMINI.md` file in your repository root with:
+```bash
+git submodule add https://github.com/sebastianhuus/gemini-cli-scripts.git scripts
+cd scripts
+chmod +x *.zsh
+
+# Use with relative paths
+./auto_commit.zsh "fix login bug"
+```
+
+Update submodules: `git submodule update --remote`
+
+### Basic Usage
+
+#### `auto-commit` - Smart Commit Message Generation
+```bash
+# Basic usage
+auto-commit
+
+# With context
+auto-commit "fixes issue #123"
+
+# Options
+auto-commit -s          # Auto-stage all changes
+auto-commit -b          # Auto-create new branch
+auto-commit -pr         # Auto-create PR after commit
+auto-commit -p          # Auto-push after commit
+auto-commit -s -b -pr   # Combine multiple options
+```
+
+#### `auto-pr` - Pull Request Creation
+```bash
+# Generate PR from current branch
+auto-pr
+
+# With additional context
+auto-pr "resolves #123 and improves performance"
+```
+
+#### `auto-issue` - Natural Language Issue Management
+```bash
+# Create issues
+auto-issue "create issue about dark mode implementation"
+auto-issue "I need to report a bug with user authentication"
+
+# Comment on issues  
+auto-issue "comment on issue 15 that the bug is fixed"
+auto-issue "add comment to issue #8: this has been resolved"
+
+# Edit issues
+auto-issue "edit issue 13 title to say Bug: Login timeout"
+
+# View help
+auto-issue --help
+```
+
+### Advanced Features
+
+#### Command Options
+All scripts support various flags for automation:
+
+**`auto-commit` options:**
+- `-s, --stage` - Automatically stage all changes
+- `-b, --branch` - Auto-create new branch without confirmation  
+- `-pr, --pr` - Auto-create pull request after commit
+- `-p, --push` - Auto-push changes after commit
+
+**Combine for full automation:**
+```bash
+auto-commit -s -b -pr -p "implement user dashboard"
+```
+
+#### Context System (`GEMINI.md`)
+Scripts automatically load project-specific context to enhance AI understanding:
+
+- **Auto-discovery** - Finds `GEMINI.md` in current directory or git root
+- **Enhanced responses** - Provides project structure and conventions  
+- **Token optimization** - Limits context size for efficiency
+
+Create a `GEMINI.md` file in your repository with:
 - Project overview and architecture
-- Coding conventions and standards
+- Coding conventions and standards  
 - Common patterns and practices
-- Any specific guidance for AI-generated content
-
-The context is automatically loaded by `auto_issue.zsh` and can be leveraged by other scripts as needed.
 
 ### Example Usage: `auto_commit.zsh`
 
