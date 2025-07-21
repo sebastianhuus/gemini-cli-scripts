@@ -38,6 +38,14 @@ else
     exit 1
 fi
 
+# Load shared command extraction utility
+if [ -f "${script_dir}/utils/gh_command_extraction.zsh" ]; then
+    source "${script_dir}/utils/gh_command_extraction.zsh"
+else
+    echo "Error: Required command extraction utility not found at ${script_dir}/utils/gh_command_extraction.zsh"
+    exit 1
+fi
+
 # Load PR display utility
 if [ -f "${script_dir}/utils/display/pr_display.zsh" ]; then
     source "${script_dir}/utils/display/pr_display.zsh"
@@ -131,8 +139,8 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         pr_create_command="$pr_content_raw"
 
         # Extract title and body from the generated command
-        local pr_title=$(extract_pr_title "$pr_create_command")
-        local pr_body=$(extract_pr_body "$pr_create_command")
+        local pr_title=$(extract_gh_title "$pr_create_command")
+        local pr_body=$(extract_gh_body "$pr_create_command")
 
         echo ""
         if command -v gum &> /dev/null;then
@@ -145,14 +153,13 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         if [ -n "$pr_title" ] && [ -n "$pr_body" ]; then
             display_pr_content "$pr_title" "$pr_body"
         else
-            # Fallback to command display if extraction fails
-            display_styled_content "Generated PR create command" "" "$pr_create_command"
-        fi
-
-        if command -v gum &> /dev/null;then
-            echo "$pr_create_command" | gum format -t "code" -l "zsh"
-        else
-            echo "$pr_create_command"
+            # Fallback: show raw command when extraction fails
+            echo "Generated PR create command:"
+            if command -v gum &> /dev/null; then
+                echo "$pr_create_command" | gum format -t "code" -l "zsh"
+            else
+                echo "$pr_create_command"
+            fi
         fi
 
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")

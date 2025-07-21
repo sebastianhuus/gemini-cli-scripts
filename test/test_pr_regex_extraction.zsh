@@ -5,11 +5,8 @@
 # Get script directory
 script_dir="${0:A:h}/.."
 
-# Source the text formatting utility first (required by pr_display.zsh)
-source "${script_dir}/utils/text_formatting.zsh"
-
-# Source the PR display utility to get the extraction function
-source "${script_dir}/utils/display/pr_display.zsh"
+# Source the shared command extraction utility
+source "${script_dir}/utils/gh_command_extraction.zsh"
 
 echo "Testing PR content extraction from gh pr create commands..."
 echo ""
@@ -19,8 +16,8 @@ test_command1='gh pr create --title "Fix login bug" --body "This PR resolves the
 
 echo "Test 1: Simple title and body"
 echo "Command: $test_command1"
-title1=$(extract_pr_title "$test_command1")
-body1=$(extract_pr_body "$test_command1")
+title1=$(extract_gh_title "$test_command1")
+body1=$(extract_gh_body "$test_command1")
 echo "Extracted title: '$title1'"
 echo "Extracted body: '$body1'"
 echo ""
@@ -30,8 +27,8 @@ test_command2='gh pr create --title "Update documentation" --body "This PR updat
 
 echo "Test 2: Multi-line body with issue references"
 echo "Command: $test_command2"
-title2=$(extract_pr_title "$test_command2")
-body2=$(extract_pr_body "$test_command2")
+title2=$(extract_gh_title "$test_command2")
+body2=$(extract_gh_body "$test_command2")
 echo "Extracted title: '$title2'"
 echo "Extracted body:"
 echo "$body2"
@@ -42,8 +39,8 @@ test_command3="gh pr create --title 'Add dark mode feature' --body 'Implements d
 
 echo "Test 3: Single quotes"
 echo "Command: $test_command3"
-title3=$(extract_pr_title "$test_command3")
-body3=$(extract_pr_body "$test_command3")
+title3=$(extract_gh_title "$test_command3")
+body3=$(extract_gh_body "$test_command3")
 echo "Extracted title: '$title3'"
 echo "Extracted body: '$body3'"
 echo ""
@@ -53,8 +50,8 @@ test_command4='gh pr create --title "Refactor user service" --body "This PR refa
 
 echo "Test 4: Complex body with code blocks"
 echo "Command: $test_command4"
-title4=$(extract_pr_title "$test_command4")
-body4=$(extract_pr_body "$test_command4")
+title4=$(extract_gh_title "$test_command4")
+body4=$(extract_gh_body "$test_command4")
 echo "Extracted title: '$title4'"
 echo "Extracted body:"
 echo "$body4"

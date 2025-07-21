@@ -82,6 +82,10 @@ Repository context utility for enhanced AI understanding:
 
 Usage: Automatically loaded by main scripts when present
 
+## Development Guidelines
+
+### General Development Notes
+- When making new utilities and files, be aware of pitfalls with pathing and ensure they are symlink compatible
 
 ## Architecture
 
