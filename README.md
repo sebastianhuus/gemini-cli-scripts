@@ -98,6 +98,170 @@ When creating issues or comments, the system:
 
 This approach ensures accuracy while maintaining the convenience of natural language interaction.
 
+## Configuration System
+
+The Gemini CLI scripts include a sophisticated configuration system that allows you to customize default behaviors, avoid repetitive command-line flags, and maintain consistent settings across projects and team members.
+
+### Why Use Configuration?
+
+**Convenience**: Set your preferred workflows once instead of passing the same flags repeatedly:
+```bash
+# Without config - repetitive flags
+auto-commit -s -b -p "fix login bug"
+auto-commit -s -b -p "add dark mode"
+
+# With config - clean commands  
+auto-commit "fix login bug"
+auto-commit "add dark mode"
+```
+
+**Team Consistency**: Share repository-specific configurations to standardize workflows across your team.
+
+**Personal Optimization**: Configure global defaults that match your development style.
+
+### Configuration Priority System
+
+The configuration system uses a 3-tier priority hierarchy:
+
+1. **Repository-specific** (highest priority): `.gemini-config` in project root
+2. **User global**: `~/.config/gemini-cli/.gemini-config`  
+3. **System defaults** (lowest priority): `config/default.gemini-config`
+
+Settings in higher-priority files override those in lower-priority files.
+
+### Quick Setup: Interactive Config Generator
+
+Generate a personalized configuration using the interactive tool:
+
+```bash
+# Run the configuration generator
+./utils/config_generator.zsh
+
+# Or if installed via PATH
+cd /path/to/gemini-cli-scripts && ./utils/config_generator.zsh
+```
+
+The generator guides you through:
+
+**Workflow Presets:**
+- **Conservative**: Manual confirmations for all actions (safest)
+- **Balanced**: Auto-stage changes, manual PR/push decisions (recommended)
+- **Fast**: Minimize prompts, auto-stage and auto-branch
+- **Custom**: Configure each setting individually
+
+**Model Selection:**
+- `gemini-2.5-flash`: Fast and efficient (recommended)
+- `gemini-2.5-pro`: More capable but may have usage limits
+- Custom model names
+
+**Configuration Location:**
+- Repository-specific (recommended for project-specific workflows)
+- User-wide (affects all your projects)
+
+### Available Configuration Settings
+
+#### Model Configuration
+```bash
+GEMINI_MODEL=gemini-2.5-flash  # AI model for all operations
+```
+
+#### Auto-Commit Behaviors
+```bash
+AUTO_STAGE=false              # Auto-stage changes before commit generation
+AUTO_BRANCH=false             # Auto-create branches without confirmation  
+AUTO_PR=false                 # Auto-create PRs after successful commits
+AUTO_PUSH=false               # Auto-push changes after commits
+SKIP_ENV_INFO=false           # Skip repository info display
+```
+
+#### Auto-PR Behaviors
+```bash
+AUTO_PUSH_AFTER_PR=false      # Auto-push after creating PRs
+```
+
+#### Branch Naming (Future Feature)
+```bash
+BRANCH_PREFIX_FEAT=feat/      # Prefix for feature branches
+BRANCH_PREFIX_FIX=fix/        # Prefix for bug fix branches  
+BRANCH_PREFIX_DOCS=docs/      # Prefix for documentation branches
+BRANCH_PREFIX_REFACTOR=refactor/  # Prefix for refactoring branches
+BRANCH_NAMING_STYLE=kebab-case    # Branch naming convention
+```
+
+*Note: Branch naming configuration is prepared for future implementation but not yet active in the current version.*
+
+### Manual Configuration
+
+#### Repository-Specific Configuration
+Create `.gemini-config` in your project root:
+
+```bash
+# Example: Fast development workflow
+GEMINI_MODEL=gemini-2.5-flash
+AUTO_STAGE=true
+AUTO_BRANCH=true
+AUTO_PUSH=true
+AUTO_PR=false
+```
+
+#### User Global Configuration
+Create `~/.config/gemini-cli/.gemini-config`:
+
+```bash
+# Example: Conservative personal defaults
+GEMINI_MODEL=gemini-2.5-flash
+AUTO_STAGE=false
+AUTO_BRANCH=false
+AUTO_PUSH=false
+AUTO_PR=false
+SKIP_ENV_INFO=false
+```
+
+### Configuration Examples
+
+**Team Development Workflow** (`.gemini-config` in project root):
+```bash
+# Consistent team settings
+GEMINI_MODEL=gemini-2.5-flash
+AUTO_STAGE=true              # Always stage changes
+AUTO_BRANCH=false            # Manual branch creation for safety
+AUTO_PR=false                # Manual PR creation for review
+AUTO_PUSH=false              # Manual push for control
+```
+
+**Fast Personal Development** (`~/.config/gemini-cli/.gemini-config`):
+```bash
+# Optimized for speed
+GEMINI_MODEL=gemini-2.5-flash
+AUTO_STAGE=true
+AUTO_BRANCH=true
+AUTO_PUSH=true
+AUTO_PR=false                # Still want PR control
+SKIP_ENV_INFO=true           # Skip info display
+```
+
+**Conservative Workflow**:
+```bash
+# Maximum safety and control
+GEMINI_MODEL=gemini-2.5-flash
+AUTO_STAGE=false             # Manual staging
+AUTO_BRANCH=false            # Manual branch creation
+AUTO_PR=false                # Manual PR creation
+AUTO_PUSH=false              # Manual push
+```
+
+### Overriding Configuration
+
+Command-line flags always override configuration settings:
+
+```bash
+# Even with AUTO_STAGE=false in config, this will auto-stage
+auto-commit -s "emergency fix"
+
+# Configuration is ignored when explicit flags are provided
+auto-commit -s -b -pr -p "feature complete"
+```
+
 ## Usage
 
 ### Requirements
@@ -294,11 +458,5 @@ Creating pull request for demonstrate-auto-pr into main in sebastianhuus/gemini-
 https://github.com/sebastianhuus/gemini-cli-scripts/pull/1
 Pull request created successfully!
 ```
-
-### Known Issue: Gemini Response Trimming
-
-Occasionally, the Gemini model might include an extraneous line (e.g., related to authentication methods) at the beginning of its response. To mitigate this, our scripts trim the first line of every Gemini output. In cases where Gemini *does not* include this extra line, the trimming might result in an empty or truncated message.
-
-**Workaround**: If you encounter an empty or incomplete message, simply choose the 'regenerate with feedback' option (`r`) and Gemini will typically provide a complete response on the next attempt. You can also explicitly ask Gemini to add a new line at the start of its response if this issue persists.
 
 🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)
