@@ -112,7 +112,7 @@ fi
 
 # Display commits using the same pattern as auto_commit.zsh
 colored_status "Found commits to include in PR:" "info"
-git log $base_branch..$current_branch --no-merges --pretty=format:"  • %h %f" | sed 's/-/ /g'
+git log $base_branch..$current_branch --no-merges --pretty=format:"     • %h %f" | sed 's/-/ /g'
 echo ""
 
 # Get detailed commit information for better context
@@ -133,6 +133,13 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         # Extract title and body from the generated command
         local pr_title=$(extract_pr_title "$pr_create_command")
         local pr_body=$(extract_pr_body "$pr_create_command")
+
+        echo ""
+        if command -v gum &> /dev/null;then
+            echo "**Generated PR content:**" | gum format
+        else
+            echo "Generated PR content:"
+        fi
         
         # Display the extracted PR content using the PR display utility
         if [ -n "$pr_title" ] && [ -n "$pr_body" ]; then
@@ -141,6 +148,13 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
             # Fallback to command display if extraction fails
             display_styled_content "Generated PR create command" "" "$pr_create_command"
         fi
+
+        if command -v gum &> /dev/null;then
+            echo "$pr_create_command" | gum format -t "code" -l "zsh"
+        else
+            echo "$pr_create_command"
+        fi
+
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
