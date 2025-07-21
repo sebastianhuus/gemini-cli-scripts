@@ -131,8 +131,8 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         pr_create_command="$pr_content_raw"
 
         # Extract title and body from the generated command
-        local pr_title=$(extract_pr_title "$pr_create_command")
-        local pr_body=$(extract_pr_body "$pr_create_command")
+        local pr_title=$(extract_gh_title "$pr_create_command")
+        local pr_body=$(extract_gh_body "$pr_create_command")
 
         echo ""
         if command -v gum &> /dev/null;then

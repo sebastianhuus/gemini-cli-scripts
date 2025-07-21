@@ -35,7 +35,7 @@ The Gemini CLI scripts are built on a sophisticated modular architecture that se
 **Key Functions**:
 - `generate_pr_content()` - Creates complete `gh pr create` commands
 - `generate_pr_update_content()` - Handles PR updates with new commits
-- `extract_pr_title()` / `extract_pr_body()` - Parses generated commands
+- Uses shared `extract_gh_title()` / `extract_gh_body()` functions from gh_command_extraction.zsh
 - Automatic issue reference detection and inclusion
 - Context-aware content generation based on commit history
 

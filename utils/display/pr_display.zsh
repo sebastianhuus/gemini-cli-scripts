@@ -8,6 +8,9 @@
 # Source shared text formatting utility
 source "${script_dir}/utils/text_formatting.zsh"
 
+# Source shared command extraction utility
+source "${script_dir}/utils/gh_command_extraction.zsh"
+
 # Function to display PR content with formatted title and body
 # Usage: display_pr_content "title" "body"
 display_pr_content() {
@@ -37,47 +40,6 @@ display_pr_content() {
     fi
 }
 
-# Function to extract title from gh pr create command
-# Usage: extract_pr_title "gh pr create --title 'My Title' --body 'My Body'"
-extract_pr_title() {
-    local gh_command="$1"
-    
-    echo "$gh_command" | python3 -c "
-import re
-import sys
-
-command = sys.stdin.read().strip()
-
-# Find --title with quoted content (non-greedy to stop at first closing quote)
-title_match = re.search(r'--title\s+\"(.*?)\"', command, re.DOTALL)
-if not title_match:
-    title_match = re.search(r'--title\s+\'(.*?)\'', command, re.DOTALL)
-
-title = title_match.group(1) if title_match else ''
-print(title)
-"
-}
-
-# Function to extract body from gh pr create command
-# Usage: extract_pr_body "gh pr create --title 'My Title' --body 'My Body'"
-extract_pr_body() {
-    local gh_command="$1"
-    
-    echo "$gh_command" | python3 -c "
-import re
-import sys
-
-command = sys.stdin.read().strip()
-
-# Find --body with quoted content (non-greedy to stop at first closing quote) 
-body_match = re.search(r'--body\s+\"(.*?)\"', command, re.DOTALL)
-if not body_match:
-    body_match = re.search(r'--body\s+\'(.*?)\'', command, re.DOTALL)
-
-body = body_match.group(1) if body_match else ''
-print(body)
-"
-}
 
 # Function to display any generic content with title and styled body
 # Usage: display_styled_content "header_text" "title" "body"
