@@ -145,14 +145,13 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
         if [ -n "$pr_title" ] && [ -n "$pr_body" ]; then
             display_pr_content "$pr_title" "$pr_body"
         else
-            # Fallback to command display if extraction fails
-            display_styled_content "Generated PR create command" "" "$pr_create_command"
-        fi
-
-        if command -v gum &> /dev/null;then
-            echo "$pr_create_command" | gum format -t "code" -l "zsh"
-        else
-            echo "$pr_create_command"
+            # Fallback: show raw command when extraction fails
+            echo "Generated PR create command:"
+            if command -v gum &> /dev/null; then
+                echo "$pr_create_command" | gum format -t "code" -l "zsh"
+            else
+                echo "$pr_create_command"
+            fi
         fi
 
         response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")

@@ -80,17 +80,6 @@ echo ""
 echo "✅ display_issue_content test completed!"
 echo ""
 
-# Test styled content display (fallback scenario when extraction fails)
-sample_raw_command='gh issue create --title "Bug: Login button not working on mobile devices" --body "## Steps to Reproduce\n\n1. Open the application on a mobile device\n2. Navigate to the login page\n3. Enter valid credentials\n4. Tap the Login button\n\n## Expected Behavior\n\nUser should be successfully logged in and redirected to the dashboard.\n\n## Actual Behavior\n\nThe login button does not respond to touch events.\n\n🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)" --label "bug,mobile" --assignee "developer1"'
-
-echo "2. Testing display_styled_content function (fallback for extraction failure)..."
-echo ""
-display_styled_content "Generated Issue Create Command" "" "$sample_raw_command"
-
-echo ""
-echo "✅ display_styled_content fallback test completed!"
-echo ""
-
 # Test with gum disabled to show fallback behavior
 if command -v gum &> /dev/null; then
     echo "🔧 Testing fallback mode (simulating gum not available)..."
@@ -102,10 +91,6 @@ if command -v gum &> /dev/null; then
     
     echo "Fallback: display_issue_content"
     display_issue_content "$sample_title" "$sample_body"
-    echo ""
-    
-    echo "Fallback: display_styled_content"
-    display_styled_content "Generated Issue Create Command" "" "$sample_raw_command"
     echo ""
     
     # Restore PATH

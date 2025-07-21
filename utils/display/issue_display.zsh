@@ -37,33 +37,3 @@ display_issue_content() {
     fi
 }
 
-# Function to display any generic content with title and styled body
-# Usage: display_styled_content "header_text" "title" "body"
-display_styled_content() {
-    local header="$1"
-    local title="$2"
-    local body="$3"
-    
-    if [ -z "$header" ] || [ -z "$title" ] || [ -z "$body" ]; then
-        echo "Error: display_styled_content requires header, title, and body parameters"
-        return 1
-    fi
-    
-    if command -v gum &> /dev/null; then
-        echo ""
-        echo "**$header:**" | gum format
-        echo ""
-        echo "**Title:**" | gum format
-        echo "$title" | gum format -t "code"
-        echo ""
-        echo "**Body:**" | gum format
-        gum style --border=double --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$body")"
-    else
-        echo ""
-        echo "$header:"
-        echo "Title: $title"
-        echo ""
-        echo "Body:"
-        echo "$body"
-    fi
-}
