@@ -32,7 +32,7 @@ display_env_info() {
     # Display using gum format if available, otherwise fallback to echo
     if command -v gum &> /dev/null; then
         echo "$env_info_block" | gum format
-        echo "> \\n" | gum format
+        echo ""
     else
         echo "$env_info_block"
         echo ""
