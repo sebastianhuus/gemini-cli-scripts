@@ -63,7 +63,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             # First non-option argument is the optional context
-            break
+            if [ -z "$optional_context" ]; then
+                optional_context="$1"
+            fi
+            shift
             ;;
     esac
 done
