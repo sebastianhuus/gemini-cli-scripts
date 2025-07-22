@@ -151,23 +151,25 @@ colored_status() {
         local status_indicator=""
         case "$type" in
             "success")
-                status_indicator="$(gum style --foreground 2 "⏺")"
+                status_indicator="$(gum style --foreground "#22c55e" "⏺")"
                 ;;
             "error")
-                status_indicator="$(gum style --foreground 1 "⏺")"
+                status_indicator="$(gum style --foreground "#ef4444" "⏺")"
                 ;;
             "info"|"cancel")
-                status_indicator="$(gum style --foreground 5 "⏺")"
+                status_indicator="$(gum style --foreground "#a855f7" "⏺")"
                 ;;
             *)
                 status_indicator="⏺"
                 ;;
         esac
         
-        if [[ "$use_markdown" == true ]]; then
-            echo "$status_indicator $message" | gum format --no-strip-ansi
+        if [[ "$use_markdown" == true ]] && [[ "$message" == *"**"* || "$message" == *"__"* || "$message" == *"\`"* || "$message" == *"["* || "$message" == *"#"* ]]; then
+            # Only use gum format if message contains markdown syntax
+            printf "%s %s" "$status_indicator" "$(echo "$message" | gum format | tr -d '\n')"
         else
-            echo "$status_indicator $message"
+            # For plain text, add indent to align with formatted content
+            echo "  $status_indicator $message"
         fi
     else
         echo "⏺ $message"
