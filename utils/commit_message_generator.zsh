@@ -91,7 +91,7 @@ display_staged_files() {
     # Display using gum format if available, otherwise fallback to echo
     if command -v gum &> /dev/null; then
         echo "$staged_files_block" | gum format
-        echo "> \n" | gum format
+        echo ""
     else
         echo "$staged_files_block"
     fi

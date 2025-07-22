@@ -90,6 +90,11 @@ load_gemini_config() {
     # 1. Repository-specific config (highest priority)
     load_config_file "$PWD/.gemini-config"
     
+    # Load gum theme configuration
+    if [ -f "$SCRIPT_DIR/utils/gum_theme.zsh" ]; then
+        source "$SCRIPT_DIR/utils/gum_theme.zsh"
+    fi
+    
     # Set defaults for any missing values
     CONFIG_GEMINI_MODEL=$(get_config_value "GEMINI_MODEL" "$DEFAULT_GEMINI_MODEL")
     CONFIG_AUTO_STAGE=$(get_config_value "AUTO_STAGE" "$DEFAULT_AUTO_STAGE")
