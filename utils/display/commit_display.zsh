@@ -31,7 +31,6 @@ display_commit_message() {
         formatted_content+="# $title"$'\n'$'\n'
         formatted_content+="$enhanced_body"
         
-        echo ""
         echo "**Generated commit message:**" | gum format
         gum style --border=normal --padding="1 2" --width=$((COLUMNS - 6)) "$(gum format "$formatted_content")"
     else
