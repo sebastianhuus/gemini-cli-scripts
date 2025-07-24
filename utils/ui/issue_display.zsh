@@ -6,7 +6,7 @@
 # using Charmbracelet Gum when available, with graceful fallbacks.
 
 # Source shared text formatting utility
-source "${script_dir}/utils/text_formatting.zsh"
+source "${0:A:h}/text_formatting.zsh"
 
 # Function to display issue content with formatted title and body
 # Usage: display_issue_content "title" "body"

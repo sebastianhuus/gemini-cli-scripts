@@ -91,8 +91,8 @@ load_gemini_config() {
     load_config_file "$PWD/.gemini-config"
     
     # Load gum theme configuration
-    if [ -f "$SCRIPT_DIR/utils/gum_theme.zsh" ]; then
-        source "$SCRIPT_DIR/utils/gum_theme.zsh"
+    if [ -f "$SCRIPT_DIR/utils/ui/gum_theme.zsh" ]; then
+        source "$SCRIPT_DIR/utils/ui/gum_theme.zsh"
     fi
     
     # Set defaults for any missing values

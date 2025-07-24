@@ -5,8 +5,8 @@
 
 # Get script directory and source utilities
 script_dir="${0:A:h}/.."
-source "${script_dir}/utils/text_formatting.zsh"
-source "${script_dir}/utils/display/issue_display.zsh"
+source "${script_dir}/utils/ui/text_formatting.zsh"
+source "${script_dir}/utils/ui/issue_display.zsh"
 
 echo "🧪 Testing Issue Display Utility"
 echo "================================="

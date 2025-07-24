@@ -6,7 +6,7 @@
 # using Charmbracelet Gum when available, with graceful fallbacks.
 
 # Source shared text formatting utility
-source "${script_dir}/utils/text_formatting.zsh"
+source "${0:A:h}/text_formatting.zsh"
 
 # Function to display commit message with enhanced formatting
 # Usage: display_commit_message "full_commit_message"
