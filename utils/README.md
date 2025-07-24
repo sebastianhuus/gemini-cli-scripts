@@ -4,7 +4,7 @@ This document provides technical documentation for developers and contributors w
 
 ## Architecture Overview
 
-The Gemini CLI scripts are built on a sophisticated modular architecture that separates concerns into specialized utilities. This design enables:
+The Gemini CLI scripts are built on a sophisticated modular architecture that separates concerns into specialized utilities organized by functionality. This design enables:
 
 - **Separation of concerns**: Each utility has a single, well-defined responsibility
 - **Reusability**: Shared functions reduce code duplication across main scripts
@@ -12,7 +12,63 @@ The Gemini CLI scripts are built on a sophisticated modular architecture that se
 - **Maintainability**: Changes are isolated to specific functionality areas
 - **Progressive enhancement**: Gum styling with graceful fallbacks for all environments
 
-## Core Utilities
+## Directory Structure
+
+The utils folder is organized into functional categories:
+
+```
+utils/
+├── core/                     # Core system and AI utilities
+│   ├── gemini_clean.zsh     # AI response cleaning
+│   ├── gemini_context.zsh   # Repository context loading
+│   └── config_generator.zsh # Interactive configuration
+├── generators/              # Content generation utilities
+│   ├── commit_message_generator.zsh
+│   ├── pr_content_generator.zsh
+│   └── parse_intent.zsh     # Natural language parsing
+├── ui/                      # User interface and display utilities
+│   ├── commit_display.zsh   # Commit message formatting
+│   ├── issue_display.zsh    # Issue content display
+│   ├── pr_display.zsh       # PR content display
+│   ├── text_formatting.zsh  # Text enhancement utilities
+│   └── gum_theme.zsh        # Gum styling configuration
+├── git/                     # Git and GitHub integration utilities
+│   ├── git_push_helpers.zsh
+│   └── gh_command_extraction.zsh
+└── README.md                # This documentation
+```
+
+## Core Utilities (`core/`)
+
+### `gemini_clean.zsh`
+**Purpose**: AI response cleaning and authentication line removal
+
+**Features**:
+- Removes authentication-related output that sometimes appears in Gemini responses
+- Pattern-based detection of auth messages ("Loaded cached credentials.", etc.)
+- Preserves original content when no cleaning is needed
+- Handles edge cases like single-line auth-only responses
+
+**Usage**: `gemini ... | ./utils/core/gemini_clean.zsh`
+
+### `gemini_context.zsh`
+**Purpose**: Repository context loading from GEMINI.md files
+
+**Key Functions**:
+- `load_gemini_context()` - Searches for and loads GEMINI.md content
+- `has_gemini_context()` - Checks if context is available
+- File size validation (2KB limit) to prevent token overuse
+- Search hierarchy: current directory → git root
+
+### `config_generator.zsh`
+**Purpose**: Interactive configuration creation for Gemini CLI scripts
+
+**Features**:
+- Creates personalized .gemini-config files through guided prompts
+- Integrates with the main configuration system
+- Handles model selection and theme preferences
+
+## Content Generators (`generators/`)
 
 ### `commit_message_generator.zsh`
 **Purpose**: AI-powered commit message generation with interactive feedback loops
@@ -27,7 +83,7 @@ The Gemini CLI scripts are built on a sophisticated modular architecture that se
 **Dependencies**: 
 - `../config/config_loader.zsh` - Configuration management
 - `../gum/gum_helpers.zsh` - UI components
-- `display/commit_display.zsh` - Message formatting
+- `../ui/commit_display.zsh` - Message formatting
 
 ### `pr_content_generator.zsh`
 **Purpose**: Specialized pull request content generation including GitHub command creation
@@ -35,7 +91,7 @@ The Gemini CLI scripts are built on a sophisticated modular architecture that se
 **Key Functions**:
 - `generate_pr_content()` - Creates complete `gh pr create` commands
 - `generate_pr_update_content()` - Handles PR updates with new commits
-- Uses shared `extract_gh_title()` / `extract_gh_body()` functions from gh_command_extraction.zsh
+- Uses shared `extract_gh_title()` / `extract_gh_body()` functions from git/gh_command_extraction.zsh
 - Automatic issue reference detection and inclusion
 - Context-aware content generation based on commit history
 
@@ -68,20 +124,33 @@ TONE_PREFERENCE: [formal|casual|technical|NONE]
 SPECIAL_INSTRUCTIONS: [any specific formatting/content requests or NONE]
 ```
 
-### `git_push_helpers.zsh`
-**Purpose**: Smart git push functionality with upstream detection and formatted output
+## User Interface (`ui/`)
+
+### `commit_display.zsh`
+**Purpose**: Sophisticated commit message formatting with gum styling
 
 **Key Functions**:
-- `smart_git_push()` - Intelligently selects appropriate push command
-- `simple_push_with_display()` - Push with formatted result display
-- `pr_push_with_display()` - Push specifically for PR creation
-- `display_push_result()` - Consistent push result formatting
+- `display_commit_message()` - Enhanced commit message display
+- Title and body parsing with appropriate formatting
+- Issue reference enhancement using `text_formatting.zsh`
+- Gum integration with styled borders and padding
 
-**Features**:
-- Automatic upstream branch detection and handling
-- Fallback to `git push -u origin <branch>` when no upstream exists
-- Comprehensive error handling and user feedback
-- Global variable system for returning detailed results
+### `issue_display.zsh`
+**Purpose**: GitHub issue content display with enhanced formatting
+
+**Key Functions**:
+- `display_issue_content()` - Formats issue titles and bodies with borders
+- Gum integration with professional styling
+- Issue reference bolding integration
+
+### `pr_display.zsh`
+**Purpose**: Enhanced PR content display with professional formatting
+
+**Key Functions**:
+- `display_pr_content()` - Formats PR titles and bodies with borders
+- `display_styled_content()` - Generic styled content display
+- Terminal-aware width calculation (`COLUMNS - 6`)
+- Issue reference bolding integration
 
 ### `text_formatting.zsh`
 **Purpose**: Text enhancement utilities for markdown content
@@ -97,103 +166,44 @@ SPECIAL_INSTRUCTIONS: [any specific formatting/content requests or NONE]
 enhanced_text=$(make_issue_refs_bold "$original_text")
 ```
 
-### Supporting Infrastructure
-
-#### `path_resolver.zsh`
-**Purpose**: PATH compatibility and symlink resolution for system-wide installation
-
-**Key Functions**:
-- `find_script_base()` - Locates repository structure from any execution context
-- Resolves symlinks to find actual script locations
-- Enables scripts to work both as git submodules and PATH executables
-
-**Resolution Logic**:
-1. Use `${0:A}` to resolve symlinks to actual script location
-2. Search for `utils/` directory in script location and parent directory
-3. Fall back gracefully to script directory if structure not found
-
-#### `gemini_clean.zsh`
-**Purpose**: AI response cleaning and authentication line removal
+### `gum_theme.zsh`
+**Purpose**: Consistent styling across all gum commands
 
 **Features**:
-- Removes authentication-related output that sometimes appears in Gemini responses
-- Pattern-based detection of auth messages ("Loaded cached credentials.", etc.)
-- Preserves original content when no cleaning is needed
-- Handles edge cases like single-line auth-only responses
+- Centralized theme configuration for all gum components
+- Format theme settings for markdown rendering
+- Consistent color schemes and styling patterns
 
-#### `gemini_context.zsh`
-**Purpose**: Repository context loading from GEMINI.md files
+## Git Integration (`git/`)
 
-**Key Functions**:
-- `load_gemini_context()` - Searches for and loads GEMINI.md content
-- `has_gemini_context()` - Checks if context is available
-- File size validation (2KB limit) to prevent token overuse
-- Search hierarchy: current directory → git root
-
-## Display System
-
-### `display/commit_display.zsh`
-**Purpose**: Sophisticated commit message formatting with gum styling
+### `git_push_helpers.zsh`
+**Purpose**: Smart git push functionality with upstream detection and formatted output
 
 **Key Functions**:
-- `display_commit_message()` - Enhanced commit message display
-- Title and body parsing with appropriate formatting
-- Issue reference enhancement using `text_formatting.zsh`
-- Gum integration with styled borders and padding
+- `smart_git_push()` - Intelligently selects appropriate push command
+- `simple_push_with_display()` - Push with formatted result display
+- `pr_push_with_display()` - Push specifically for PR creation
+- `display_push_result()` - Consistent push result formatting
 
-### `display/pr_display.zsh`
-**Purpose**: Enhanced PR content display with professional formatting
+**Features**:
+- Automatic upstream branch detection and handling
+- Fallback to `git push -u origin <branch>` when no upstream exists
+- Comprehensive error handling and user feedback
+- Global variable system for returning detailed results
 
-**Key Functions**:
-- `display_pr_content()` - Formats PR titles and bodies with borders
-- `display_styled_content()` - Generic styled content display
-- Terminal-aware width calculation (`COLUMNS - 6`)
-- Issue reference bolding integration
-
-### `../gum/gum_helpers.zsh`
-**Purpose**: Reusable gum UI functions with graceful fallbacks
+### `gh_command_extraction.zsh`
+**Purpose**: GitHub CLI command parsing and extraction utilities
 
 **Key Functions**:
-- `use_gum_confirm()` - Confirmation prompts with fallback to read
-- `use_gum_choose()` - Multiple choice selection with traditional alternatives
-- `use_gum_input()` - Text input with placeholder support
-- `colored_status()` - Consistent status messaging with color codes
+- `extract_gh_title()` - Extracts title from GitHub CLI commands
+- `extract_gh_body()` - Extracts body content from GitHub CLI commands
+- Handles both `gh pr create` and `gh issue create` commands
+- Robust parsing of quoted and unquoted parameters
 
-**Design Patterns**:
+**Usage**:
 ```bash
-# Always check gum availability
-if command -v gum &> /dev/null; then
-    # Enhanced gum experience
-    result=$(gum choose "Select option:" "A" "B" "C")
-else
-    # Traditional fallback
-    echo "Select option: [1] A [2] B [3] C"
-    read -r choice
-fi
-```
-
-### `../gum/env_display.zsh`
-**Purpose**: Repository context display with branch warnings
-
-**Key Functions**:
-- `display_env_info()` - Shows repository and branch information
-- GitHub URL parsing for clean repository names
-- Main/master branch warnings for safety
-- Formatted quote blocks with repository emoji
-
-## Configuration Integration
-
-All utilities integrate with the configuration system through consistent patterns:
-
-```bash
-# Standard configuration loading pattern
-if [ -z "$CONFIG_GEMINI_MODEL" ]; then
-    source "${script_dir}/config/config_loader.zsh"
-    load_gemini_config
-fi
-
-# Using configuration values
-model=$(get_gemini_model)
+# Extract title from: gh pr create --title 'My Title' --body 'My Body'
+title=$(extract_gh_title "gh pr create --title 'My Title' --body 'My Body'")
 ```
 
 ## Design Patterns & Conventions
@@ -237,14 +247,30 @@ build_prompt() {
 }
 ```
 
+## Configuration Integration
+
+All utilities integrate with the configuration system through consistent patterns:
+
+```bash
+# Standard configuration loading pattern
+if [ -z "$CONFIG_GEMINI_MODEL" ]; then
+    source "${script_dir}/config/config_loader.zsh"
+    load_gemini_config
+fi
+
+# Using configuration values
+model=$(get_gemini_model)
+```
+
 ## Development Guidelines
 
 ### Adding New Utilities
 
-1. **Create in appropriate directory**:
-   - Core logic utilities: `utils/`
-   - Display utilities: `utils/display/`
-   - UI helpers: `gum/` (might want to merge this into `utils/` later)
+1. **Choose appropriate directory**:
+   - Core system utilities: `core/`
+   - Content generation: `generators/`
+   - UI and display: `ui/`
+   - Git/GitHub integration: `git/`
 
 2. **Follow naming conventions**:
    - Descriptive names with `_` separators
@@ -288,26 +314,6 @@ Use consistent documentation format:
 function_name() {
     # Implementation
 }
-```
-
-### Integration Examples
-
-#### Main Script Integration
-```bash
-# In auto_commit.zsh
-source "${script_dir}/utils/commit_message_generator.zsh"
-
-# Use the utility
-generate_commit_message "$staged_diff" "$recent_commits" "$repository_context" "$gemini_context" "$1" "$script_dir"
-```
-
-#### Utility Chaining
-```bash
-# In commit_message_generator.zsh
-source "${util_script_dir}/display/commit_display.zsh"
-
-# Chain utilities
-display_commit_message "$generated_message"
 ```
 
 ## Contributing

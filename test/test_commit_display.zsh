@@ -4,7 +4,7 @@
 
 # Get script directory and source the commit display utility
 script_dir="${0:A:h}/.."
-source "${script_dir}/utils/display/commit_display.zsh"
+source "${script_dir}/utils/ui/commit_display.zsh"
 
 echo "🧪 Testing Commit Message Display Utility"
 echo "==========================================="

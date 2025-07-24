@@ -9,8 +9,8 @@ load_gemini_config "$script_dir"
 
 # Load context utility if available
 gemini_context=""
-if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
-    source "${script_dir}/utils/gemini_context.zsh"
+if [ -f "${script_dir}/utils/core/gemini_context.zsh" ]; then
+    source "${script_dir}/utils/core/gemini_context.zsh"
     gemini_context=$(load_gemini_context "${script_dir}")
 fi
 
@@ -23,34 +23,34 @@ else
 fi
 
 # Load shared git push helper functions
-if [ -f "${script_dir}/utils/git_push_helpers.zsh" ]; then
-    source "${script_dir}/utils/git_push_helpers.zsh"
+if [ -f "${script_dir}/utils/git/git_push_helpers.zsh" ]; then
+    source "${script_dir}/utils/git/git_push_helpers.zsh"
 else
-    echo "Error: Required git push helper functions not found at ${script_dir}/utils/git_push_helpers.zsh"
+    echo "Error: Required git push helper functions not found at ${script_dir}/utils/git/git_push_helpers.zsh"
     exit 1
 fi
 
 # Load PR content generator utility
-if [ -f "${script_dir}/utils/pr_content_generator.zsh" ]; then
-    source "${script_dir}/utils/pr_content_generator.zsh"
+if [ -f "${script_dir}/utils/generators/pr_content_generator.zsh" ]; then
+    source "${script_dir}/utils/generators/pr_content_generator.zsh"
 else
-    echo "Error: Required PR content generator utility not found at ${script_dir}/utils/pr_content_generator.zsh"
+    echo "Error: Required PR content generator utility not found at ${script_dir}/utils/generators/pr_content_generator.zsh"
     exit 1
 fi
 
 # Load shared command extraction utility
-if [ -f "${script_dir}/utils/gh_command_extraction.zsh" ]; then
-    source "${script_dir}/utils/gh_command_extraction.zsh"
+if [ -f "${script_dir}/utils/git/gh_command_extraction.zsh" ]; then
+    source "${script_dir}/utils/git/gh_command_extraction.zsh"
 else
-    echo "Error: Required command extraction utility not found at ${script_dir}/utils/gh_command_extraction.zsh"
+    echo "Error: Required command extraction utility not found at ${script_dir}/utils/git/gh_command_extraction.zsh"
     exit 1
 fi
 
 # Load PR display utility
-if [ -f "${script_dir}/utils/display/pr_display.zsh" ]; then
-    source "${script_dir}/utils/display/pr_display.zsh"
+if [ -f "${script_dir}/utils/ui/pr_display.zsh" ]; then
+    source "${script_dir}/utils/ui/pr_display.zsh"
 else
-    echo "Error: Required PR display utility not found at ${script_dir}/utils/display/pr_display.zsh"
+    echo "Error: Required PR display utility not found at ${script_dir}/utils/ui/pr_display.zsh"
     exit 1
 fi
 

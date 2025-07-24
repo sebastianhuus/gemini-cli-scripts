@@ -5,12 +5,12 @@
 
 # Get the script directory to source dependencies
 local util_script_dir="${0:A:h}"
-local gum_helpers_path="${util_script_dir}/../gum/gum_helpers.zsh"
-local commit_display_helpers_path="${util_script_dir}/display/commit_display.zsh"
+local gum_helpers_path="${util_script_dir}/../../gum/gum_helpers.zsh"
+local commit_display_helpers_path="${util_script_dir}/../ui/commit_display.zsh"
 
 # Load configuration if not already loaded
 if [ -z "$CONFIG_GEMINI_MODEL" ]; then
-    source "${util_script_dir}/../config/config_loader.zsh"
+    source "${util_script_dir}/../../config/config_loader.zsh"
     load_gemini_config
 fi
 
@@ -21,7 +21,7 @@ if [ -f "$gum_helpers_path" ]; then
     source "$gum_helpers_path"
 else
     # Fallback: try relative to parent directory (when called from auto_commit.zsh)
-    local parent_gum_path="${util_script_dir}/../gum/gum_helpers.zsh"
+    local parent_gum_path="${util_script_dir}/../../gum/gum_helpers.zsh"
     if [ -f "$parent_gum_path" ]; then
         source "$parent_gum_path"
     fi
@@ -70,7 +70,15 @@ call_gemini_for_commit() {
     local script_dir="$3"
     
     # Generate the raw commit message from Gemini
-    local gemini_raw_msg=$(echo "$staged_diff" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh")
+    # Smart path detection: try production path first, fallback to test path
+    local gemini_clean_path
+    if [ -n "$script_dir" ] && [ -f "${script_dir}/utils/core/gemini_clean.zsh" ]; then
+        gemini_clean_path="${script_dir}/utils/core/gemini_clean.zsh"
+    else
+        gemini_clean_path="${util_script_dir}/../core/gemini_clean.zsh"
+    fi
+    
+    local gemini_raw_msg=$(echo "$staged_diff" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "$gemini_clean_path")
     
     # Check for generation failure
     if [ $? -ne 0 ] || [ -z "$gemini_raw_msg" ]; then

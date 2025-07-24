@@ -6,7 +6,7 @@
 script_dir="${0:A:h}/.."
 
 # Source the shared command extraction utility
-source "${script_dir}/utils/gh_command_extraction.zsh"
+source "${script_dir}/utils/git/gh_command_extraction.zsh"
 
 echo "Testing PR content extraction from gh pr create commands..."
 echo ""

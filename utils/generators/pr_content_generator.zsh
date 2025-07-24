@@ -6,7 +6,7 @@
 # Load configuration if not already loaded
 if [ -z "$CONFIG_GEMINI_MODEL" ]; then
     local util_script_dir="${0:A:h}"
-    source "${util_script_dir}/../config/config_loader.zsh"
+    source "${util_script_dir}/../../config/config_loader.zsh"
     load_gemini_config
 fi
 
@@ -57,7 +57,15 @@ $commit_details"
     fi
     
     # Generate raw PR content from Gemini
-    echo "$commit_details" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
+    # Smart path detection: try production path first, fallback to test path
+    local gemini_clean_path
+    if [ -n "$script_dir" ] && [ -f "${script_dir}/utils/core/gemini_clean.zsh" ]; then
+        gemini_clean_path="${script_dir}/utils/core/gemini_clean.zsh"
+    else
+        gemini_clean_path="${util_script_dir}/../core/gemini_clean.zsh"
+    fi
+    
+    echo "$commit_details" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "$gemini_clean_path"
 }
 
 # Function to generate PR update content for existing PRs
@@ -135,5 +143,13 @@ $all_pr_commits"
     fi
     
     # Generate only title and body from Gemini (no command structure)
-    gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "${script_dir}/utils/gemini_clean.zsh"
+    # Smart path detection: try production path first, fallback to test path
+    local gemini_clean_path
+    if [ -n "$script_dir" ] && [ -f "${script_dir}/utils/core/gemini_clean.zsh" ]; then
+        gemini_clean_path="${script_dir}/utils/core/gemini_clean.zsh"
+    else
+        gemini_clean_path="${util_script_dir}/../core/gemini_clean.zsh"
+    fi
+    
+    gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "$gemini_clean_path"
 }

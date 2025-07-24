@@ -73,8 +73,8 @@ done
 
 # Load context utility if available  
 gemini_context=""
-if [ -f "${script_dir}/utils/gemini_context.zsh" ]; then
-    source "${script_dir}/utils/gemini_context.zsh"
+if [ -f "${script_dir}/utils/core/gemini_context.zsh" ]; then
+    source "${script_dir}/utils/core/gemini_context.zsh"
     gemini_context=$(load_gemini_context "${script_dir}")
 fi
 
@@ -82,13 +82,13 @@ fi
 source "${script_dir}/gum/gum_helpers.zsh"
 
 # Load commit message generator utility
-source "${script_dir}/utils/commit_message_generator.zsh"
+source "${script_dir}/utils/generators/commit_message_generator.zsh"
 
 # Load shared git push helper functions
-source "${script_dir}/utils/git_push_helpers.zsh"
+source "${script_dir}/utils/git/git_push_helpers.zsh"
 
 # Load PR display utility
-source "${script_dir}/utils/display/pr_display.zsh"
+source "${script_dir}/utils/ui/pr_display.zsh"
 
 # Function to get repository context for LLM
 get_repository_context() {
@@ -206,8 +206,8 @@ except Exception:
             local repository_context=$(get_repository_context)
             
             # Load PR content generator if available
-            if [ -f "${script_dir}/utils/pr_content_generator.zsh" ]; then
-                source "${script_dir}/utils/pr_content_generator.zsh"
+            if [ -f "${script_dir}/utils/generators/pr_content_generator.zsh" ]; then
+                source "${script_dir}/utils/generators/pr_content_generator.zsh"
                 
                 # Generate updated PR content using all commits and existing content
                 local updated_content=$(generate_pr_update_content "$pr_number" "$optional_context" "$all_pr_commits" "$gemini_context" "$script_dir" "" "$existing_title" "$existing_body")
@@ -439,7 +439,7 @@ Current staged changes:
 $staged_diff"
         
         # Generate branch name with Gemini (using prompt embedding, not pipe)
-        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/core/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
             colored_status "Failed to generate branch name. Enter manually:" "info"
@@ -509,7 +509,7 @@ $gemini_context"
 Current staged changes:
 $staged_diff"
                         
-                        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/core/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
                             colored_status "Failed to regenerate branch name." "error"
                         fi
