@@ -31,6 +31,9 @@ usage() {
     echo "  optional_context    Additional context for commit message generation"
 }
 
+# Save original arguments before parsing for potential re-execution
+original_args=("$@")
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -48,7 +51,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -p|--push)
             auto_push=true
-            echo "DEBUG: Set auto_push=true via -p flag"
             shift
             ;;
         --no-branch)
@@ -77,8 +79,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-echo "DEBUG: After argument parsing, auto_push='$auto_push'"
 
 # Load shared gum helper functions early for validation
 source "${script_dir}/gum/gum_helpers.zsh"
@@ -666,7 +666,6 @@ if ! git diff --cached --quiet; then
             fi
 
             echo ""
-            echo "DEBUG: Just before push decision, auto_push='$auto_push'"
             if [[ "$auto_push" == true ]]; then
                 colored_status "Auto-pushing changes..." "info"
                 should_push=true
@@ -781,7 +780,7 @@ else
         if ! git diff --cached --quiet; then
             colored_status "All changes staged successfully." "success"
             # Re-run the script to proceed with commit message generation
-            exec "$0" "$@" --skip-env-info
+            exec "$0" "${original_args[@]}" --skip-env-info
         else
             colored_status "No changes to stage." "error"
             
@@ -828,7 +827,7 @@ else
                 git add -A
                 colored_status "All changes staged." "success"
                 # Re-run the script to proceed with commit message generation
-                exec "$0" "$@" --skip-env-info
+                exec "$0" "${original_args[@]}" --skip-env-info
             else
                 colored_status "No changes staged. Commit cancelled." "cancel"
                 
