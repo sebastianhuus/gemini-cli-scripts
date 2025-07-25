@@ -290,6 +290,22 @@ except Exception:
     esac
 }
 
+# Function to determine if we should push automatically or ask for confirmation
+should_auto_push() {
+    local context_message="${1:-Do you want to push the changes now?}"
+    
+    if [[ "$auto_push" == true ]]; then
+        colored_status "Auto-pushing changes..." "info"
+        return 0  # Yes, push automatically
+    else
+        if use_gum_confirm "$context_message"; then
+            return 0  # Yes, user confirmed
+        else
+            return 1  # No, user declined
+        fi
+    fi
+}
+
 # Function to check for unpushed commits
 check_unpushed_commits() {
     local current_branch=$(git branch --show-current)
@@ -580,15 +596,10 @@ if ! git diff --cached --quiet; then
             fi
 
             echo ""
-            if [[ "$auto_push" == true ]]; then
-                colored_status "Auto-pushing changes..." "info"
+            if should_auto_push "Do you want to push the changes now?"; then
                 should_push=true
             else
-                if use_gum_confirm "Do you want to push the changes now?"; then
-                    should_push=true
-                else
-                    should_push=false
-                fi
+                should_push=false
             fi
 
             if [[ "$should_push" == true ]]; then
@@ -681,7 +692,7 @@ else
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
-                if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                if should_auto_push "Do you want to push these unpushed commits now?"; then
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function with exit on failure
@@ -717,7 +728,7 @@ else
                 
                 # Check for unpushed commits before exiting
                 if check_unpushed_commits; then
-                    if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                    if should_auto_push "Do you want to push these unpushed commits now?"; then
                         current_branch=$(git branch --show-current)
                         
                         # Use shared smart push function
@@ -740,7 +751,7 @@ else
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
-                if use_gum_confirm "Do you want to push these unpushed commits now?"; then
+                if should_auto_push "Do you want to push these unpushed commits now?"; then
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function
