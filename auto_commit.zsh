@@ -709,9 +709,28 @@ if ! git diff --cached --quiet; then
                                         "${script_dir}/auto_pr.zsh" "$1"
                                     else
                                         echo ""
-                                        if use_gum_confirm "Create a pull request?"; then
-                                            "${script_dir}/auto_pr.zsh" "$1"
-                                        fi
+                                        pr_choice=$(use_gum_choose "Create a pull request?" "Yes" "Yes with comment" "No")
+                                        case "$pr_choice" in
+                                            "Yes" )
+                                                "${script_dir}/auto_pr.zsh" "$1"
+                                                ;;
+                                            "Yes with comment" )
+                                                pr_comment=$(use_gum_input "Enter additional context for PR generation:" "Additional context or requirements")
+                                                # Combine original context with new comment
+                                                combined_context="$1"
+                                                if [ -n "$pr_comment" ]; then
+                                                    if [ -n "$combined_context" ]; then
+                                                        combined_context="$combined_context. $pr_comment"
+                                                    else
+                                                        combined_context="$pr_comment"
+                                                    fi
+                                                fi
+                                                "${script_dir}/auto_pr.zsh" "$combined_context"
+                                                ;;
+                                            "No"|* )
+                                                # Do nothing - no PR creation
+                                                ;;
+                                        esac
                                     fi
                                     ;;
                             esac
