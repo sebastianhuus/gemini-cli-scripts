@@ -162,23 +162,23 @@ get_validated_issue_number() {
         local issue_number=$(use_gum_input "$prompt" "$placeholder")
         
         if [ -z "$issue_number" ]; then
-            echo "Issue number is required."
+            echo "Issue number is required." >&2
             continue
         fi
         
         # Validate issue number is numeric
         if ! [[ "$issue_number" =~ ^[0-9]+$ ]]; then
-            echo "Issue number must be a positive integer."
+            echo "Issue number must be a positive integer." >&2
             continue
         fi
         
         # Validate issue exists
-        echo "Validating issue #$issue_number exists..."
+        echo "Validating issue #$issue_number exists..." >&2
         if validate_issue_exists "$issue_number"; then
             echo "$issue_number"
             return 0
         else
-            echo "Issue #$issue_number not found or not accessible. Please check the issue number."
+            echo "Issue #$issue_number not found or not accessible. Please check the issue number." >&2
             if ! use_gum_confirm "Try again?"; then
                 return 1
             fi
@@ -426,7 +426,30 @@ Please provide a well-structured comment that addresses the user's request. The 
 
 Only output the comment content, without any additional text or explanation."
     
-    echo "Generating comment with Gemini..."
+    # Ask user if they want AI refinement or to post as-is
+    echo "How would you like to proceed with your comment?"
+    local refinement_choice=$(use_gum_choose "Choose an option:" "Refine with AI" "Post as-is")
+    
+    case "$refinement_choice" in
+        "Post as-is" )
+            echo "Posting comment as-is to issue #$issue_number..."
+            gh issue comment "$issue_number" --body "$comment_prompt"
+            if [ $? -eq 0 ]; then
+                echo "Comment posted successfully!"
+                return 0
+            else
+                echo "Failed to post comment."
+                return 1
+            fi
+            ;;
+        "Refine with AI" )
+            echo "Generating comment with Gemini..."
+            ;;
+        * )
+            echo "Comment cancelled."
+            return 1
+            ;;
+    esac
     
     # Initialize variables for regeneration loop
     local user_feedback=""
