@@ -783,7 +783,18 @@ else
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
-                if should_auto_push "Do you want to push these unpushed commits now?"; then
+                if [[ "$auto_push" == true ]]; then
+                    colored_status "Auto-pushing unpushed commits..." "info"
+                    should_push_unpushed=true
+                else
+                    if should_auto_push "Do you want to push these unpushed commits now?"; then
+                        should_push_unpushed=true
+                    else
+                        should_push_unpushed=false
+                    fi
+                fi
+                
+                if [[ "$should_push_unpushed" == true ]]; then
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function with exit on failure
@@ -819,7 +830,18 @@ else
                 
                 # Check for unpushed commits before exiting
                 if check_unpushed_commits; then
-                    if should_auto_push "Do you want to push these unpushed commits now?"; then
+                    if [[ "$auto_push" == true ]]; then
+                        colored_status "Auto-pushing unpushed commits..." "info"
+                        should_push_unpushed=true
+                    else
+                        if should_auto_push "Do you want to push these unpushed commits now?"; then
+                            should_push_unpushed=true
+                        else
+                            should_push_unpushed=false
+                        fi
+                    fi
+                    
+                    if [[ "$should_push_unpushed" == true ]]; then
                         current_branch=$(git branch --show-current)
                         
                         # Use shared smart push function
@@ -842,7 +864,18 @@ else
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
-                if should_auto_push "Do you want to push these unpushed commits now?"; then
+                if [[ "$auto_push" == true ]]; then
+                    colored_status "Auto-pushing unpushed commits..." "info"
+                    should_push_unpushed=true
+                else
+                    if should_auto_push "Do you want to push these unpushed commits now?"; then
+                        should_push_unpushed=true
+                    else
+                        should_push_unpushed=false
+                    fi
+                fi
+                
+                if [[ "$should_push_unpushed" == true ]]; then
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function
