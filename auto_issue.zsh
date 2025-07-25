@@ -884,8 +884,6 @@ show_operation_menu() {
     # Display repository information
     display_env_info
     
-    echo "Select an operation:"
-    
     local operation=$(use_gum_choose "What would you like to do?" \
         "Create new issue" \
         "Comment on existing issue" \
@@ -897,21 +895,27 @@ show_operation_menu() {
     
     case "$operation" in
         "Create new issue")
+            colored_status "Selected: **Create new issue**" "info"
             handle_create_issue_flow
             ;;
         "Comment on existing issue")
+            colored_status "Selected: **Comment on existing issue**" "info"
             handle_comment_issue_flow
             ;;
         "Edit existing issue")
+            colored_status "Selected: **Edit existing issue**" "info"
             handle_edit_issue_flow
             ;;
         "View existing issue")
+            colored_status "Selected: **View existing issue**" "info"
             handle_view_issue_flow
             ;;
         "Close existing issue")
+            colored_status "Selected: **Close existing issue**" "info"
             handle_close_issue_flow
             ;;
         "Reopen existing issue")
+            colored_status "Selected: **Reopen existing issue**" "info"
             handle_reopen_issue_flow
             ;;
         "Quit"|"")
@@ -927,7 +931,7 @@ show_operation_menu() {
 
 # Function to handle create issue flow
 handle_create_issue_flow() {
-    echo "Creating a new issue..."
+    colored_status "Creating a new issue..." "info"
     
     local description=$(use_gum_input "Describe the issue you want to create:" "Enter issue description")
     
@@ -950,7 +954,7 @@ handle_create_issue_flow() {
 
 # Function to handle comment issue flow
 handle_comment_issue_flow() {
-    echo "Adding a comment to an issue..."
+    colored_status "Adding a comment to an issue..." "info"
     
     local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
     
@@ -971,7 +975,7 @@ handle_comment_issue_flow() {
 
 # Function to handle edit issue flow
 handle_edit_issue_flow() {
-    echo "Editing an existing issue..."
+    colored_status "Editing an existing issue..." "info"
     
     local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
     
@@ -992,7 +996,7 @@ handle_edit_issue_flow() {
 
 # Function to handle view issue flow
 handle_view_issue_flow() {
-    echo "Viewing an existing issue..."
+    colored_status "Viewing an existing issue..." "info"
     
     local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
     
@@ -1006,7 +1010,7 @@ handle_view_issue_flow() {
 
 # Function to handle close issue flow
 handle_close_issue_flow() {
-    echo "Closing an existing issue..."
+    colored_status "Closing an existing issue..." "info"
     
     local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
     
@@ -1023,7 +1027,7 @@ handle_close_issue_flow() {
 
 # Function to handle reopen issue flow
 handle_reopen_issue_flow() {
-    echo "Reopening an existing issue..."
+    colored_status "Reopening an existing issue..." "info"
     
     local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
     
