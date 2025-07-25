@@ -25,7 +25,7 @@ AUTO_STAGE=true
 AUTO_PR=false
 
 # Automatically create new branch without confirmation (equivalent to --branch flag)
-AUTO_BRANCH=true
+AUTO_BRANCH=false
 
 # Automatically push changes after successful commit (equivalent to --push flag)
 AUTO_PUSH=false
