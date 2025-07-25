@@ -13,17 +13,19 @@ auto_pr=$(is_config_true "$CONFIG_AUTO_PR" && echo true || echo false)
 auto_branch=$(is_config_true "$CONFIG_AUTO_BRANCH" && echo true || echo false)
 auto_push=$(is_config_true "$CONFIG_AUTO_PUSH" && echo true || echo false)
 skip_env_info=$(is_config_true "$CONFIG_SKIP_ENV_INFO" && echo true || echo false)
+no_branch=false
 
 # Usage function
 usage() {
-    echo "Usage: $0 [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]"
+    echo "Usage: $0 [-s|--stage] [-b|--branch] [--no-branch] [-pr|--pr] [-p|--push] [optional_context]"
     echo ""
     echo "Options:"
-    echo "  -s, --stage    Automatically stage all changes before generating commit"
-    echo "  -b, --branch   Automatically create new branch without confirmation"
-    echo "  -pr, --pr      Automatically create pull request after successful commit"
-    echo "  -p, --push     Automatically push changes after successful commit"
-    echo "  -h, --help     Show this help message"
+    echo "  -s, --stage      Automatically stage all changes before generating commit"
+    echo "  -b, --branch     Automatically create new branch without confirmation"
+    echo "  --no-branch      Skip branch creation and commit directly to current branch"
+    echo "  -pr, --pr        Automatically create pull request after successful commit"
+    echo "  -p, --push       Automatically push changes after successful commit"
+    echo "  -h, --help       Show this help message"
     echo ""
     echo "Arguments:"
     echo "  optional_context    Additional context for commit message generation"
@@ -46,6 +48,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -p|--push)
             auto_push=true
+            shift
+            ;;
+        --no-branch)
+            no_branch=true
             shift
             ;;
         -h|--help)
@@ -71,15 +77,22 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Load shared gum helper functions early for validation
+source "${script_dir}/gum/gum_helpers.zsh"
+
+# Validate flag compatibility
+if [[ "$no_branch" == true && "$auto_branch" == true ]]; then
+    colored_status "Error: --no-branch and -b/--branch flags are incompatible" "error"
+    echo "Use --no-branch to commit to current branch, or -b/--branch to auto-create new branch"
+    exit 1
+fi
+
 # Load context utility if available  
 gemini_context=""
 if [ -f "${script_dir}/utils/core/gemini_context.zsh" ]; then
     source "${script_dir}/utils/core/gemini_context.zsh"
     gemini_context=$(load_gemini_context "${script_dir}")
 fi
-
-# Load shared gum helper functions
-source "${script_dir}/gum/gum_helpers.zsh"
 
 # Load commit message generator utility
 source "${script_dir}/utils/generators/commit_message_generator.zsh"
@@ -349,7 +362,7 @@ fi
 
 # Check if we're on main/master branch and handle staging/branch creation
 current_branch=$(git branch --show-current)
-if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+if [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$no_branch" != true ]]; then
     # First, handle staging if needed
     staged_diff=""
     if ! git diff --cached --quiet; then
@@ -545,6 +558,61 @@ $staged_diff"
         colored_status "Continuing on '$current_branch' branch." "info"
         echo ""
     fi
+elif [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$no_branch" == true ]]; then
+    # Handle --no-branch on main/master: just handle staging, skip branch creation
+    colored_status "Using --no-branch flag: will commit directly to '$current_branch' branch." "info"
+    
+    # Handle staging if needed (same logic as branch creation case)
+    if ! git diff --cached --quiet; then
+        # Already have staged changes
+        colored_status "Found staged changes for commit generation." "success"
+    elif [ -n "$(git status --porcelain)" ]; then
+        # Have unstaged changes, auto-stage if flag is set or ask user
+        if [[ "$auto_stage" == true ]]; then
+            echo ""
+            colored_status "Auto-staging all changes..." "info"
+            git add -A
+            if ! git diff --cached --quiet; then
+                colored_status "Changes staged successfully." "success"
+            else
+                colored_status "No changes to stage." "error"
+                exit 1
+            fi
+        else
+            if use_gum_confirm "Found unstaged changes. Stage all changes?"; then
+                git add -A
+                if ! git diff --cached --quiet; then
+                    colored_status "Changes staged successfully." "success"
+                else
+                    colored_status "No changes to stage." "error"
+                    exit 1
+                fi
+            else
+                colored_status "Cannot generate commit without staged changes." "info"
+                colored_status "Auto-commit cancelled. Stage changes manually and try again." "cancel"
+                exit 0
+            fi
+        fi
+    else
+        colored_status "No changes found (staged or unstaged)." "info"
+        colored_status "Auto-commit cancelled. No changes to commit." "cancel"
+        exit 0
+    fi
+    
+    # Add confirmation for safety when committing to main/master directly
+    if [[ "$auto_stage" != true && "$auto_push" != true ]]; then
+        echo ""
+        if ! use_gum_confirm "Commit directly to '$current_branch' branch?"; then
+            # Unstage changes if user cancels
+            if git reset HEAD >/dev/null 2>&1; then
+                colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
+            else
+                colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
+            fi
+            exit 0
+        fi
+    fi
+    echo ""
 fi
 
 # Check if there are staged changes
