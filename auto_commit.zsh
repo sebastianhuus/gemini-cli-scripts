@@ -48,6 +48,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -p|--push)
             auto_push=true
+            echo "DEBUG: Set auto_push=true via -p flag"
             shift
             ;;
         --no-branch)
@@ -76,6 +77,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+echo "DEBUG: After argument parsing, auto_push='$auto_push'"
 
 # Load shared gum helper functions early for validation
 source "${script_dir}/gum/gum_helpers.zsh"
@@ -663,23 +666,11 @@ if ! git diff --cached --quiet; then
             fi
 
             echo ""
-            echo "=== DEBUG AUTO-PUSH ==="
-            echo "auto_push value: '$auto_push'"
-            echo "auto_push length: ${#auto_push}"
-            echo "auto_push chars: $(echo -n "$auto_push" | od -c)"
-            if [[ "$auto_push" == "true" ]]; then
-                echo "Conditional test: TRUE"
-            else
-                echo "Conditional test: FALSE"
-            fi
-            echo "======================="
-            
+            echo "DEBUG: Just before push decision, auto_push='$auto_push'"
             if [[ "$auto_push" == true ]]; then
                 colored_status "Auto-pushing changes..." "info"
                 should_push=true
-                echo "DEBUG: Took auto-push branch"
             else
-                echo "DEBUG: Took manual confirmation branch"
                 if should_auto_push "Do you want to push the changes now?"; then
                     should_push=true
                 else
