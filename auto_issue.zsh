@@ -39,78 +39,76 @@ else
     exit 1
 fi
 
-# GitHub Issue Natural Language Assistant with LLM Enhancement
+# GitHub Issue Management Assistant with Menu Interface
 # 
 # Usage:
-#   ./auto_issue.zsh "natural language request"        # Natural language mode
+#   ./auto_issue.zsh                                   # Interactive menu mode
 #   ./auto_issue.zsh --help                            # Show this help
 #
-# Natural language mode features:
-#   - Understands natural language requests for GitHub operations
-#   - Supports create, edit, comment, and other issue operations
-#   - Intent parsing with confirmation before execution
-#   - Smart parameter extraction and validation
+# Interactive menu features:
+#   - Menu-driven interface for GitHub issue operations
+#   - Supports create, edit, comment, and view operations
+#   - Input validation and user-friendly prompts
+#   - LLM-powered content generation
 #
-# Examples:
-#   ./auto_issue.zsh "create issue about login bug"
-#   ./auto_issue.zsh "add comment to issue 8 about fix deployed"
-#   ./auto_issue.zsh "edit issue 13 title to say Bug: Login timeout"
-#   ./auto_issue.zsh "comment on issue #5: this is resolved"
+# Operations available:
+#   - Create new issue with optional labels, assignees, and milestone
+#   - Comment on existing issue with contextual content
+#   - Edit existing issue (title, body, labels, etc.)
+#   - View existing issue details
 #
 # Developer Expansion Guide:
 # =========================
 # 
 # To add new operations (close, reopen, label management):
 #
-# 1. Update parse_intent() function:
-#    - Add new operation to OPERATION list in prompt
-#    - Add examples for the new operation
+# 1. Add new option to show_operation_menu() function:
+#    - Add menu option like "Close issue" or "Reopen issue"
+#    - Add corresponding case in the menu handler
 #
-# 2. Update confirm_operation() function:
-#    - Add new case for the operation
-#    - Define validation rules and display format
+# 2. Create new handler function:
+#    - Follow pattern of handle_*_issue_flow() functions
+#    - Use gum for user input and validation
+#    - Call execute_operation() with appropriate parameters
 #
 # 3. Create new operation function:
 #    - Follow pattern of comment_issue() and edit_issue()
 #    - Use LLM for content generation when appropriate
 #    - Include confirmation step before execution
 #
-# 4. Update dispatch_operation() function:
+# 4. Update execute_operation() function:
 #    - Add new case to route to your function
 #
-# 5. Update help documentation and examples
+# 5. Update help documentation and menu options
 #
 # Architecture:
-# - convert_question_to_command(): Converts questions/requests to direct commands
-# - parse_intent(): Extracts operation type and parameters from natural language
-# - confirm_operation(): Validates and confirms operation before execution
-# - dispatch_operation(): Routes to appropriate handler function
+# - show_operation_menu(): Main menu interface using gum
+# - handle_*_issue_flow(): Operation-specific input flows
+# - execute_operation(): Routes to appropriate handler function
 # - Individual operation functions: Handle specific GitHub operations
-# - LLM integration: Uses Gemini CLI for content generation and intent parsing
-#
-# Two-Stage Processing:
-# 1. Question Detection & Conversion: Handles conversational requests
-# 2. Intent Parsing: Extracts structured data from direct commands
+# - LLM integration: Uses Gemini CLI for content generation
 
 # Check for help flag
 if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    echo "GitHub Issue Natural Language Assistant with LLM Enhancement"
+    echo "GitHub Issue Management Assistant with Menu Interface"
     echo ""
     echo "Usage:"
-    echo "  $0 \"natural language request\"             # Natural language mode"
+    echo "  $0                                         # Interactive menu mode"
     echo "  $0 --help                                  # Show this help"
     echo ""
-    echo "Natural language mode features:"
-    echo "  - Understands natural language requests for GitHub operations"
-    echo "  - Supports create, edit, comment, and other issue operations"
-    echo "  - Intent parsing with confirmation before execution"
-    echo "  - Smart parameter extraction and validation"
+    echo "Interactive menu features:"
+    echo "  - Menu-driven interface for GitHub issue operations"
+    echo "  - Supports create, edit, comment, view, close, and reopen operations"
+    echo "  - Input validation and user-friendly prompts"
+    echo "  - LLM-powered content generation"
     echo ""
-    echo "Examples:"
-    echo "  $0 \"create issue about login bug\""
-    echo "  $0 \"add comment to issue 8 about fix deployed\""
-    echo "  $0 \"edit issue 13 title to say Bug: Login timeout\""
-    echo "  $0 \"comment on issue #5: this is resolved\""
+    echo "Operations available:"
+    echo "  - Create new issue with optional labels, assignees, and milestone"
+    echo "  - Comment on existing issue with contextual content"
+    echo "  - Edit existing issue (title, body, labels, etc.)"
+    echo "  - View existing issue details"
+    echo "  - Close existing issue with optional reason"
+    echo "  - Reopen existing issue with optional reason"
     exit 0
 fi
 
@@ -140,6 +138,52 @@ validate_quotes() {
     fi
     
     return 0
+}
+
+# Function to validate issue exists and is accessible
+validate_issue_exists() {
+    local issue_number="$1"
+    
+    if [ -z "$issue_number" ]; then
+        return 1
+    fi
+    
+    # Check if issue exists by trying to fetch its details
+    gh issue view "$issue_number" --json id >/dev/null 2>&1
+    return $?
+}
+
+# Function to get issue number with validation
+get_validated_issue_number() {
+    local prompt="$1"
+    local placeholder="$2"
+    
+    while true; do
+        local issue_number=$(use_gum_input "$prompt" "$placeholder")
+        
+        if [ -z "$issue_number" ]; then
+            echo "Issue number is required."
+            continue
+        fi
+        
+        # Validate issue number is numeric
+        if ! [[ "$issue_number" =~ ^[0-9]+$ ]]; then
+            echo "Issue number must be a positive integer."
+            continue
+        fi
+        
+        # Validate issue exists
+        echo "Validating issue #$issue_number exists..."
+        if validate_issue_exists "$issue_number"; then
+            echo "$issue_number"
+            return 0
+        else
+            echo "Issue #$issue_number not found or not accessible. Please check the issue number."
+            if ! use_gum_confirm "Try again?"; then
+                return 1
+            fi
+        fi
+    done
 }
 
 # Function to handle issue editing
@@ -300,132 +344,6 @@ Please incorporate this feedback to improve the edit commands."
     done
 }
 
-# Function to parse natural language intent using enhanced parser
-parse_intent_wrapper() {
-    local input="$1"
-    
-    # Source the enhanced parse intent functions
-    source "$(get_utils_path)/generators/parse_intent.zsh"
-    
-    # Use the enhanced parse intent function
-    local intent_output=$(parse_intent "$input" "$gemini_context")
-    
-    if [ $? -ne 0 ] || [ -z "$intent_output" ]; then
-        echo "OPERATION: unknown"
-        echo "ISSUE_NUMBER: NONE"
-        echo "CONTENT: $input"
-        echo "CONFIDENCE: low"
-        echo "REQUESTED_LABELS: NONE"
-        echo "REQUESTED_ASSIGNEES: NONE"
-        echo "REQUESTED_MILESTONE: NONE"
-        echo "PRIORITY_INDICATORS: NONE"
-        echo "TONE_PREFERENCE: NONE"
-        echo "SPECIAL_INSTRUCTIONS: NONE"
-        return 1
-    fi
-    
-    echo "$intent_output"
-}
-
-# Function to extract specific fields from intent output with enhanced NONE handling
-extract_field() {
-    local field="$1"
-    local intent_output="$2"
-    local value=$(echo "$intent_output" | grep "^$field:" | sed "s/^$field: //")
-    
-    # Return empty string if NONE, otherwise return the value
-    if [ "$value" = "NONE" ]; then
-        echo ""
-    else
-        echo "$value"
-    fi
-}
-
-# Function to confirm operation before execution
-confirm_operation() {
-    local operation="$1"
-    local issue_number="$2"
-    local content="$3"
-    local confidence="$4"
-    local requested_labels="$5"
-    local requested_assignees="$6"
-    local requested_milestone="$7"
-    local priority_indicators="$8"
-    local tone_preference="$9"
-    local special_instructions="${10}"
-    
-    echo "Intent Analysis:"
-    echo "================"
-    
-    case "$operation" in
-        "comment")
-            if [ "$issue_number" = "NONE" ]; then
-                echo "❌ Cannot comment - no issue number specified"
-                return 1
-            fi
-            echo "✓ COMMENT on issue #$issue_number"
-            echo "Content: $content"
-            ;;
-        "edit")
-            if [ "$issue_number" = "NONE" ]; then
-                echo "❌ Cannot edit - no issue number specified"
-                return 1
-            fi
-            echo "✓ EDIT issue #$issue_number"
-            echo "Changes: $content"
-            ;;
-        "create")
-            echo "✓ CREATE new issue"
-            echo "Description: $content"
-            ;;
-        "view")
-            if [ "$issue_number" = "NONE" ]; then
-                echo "❌ Cannot view - no issue number specified"
-                return 1
-            fi
-            echo "✓ VIEW issue #$issue_number"
-            ;;
-        *)
-            echo "❌ Unknown operation: $operation"
-            return 1
-            ;;
-    esac
-    
-    # Display extracted parameters if present
-    if [ -n "$requested_labels" ]; then
-        echo "Requested Labels: $requested_labels"
-    fi
-    if [ -n "$requested_assignees" ]; then
-        echo "Requested Assignees: $requested_assignees"
-    fi
-    if [ -n "$requested_milestone" ]; then
-        echo "Requested Milestone: $requested_milestone"
-    fi
-    if [ -n "$priority_indicators" ]; then
-        echo "Priority: $priority_indicators"
-    fi
-    if [ -n "$tone_preference" ]; then
-        echo "Tone Preference: $tone_preference"
-    fi
-    if [ -n "$special_instructions" ]; then
-        echo "Special Instructions: $special_instructions"
-    fi
-    
-    echo ""
-    echo "Confidence: $confidence"
-    echo ""
-    
-    if [ "$confidence" = "low" ]; then
-        echo "⚠️  Low confidence in intent parsing. Please verify the operation above is correct."
-        echo ""
-    fi
-    
-    if use_gum_confirm "Proceed with this operation?"; then
-        return 0
-    else
-        return 1
-    fi
-}
 
 # Function to add comment to GitHub issue
 comment_issue() {
@@ -791,31 +709,144 @@ Make sure to include appropriate labels and assignees based on the issue type an
     esac
 }
 
-# Function to dispatch operations based on parsed intent
-dispatch_operation() {
+# Function to close GitHub issue
+close_issue() {
+    local issue_number="$1"
+    local close_reason="$2"
+    
+    if [ -z "$issue_number" ]; then
+        echo "Usage: close_issue <issue_number> [close_reason]"
+        return 1
+    fi
+    
+    echo "Fetching issue details..."
+    
+    # Get current issue details for context
+    local current_issue=$(gh issue view "$issue_number" 2>/dev/null)
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+        return 1
+    fi
+    
+    echo "Current issue:"
+    echo "=============="
+    echo "$current_issue" | head -10
+    echo "..."
+    echo ""
+    
+    # Show confirmation with optional reason
+    if [ -n "$close_reason" ]; then
+        echo "Closing issue #$issue_number with reason: $close_reason"
+    else
+        echo "Closing issue #$issue_number"
+    fi
+    
+    if use_gum_confirm "Are you sure you want to close this issue?"; then
+        if [ -n "$close_reason" ]; then
+            # Add a comment with the close reason, then close
+            gh issue comment "$issue_number" --body "Closing: $close_reason"
+            gh issue close "$issue_number"
+        else
+            gh issue close "$issue_number"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            echo "Issue #$issue_number closed successfully!"
+            return 0
+        else
+            echo "Failed to close issue #$issue_number."
+            return 1
+        fi
+    else
+        echo "Close operation cancelled."
+        return 1
+    fi
+}
+
+# Function to reopen GitHub issue
+reopen_issue() {
+    local issue_number="$1"
+    local reopen_reason="$2"
+    
+    if [ -z "$issue_number" ]; then
+        echo "Usage: reopen_issue <issue_number> [reopen_reason]"
+        return 1
+    fi
+    
+    echo "Fetching issue details..."
+    
+    # Get current issue details for context
+    local current_issue=$(gh issue view "$issue_number" 2>/dev/null)
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+        return 1
+    fi
+    
+    echo "Current issue:"
+    echo "=============="
+    echo "$current_issue" | head -10
+    echo "..."
+    echo ""
+    
+    # Show confirmation with optional reason
+    if [ -n "$reopen_reason" ]; then
+        echo "Reopening issue #$issue_number with reason: $reopen_reason"
+    else
+        echo "Reopening issue #$issue_number"
+    fi
+    
+    if use_gum_confirm "Are you sure you want to reopen this issue?"; then
+        if [ -n "$reopen_reason" ]; then
+            # Reopen first, then add a comment with the reason
+            gh issue reopen "$issue_number"
+            gh issue comment "$issue_number" --body "Reopening: $reopen_reason"
+        else
+            gh issue reopen "$issue_number"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            echo "Issue #$issue_number reopened successfully!"
+            return 0
+        else
+            echo "Failed to reopen issue #$issue_number."
+            return 1
+        fi
+    else
+        echo "Reopen operation cancelled."
+        return 1
+    fi
+}
+
+# Function to execute operations with simplified parameters
+execute_operation() {
     local operation="$1"
     local issue_number="$2"
     local content="$3"
     local requested_labels="$4"
     local requested_assignees="$5"
     local requested_milestone="$6"
-    local priority_indicators="$7"
-    local tone_preference="$8"
-    local special_instructions="$9"
     
     case "$operation" in
         "comment")
-            comment_issue "$issue_number" "$content" "$tone_preference" "$special_instructions"
+            comment_issue "$issue_number" "$content" "" ""
             ;;
         "edit")
-            edit_issue "$issue_number" "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$special_instructions"
+            edit_issue "$issue_number" "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "" ""
             ;;
         "create")
-            create_issue_with_llm "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions"
+            create_issue_with_llm "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "" "" ""
             ;;
         "view")
             echo "Viewing issue #$issue_number:"
             gh issue view "$issue_number"
+            ;;
+        "close")
+            close_issue "$issue_number" "$content"
+            ;;
+        "reopen")
+            reopen_issue "$issue_number" "$content"
             ;;
         *)
             echo "Unsupported operation: $operation"
@@ -824,144 +855,167 @@ dispatch_operation() {
     esac
 }
 
-# Function to convert questions to direct commands
-convert_question_to_command() {
-    local input="$1"
-    
-    # LLM prompt for question detection and conversion
-    local converter_prompt="Analyze this input and determine if it's a question/polite request or already a direct command.
 
-User input: $input
-
-DETECTION RULES:
-1. QUESTION/POLITE REQUEST (convert to direct command):
-   - Contains question words: \"can you\", \"would you\", \"could you\", \"help me\", \"please\"
-   - Contains polite phrases: \"would you mind\", \"if you could\", \"I need you to\"
-   - Starts with question words: \"how do I\", \"what should I\", \"why is\"
-
-2. DIRECT COMMAND (return unchanged):
-   - Starts with action verbs: \"add\", \"edit\", \"create\", \"comment\", \"view\", \"close\", \"reopen\"
-   - Contains imperative instructions without polite qualifiers
-   - Already in command format
-
-Examples of CONVERSION (questions → commands):
-Input: \"can you generate a clear description of issue 16 based on the title\"
-Output: \"edit issue 16 body to generate a clear description based on the title\"
-
-Input: \"help me add a comment to issue 8 about the fix\"
-Output: \"add comment to issue 8 about the fix\"
-
-Input: \"please create an issue about dark mode\"
-Output: \"create issue about dark mode\"
-
-Input: \"would you mind commenting on issue 12 that this is resolved\"
-Output: \"comment on issue 12 that this is resolved\"
-
-Examples of NO CHANGE (already direct commands):
-Input: \"edit issue 5 title to say Bug: Login timeout\"
-Output: \"edit issue 5 title to say Bug: Login timeout\"
-
-Input: \"add -p --push flag for automatic push when commit message confirmed\"
-Output: \"add -p --push flag for automatic push when commit message confirmed\"
-
-Input: \"create issue about login timeout\"
-Output: \"create issue about login timeout\"
-
-Input: \"comment on issue 15 about deployment status\"
-Output: \"comment on issue 15 about deployment status\"
-
-CRITICAL: If input starts with action verbs (add, edit, create, comment, view, close, reopen) and does NOT contain polite/question phrases, return it EXACTLY as provided. Do NOT add \"create\" or modify direct commands.
-
-Only output the converted/unchanged command, no additional text.
-
-IMPORTANT: Output as plain text only, no code blocks or formatting."
-    
-    # Get converted command from Gemini
-    local converted_command=$(echo "$converter_prompt" | gemini -m "$(get_gemini_model)" --prompt "$converter_prompt" | "$(get_utils_path)/core/gemini_clean.zsh")
-    
-    if [ $? -ne 0 ] || [ -z "$converted_command" ]; then
-        # If conversion fails, return original input
-        echo "$input"
-    else
-        echo "$converted_command"
-    fi
-}
-
-# Function to handle natural language input
-handle_natural_language() {
-    local input="$1"
-    
-    if [ -z "$input" ]; then
-        echo "Please provide a natural language request."
-        echo "Example: ./auto_issue.zsh \"add comment to issue 8 about login fix\""
-        return 1
-    fi
-    
+# Function to show operation menu and handle user selection
+show_operation_menu() {
     # Display repository information
     display_env_info
     
-    echo "Processing natural language request..."
+    echo "Select an operation:"
     
-    # Stage 1: Convert questions to commands
-    local processed_input=$(convert_question_to_command "$input")
+    local operation=$(use_gum_choose "What would you like to do?" \
+        "Create new issue" \
+        "Comment on existing issue" \
+        "Edit existing issue" \
+        "View existing issue" \
+        "Close existing issue" \
+        "Reopen existing issue" \
+        "Quit")
     
-    # Show conversion if it changed
-    if [ "$processed_input" != "$input" ]; then
-        echo "Converted request: $processed_input"
-        echo ""
-    fi
+    case "$operation" in
+        "Create new issue")
+            handle_create_issue_flow
+            ;;
+        "Comment on existing issue")
+            handle_comment_issue_flow
+            ;;
+        "Edit existing issue")
+            handle_edit_issue_flow
+            ;;
+        "View existing issue")
+            handle_view_issue_flow
+            ;;
+        "Close existing issue")
+            handle_close_issue_flow
+            ;;
+        "Reopen existing issue")
+            handle_reopen_issue_flow
+            ;;
+        "Quit"|"")
+            echo "Goodbye!"
+            return 0
+            ;;
+        *)
+            echo "Invalid selection."
+            return 1
+            ;;
+    esac
+}
+
+# Function to handle create issue flow
+handle_create_issue_flow() {
+    echo "Creating a new issue..."
     
-    echo "Parsing natural language request..."
+    local description=$(use_gum_input "Describe the issue you want to create:" "Enter issue description")
     
-    # Stage 2: Parse the processed command
-    local intent_output=$(parse_intent_wrapper "$processed_input")
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to parse intent. Please try rephrasing your request."
+    if [ -z "$description" ]; then
+        echo "Issue description is required."
         return 1
     fi
     
-    # Extract fields from intent output
-    local operation=$(extract_field "OPERATION" "$intent_output")
-    local issue_number=$(extract_field "ISSUE_NUMBER" "$intent_output")
-    local content=$(extract_field "CONTENT" "$intent_output")
-    local confidence=$(extract_field "CONFIDENCE" "$intent_output")
-    
-    # Extract new enhanced parameters
-    local requested_labels=$(extract_field "REQUESTED_LABELS" "$intent_output")
-    local requested_assignees=$(extract_field "REQUESTED_ASSIGNEES" "$intent_output")
-    local requested_milestone=$(extract_field "REQUESTED_MILESTONE" "$intent_output")
-    local priority_indicators=$(extract_field "PRIORITY_INDICATORS" "$intent_output")
-    local tone_preference=$(extract_field "TONE_PREFERENCE" "$intent_output")
-    local special_instructions=$(extract_field "SPECIAL_INSTRUCTIONS" "$intent_output")
-    
-    # Confirm operation with user
-    if confirm_operation "$operation" "$issue_number" "$content" "$confidence" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions"; then
-        echo "Executing operation..."
-        dispatch_operation "$operation" "$issue_number" "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions"
+    # Ask if user wants to add optional parameters
+    if use_gum_confirm "Would you like to specify labels, assignees, or milestone?"; then
+        local labels=$(use_gum_input "Labels (comma-separated, leave empty for none):" "bug,enhancement")
+        local assignees=$(use_gum_input "Assignees (comma-separated, leave empty for none):" "username")
+        local milestone=$(use_gum_input "Milestone (leave empty for none):" "v1.0")
+        
+        execute_operation "create" "" "$description" "$labels" "$assignees" "$milestone"
     else
-        echo "Operation cancelled."
-        return 1
+        execute_operation "create" "" "$description" "" "" ""
     fi
 }
 
-# No explicit subcommands - everything through natural language
+# Function to handle comment issue flow
+handle_comment_issue_flow() {
+    echo "Adding a comment to an issue..."
+    
+    local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
+    
+    if [ -z "$issue_number" ]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+    
+    local comment=$(use_gum_input "Comment content:" "Enter your comment")
+    
+    if [ -z "$comment" ]; then
+        echo "Comment content is required."
+        return 1
+    fi
+    
+    execute_operation "comment" "$issue_number" "$comment" "" "" ""
+}
 
-# Main entry point - natural language mode
-# Get all arguments as the natural language input
-natural_language_input="$*"
+# Function to handle edit issue flow
+handle_edit_issue_flow() {
+    echo "Editing an existing issue..."
+    
+    local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
+    
+    if [ -z "$issue_number" ]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+    
+    local edit_instruction=$(use_gum_input "What would you like to edit?" "change title to 'Bug: Login timeout'")
+    
+    if [ -z "$edit_instruction" ]; then
+        echo "Edit instruction is required."
+        return 1
+    fi
+    
+    execute_operation "edit" "$issue_number" "$edit_instruction" "" "" ""
+}
 
-# If no arguments provided, prompt for input
-if [ -z "$natural_language_input" ]; then
-    echo "Please provide a natural language request:"
-    echo "Examples:"
-    echo "  \"create issue about login bug\""
-    echo "  \"add comment to issue 8 about fix deployed\""
-    echo "  \"edit issue 13 title to say Bug: Login timeout\""
-    echo ""
-    echo "Enter your request:"
-    read -r natural_language_input
-fi
+# Function to handle view issue flow
+handle_view_issue_flow() {
+    echo "Viewing an existing issue..."
+    
+    local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
+    
+    if [ -z "$issue_number" ]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+    
+    execute_operation "view" "$issue_number" "" "" "" ""
+}
 
-# Handle natural language input
-handle_natural_language "$natural_language_input"
+# Function to handle close issue flow
+handle_close_issue_flow() {
+    echo "Closing an existing issue..."
+    
+    local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
+    
+    if [ -z "$issue_number" ]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+    
+    # Optional close reason
+    local close_reason=$(use_gum_input "Close reason (optional):" "Fixed, duplicate, etc.")
+    
+    execute_operation "close" "$issue_number" "$close_reason" "" "" ""
+}
+
+# Function to handle reopen issue flow
+handle_reopen_issue_flow() {
+    echo "Reopening an existing issue..."
+    
+    local issue_number=$(get_validated_issue_number "Issue number:" "Enter issue number (e.g., 42)")
+    
+    if [ -z "$issue_number" ]; then
+        echo "Operation cancelled."
+        return 1
+    fi
+    
+    # Optional reopen reason
+    local reopen_reason=$(use_gum_input "Reopen reason (optional):" "Need to revisit, etc.")
+    
+    execute_operation "reopen" "$issue_number" "$reopen_reason" "" "" ""
+}
+
+# Menu-driven interface - no command line arguments needed
+
+# Main entry point - menu-driven mode
+show_operation_menu
