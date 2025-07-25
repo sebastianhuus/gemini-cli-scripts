@@ -308,8 +308,7 @@ should_auto_push() {
     local context_message="${1:-Do you want to push the changes now?}"
     
     if [[ "$auto_push" == true ]]; then
-        colored_status "Auto-pushing changes..." "info"
-        return 0  # Yes, push automatically
+        return 0  # Yes, push automatically (no message, no interaction)
     else
         if use_gum_confirm "$context_message"; then
             return 0  # Yes, user confirmed
@@ -664,10 +663,15 @@ if ! git diff --cached --quiet; then
             fi
 
             echo ""
-            if should_auto_push "Do you want to push the changes now?"; then
+            if [[ "$auto_push" == true ]]; then
+                colored_status "Auto-pushing changes..." "info"
                 should_push=true
             else
-                should_push=false
+                if should_auto_push "Do you want to push the changes now?"; then
+                    should_push=true
+                else
+                    should_push=false
+                fi
             fi
 
             if [[ "$should_push" == true ]]; then
