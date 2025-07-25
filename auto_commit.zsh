@@ -31,6 +31,9 @@ usage() {
     echo "  optional_context    Additional context for commit message generation"
 }
 
+# Save original arguments before parsing for potential re-execution
+original_args=("$@")
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -308,8 +311,7 @@ should_auto_push() {
     local context_message="${1:-Do you want to push the changes now?}"
     
     if [[ "$auto_push" == true ]]; then
-        colored_status "Auto-pushing changes..." "info"
-        return 0  # Yes, push automatically
+        return 0  # Yes, push automatically (no message, no interaction)
     else
         if use_gum_confirm "$context_message"; then
             return 0  # Yes, user confirmed
@@ -664,10 +666,15 @@ if ! git diff --cached --quiet; then
             fi
 
             echo ""
-            if should_auto_push "Do you want to push the changes now?"; then
+            if [[ "$auto_push" == true ]]; then
+                colored_status "Auto-pushing changes..." "info"
                 should_push=true
             else
-                should_push=false
+                if should_auto_push "Do you want to push the changes now?"; then
+                    should_push=true
+                else
+                    should_push=false
+                fi
             fi
 
             if [[ "$should_push" == true ]]; then
@@ -773,13 +780,24 @@ else
         if ! git diff --cached --quiet; then
             colored_status "All changes staged successfully." "success"
             # Re-run the script to proceed with commit message generation
-            exec "$0" "$@" --skip-env-info
+            exec "$0" "${original_args[@]}" --skip-env-info
         else
             colored_status "No changes to stage." "error"
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
-                if should_auto_push "Do you want to push these unpushed commits now?"; then
+                if [[ "$auto_push" == true ]]; then
+                    colored_status "Auto-pushing unpushed commits..." "info"
+                    should_push_unpushed=true
+                else
+                    if should_auto_push "Do you want to push these unpushed commits now?"; then
+                        should_push_unpushed=true
+                    else
+                        should_push_unpushed=false
+                    fi
+                fi
+                
+                if [[ "$should_push_unpushed" == true ]]; then
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function with exit on failure
@@ -809,13 +827,24 @@ else
                 git add -A
                 colored_status "All changes staged." "success"
                 # Re-run the script to proceed with commit message generation
-                exec "$0" "$@" --skip-env-info
+                exec "$0" "${original_args[@]}" --skip-env-info
             else
                 colored_status "No changes staged. Commit cancelled." "cancel"
                 
                 # Check for unpushed commits before exiting
                 if check_unpushed_commits; then
-                    if should_auto_push "Do you want to push these unpushed commits now?"; then
+                    if [[ "$auto_push" == true ]]; then
+                        colored_status "Auto-pushing unpushed commits..." "info"
+                        should_push_unpushed=true
+                    else
+                        if should_auto_push "Do you want to push these unpushed commits now?"; then
+                            should_push_unpushed=true
+                        else
+                            should_push_unpushed=false
+                        fi
+                    fi
+                    
+                    if [[ "$should_push_unpushed" == true ]]; then
                         current_branch=$(git branch --show-current)
                         
                         # Use shared smart push function
@@ -838,7 +867,18 @@ else
             
             # Check for unpushed commits before exiting
             if check_unpushed_commits; then
-                if should_auto_push "Do you want to push these unpushed commits now?"; then
+                if [[ "$auto_push" == true ]]; then
+                    colored_status "Auto-pushing unpushed commits..." "info"
+                    should_push_unpushed=true
+                else
+                    if should_auto_push "Do you want to push these unpushed commits now?"; then
+                        should_push_unpushed=true
+                    else
+                        should_push_unpushed=false
+                    fi
+                fi
+                
+                if [[ "$should_push_unpushed" == true ]]; then
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function
