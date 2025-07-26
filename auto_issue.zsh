@@ -140,6 +140,44 @@ validate_quotes() {
     return 0
 }
 
+# Function to fetch and display issue details with consistent formatting
+# Returns: 0 on success, 1 on failure
+# Sets global variable: current_issue_content
+fetch_and_display_issue() {
+    local issue_number="$1"
+    local context_message="${2:-Fetching issue details...}"
+    local show_truncated="${3:-true}"
+    
+    if [ -z "$issue_number" ]; then
+        colored_status "**Error:** Issue number is required" "error"
+        return 1
+    fi
+    
+    colored_status "$context_message" "info"
+    
+    # Fetch issue details
+    current_issue_content=$(gh issue view "$issue_number" 2>/dev/null)
+    
+    if [ $? -ne 0 ]; then
+        colored_status "**Failed** to fetch issue #$issue_number. Please check the issue number and try again." "error"
+        return 1
+    fi
+    
+    # Display issue with consistent formatting
+    echo "Current issue:"
+    echo "=============="
+    
+    if [ "$show_truncated" = "true" ]; then
+        echo "$current_issue_content" | head -10
+        echo "..."
+    else
+        echo "$current_issue_content"
+    fi
+    echo ""
+    
+    return 0
+}
+
 # Function to validate issue exists and is accessible
 validate_issue_exists() {
     local issue_number="$1"
@@ -197,21 +235,10 @@ edit_issue() {
         exit 1
     fi
     
-    echo "Fetching current issue details..."
-    
-    # Get current issue details as readable text
-    current_issue=$(gh issue view "$issue_number")
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+    if ! fetch_and_display_issue "$issue_number" "Fetching current issue details..." "false"; then
         exit 1
     fi
-    
-    echo "Current issue:"
-    echo "=========================="
-    echo "$current_issue"
-    echo "=========================="
-    echo ""
+    current_issue="$current_issue_content"
     
     # Create prompt for LLM
     llm_prompt="You are helping to edit a GitHub issue. Based on the user's request, generate the appropriate gh issue edit command(s) to modify the issue.
@@ -357,21 +384,10 @@ comment_issue() {
         return 1
     fi
     
-    echo "Fetching issue details for context..."
-    
-    # Get current issue details for context
-    local current_issue=$(gh issue view "$issue_number" 2>/dev/null)
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+    if ! fetch_and_display_issue "$issue_number" "Fetching issue details for context..."; then
         return 1
     fi
-    
-    echo "Current issue:"
-    echo "=============="
-    echo "$current_issue" | head -10
-    echo "..."
-    echo ""
+    local current_issue="$current_issue_content"
     
     # Create prompt for LLM to generate comment
     local llm_prompt="Generate a professional GitHub issue comment based on the user's request.
@@ -742,21 +758,10 @@ close_issue() {
         return 1
     fi
     
-    echo "Fetching issue details..."
-    
-    # Get current issue details for context
-    local current_issue=$(gh issue view "$issue_number" 2>/dev/null)
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+    if ! fetch_and_display_issue "$issue_number"; then
         return 1
     fi
-    
-    echo "Current issue:"
-    echo "=============="
-    echo "$current_issue" | head -10
-    echo "..."
-    echo ""
+    local current_issue="$current_issue_content"
     
     # Show confirmation with optional reason
     if [ -n "$close_reason" ]; then
@@ -797,21 +802,10 @@ reopen_issue() {
         return 1
     fi
     
-    echo "Fetching issue details..."
-    
-    # Get current issue details for context
-    local current_issue=$(gh issue view "$issue_number" 2>/dev/null)
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to fetch issue #$issue_number. Please check the issue number and try again."
+    if ! fetch_and_display_issue "$issue_number"; then
         return 1
     fi
-    
-    echo "Current issue:"
-    echo "=============="
-    echo "$current_issue" | head -10
-    echo "..."
-    echo ""
+    local current_issue="$current_issue_content"
     
     # Show confirmation with optional reason
     if [ -n "$reopen_reason" ]; then
