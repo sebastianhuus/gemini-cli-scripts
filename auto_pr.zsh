@@ -202,7 +202,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
             fi
         fi
 
-        response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit" "$dry_run")
+        response=$(use_gum_choose "--dry-run=$dry_run" "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
         
         case "$response" in
             "Yes" )
@@ -210,7 +210,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 colored_status "Pushing current branch to remote..." "info"
                 
                 # Use shared push function (force upstream for PR creation)
-                if ! dry_run_execute "push branch to remote" "pr_push_with_display \"$current_branch\"" "$dry_run"; then
+                if ! dry_run_execute "--dry-run=$dry_run" "push branch to remote" "pr_push_with_display \"$current_branch\""; then
                     # Push failed, break out of loop to prevent PR creation
                     break
                 fi
@@ -226,7 +226,7 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     
                     # Execute the command with dry-run protection
                     escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
-                    if dry_run_execute "create pull request" "$escaped_command" "$dry_run"; then
+                    if dry_run_execute "--dry-run=$dry_run" "create pull request" "$escaped_command"; then
                         echo "Pull request created successfully!"
                     else
                         echo "Failed to create pull request."
@@ -234,10 +234,9 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     fi
                     
                     # Prompt to switch to main and pull latest changes
-                    echo ""
-                    if use_gum_confirm "Do you want to switch to $base_branch and pull latest changes?" true "$dry_run"; then
+                    if use_gum_confirm "--dry-run=$dry_run" "Do you want to switch to $base_branch and pull latest changes?" true; then
                         echo "Switching to $base_branch and pulling latest changes..."
-                        if dry_run_execute "switch branches and pull" "git switch \"$base_branch\" && git pull" "$dry_run"; then
+                        if dry_run_execute "--dry-run=$dry_run" "switch branches and pull" "git switch \"$base_branch\" && git pull"; then
                             echo "Successfully updated $base_branch branch!"
                         else
                             echo "Error: Failed to switch to $base_branch or pull latest changes."
