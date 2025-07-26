@@ -77,12 +77,52 @@ check_existing_pr() {
 }
 
 
+# Get script name for usage display
+SCRIPT_NAME="$(basename "${0}")"
+
+# Usage function
+usage() {
+    echo "Usage: $SCRIPT_NAME [--dry-run] [optional_context]"
+    echo ""
+    echo "Options:"
+    echo "  --dry-run        Show what would be executed without making changes"
+    echo "  -h, --help       Show this help message"
+    echo ""
+    echo "Arguments:"
+    echo "  optional_context    Additional context for PR content generation"
+}
+
+# Initialize flags
+dry_run=false
+optional_prompt=""
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            usage
+            exit 1
+            ;;
+        *)
+            # Assume it's the optional prompt
+            optional_prompt="$1"
+            shift
+            ;;
+    esac
+done
+
 # Load and display repository information using the reusable utility
 source "${script_dir}/gum/env_display.zsh"
 display_env_info
-
-# Get optional prompt argument
-optional_prompt="$1"
 
 # Get current branch name
 current_branch=$(git branch --show-current)
@@ -170,9 +210,14 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                 colored_status "Pushing current branch to remote..." "info"
                 
                 # Use shared push function (force upstream for PR creation)
-                if ! pr_push_with_display "$current_branch"; then
-                    # Push failed, break out of loop to prevent PR creation
-                    break
+                if [ "$dry_run" = true ]; then
+                    colored_status "🔍 DRY RUN: Would push branch to remote" "info"
+                    echo "  ⎿ Command: git push -u origin \"$current_branch\""
+                else
+                    if ! pr_push_with_display "$current_branch"; then
+                        # Push failed, break out of loop to prevent PR creation
+                        break
+                    fi
                 fi
                 
                 # Create PR using the generated command
@@ -180,29 +225,40 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     # Add the base and head parameters to the generated command
                     enhanced_command="$pr_create_command --base \"$base_branch\" --head \"$current_branch\""
                     
-                    # Display the execution command using PR display utility
-                    colored_status "Executing PR command" "info" 
+                    # Always show the command for transparency
+                    colored_status "🔍 Executing PR command:" "info" 
                     echo "$enhanced_command" | gum format -t "code" -l "zsh"
                     
-                    # Execute the command (similar to auto_issue.zsh pattern)
-                    escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
-                    eval "$escaped_command"
-                    
-                    if [ $? -eq 0 ]; then
-                        echo "Pull request created successfully!"
+                    if [ "$dry_run" = true ]; then
+                        colored_status "🔍 DRY RUN: Would create pull request" "info"
+                        echo "Pull request would be created successfully!"
                     else
-                        echo "Failed to create pull request."
-                        break
+                        # Execute the command (similar to auto_issue.zsh pattern)
+                        escaped_command=$(echo "$enhanced_command" | sed 's/`/\\`/g')
+                        eval "$escaped_command"
+                        
+                        if [ $? -eq 0 ]; then
+                            echo "Pull request created successfully!"
+                        else
+                            echo "Failed to create pull request."
+                            break
+                        fi
                     fi
                     
                     # Prompt to switch to main and pull latest changes
                     echo ""
                     if use_gum_confirm "Do you want to switch to $base_branch and pull latest changes?"; then
-                        echo "Switching to $base_branch and pulling latest changes..."
-                        if git switch "$base_branch" && git pull; then
+                        if [ "$dry_run" = true ]; then
+                            colored_status "🔍 DRY RUN: Would switch to $base_branch and pull latest changes" "info"
+                            echo "  ⎿ Commands: git switch \"$base_branch\" && git pull"
                             echo "Successfully updated $base_branch branch!"
                         else
-                            echo "Error: Failed to switch to $base_branch or pull latest changes."
+                            echo "Switching to $base_branch and pulling latest changes..."
+                            if git switch "$base_branch" && git pull; then
+                                echo "Successfully updated $base_branch branch!"
+                            else
+                                echo "Error: Failed to switch to $base_branch or pull latest changes."
+                            fi
                         fi
                     else
                         echo "Skipping branch switch and pull."
