@@ -5,9 +5,26 @@
 
 # Function to check if gum is available and provide fallback
 use_gum_confirm() {
+    local dry_run=false
+    
+    # Check if first argument is dry-run flag
+    if [[ "$1" =~ ^--dry-run= ]]; then
+        local dry_run_value="${1#--dry-run=}"
+        [[ "$dry_run_value" == "true" ]] && dry_run=true
+        shift  # Remove the flag
+    fi
+    
     local prompt="$1"
     local default_yes="${2:-true}"
     
+    # Dry-run behavior - auto-accept based on default
+    if [ "$dry_run" = true ]; then
+        local response_text=$([ "$default_yes" = true ] && echo "Yes" || echo "No")
+        colored_status "🔍 DRY RUN: Auto-selecting '$response_text' for: $prompt" "info" >&2
+        [ "$default_yes" = true ] && return 0 || return 1
+    fi
+    
+    # Normal interactive behavior
     if command -v gum &> /dev/null; then
         local result
         if [ "$default_yes" = true ]; then
@@ -43,10 +60,33 @@ use_gum_confirm() {
 }
 
 use_gum_choose() {
+    local dry_run=false
+    
+    # Check if first argument is dry-run flag
+    if [[ "$1" =~ ^--dry-run= ]]; then
+        local dry_run_value="${1#--dry-run=}"
+        [[ "$dry_run_value" == "true" ]] && dry_run=true
+        shift  # Remove the flag
+    fi
+    
     local prompt="$1"
     shift
     local options=("$@")
     
+    # Dry-run behavior - auto-select first option
+    if [ "$dry_run" = true ]; then
+        local selected="${options[1]}"  # First option (zsh arrays are 1-indexed)
+        if [ -n "$selected" ]; then
+            colored_status "🔍 DRY RUN: Auto-selecting '$selected' for: $prompt" "info" >&2
+            echo "$selected"
+        else
+            colored_status "🔍 DRY RUN: No options available for: $prompt" "info" >&2
+            echo ""
+        fi
+        return 0
+    fi
+    
+    # Normal interactive behavior
     if command -v gum &> /dev/null; then
         local result
         result=$(gum choose --header="$prompt" "${options[@]}")
@@ -301,4 +341,34 @@ wrap_quote_block_text() {
     done <<< "$text"
     
     echo "$result"
+}
+
+# Execute command with dry-run protection
+# Usage: dry_run_execute "description" "command" [dry_run_flag]
+dry_run_execute() {
+    local dry_run=false
+    
+    # Check if first argument is dry-run flag
+    if [[ "$1" =~ ^--dry-run= ]]; then
+        local dry_run_value="${1#--dry-run=}"
+        [[ "$dry_run_value" == "true" ]] && dry_run=true
+        shift  # Remove the flag
+    fi
+    
+    local description="$1"
+    local command="$2"
+    
+    if [ "$dry_run" = true ]; then
+        colored_status "🔍 DRY RUN: Would execute: $description" "info" >&2
+        if command -v gum &> /dev/null; then
+            echo "  ⎿ Command:" >&2
+            echo "$command" | gum format -t "code" -l "zsh" >&2
+        else
+            echo "  ⎿ Command: $command" >&2
+        fi
+        return 0  # Simulate success
+    else
+        eval "$command"
+        return $?
+    fi
 }
