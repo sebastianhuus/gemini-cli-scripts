@@ -1,0 +1,1 @@
+Look through github issues with gl cli and pick a fun issue we can work on.
