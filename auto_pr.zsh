@@ -202,7 +202,12 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
             fi
         fi
 
-        response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
+        if [ "$dry_run" = true ]; then
+            colored_status "🔍 DRY RUN: Auto-selecting 'Yes' to create PR" "info"
+            response="Yes"
+        else
+            response=$(use_gum_choose "Create PR with this command?" "Yes" "Regenerate with feedback" "Quit")
+        fi
         
         case "$response" in
             "Yes" )
@@ -247,7 +252,14 @@ if [ $? -eq 0 ] && [ -n "$pr_content_raw" ]; then
                     
                     # Prompt to switch to main and pull latest changes
                     echo ""
-                    if use_gum_confirm "Do you want to switch to $base_branch and pull latest changes?"; then
+                    if [ "$dry_run" = true ]; then
+                        colored_status "🔍 DRY RUN: Auto-selecting 'Yes' to switch branches" "info"
+                        switch_branches=true
+                    else
+                        switch_branches=$(use_gum_confirm "Do you want to switch to $base_branch and pull latest changes?")
+                    fi
+                    
+                    if [ "$switch_branches" = true ]; then
                         if [ "$dry_run" = true ]; then
                             colored_status "🔍 DRY RUN: Would switch to $base_branch and pull latest changes" "info"
                             echo "  ⎿ Commands: git switch \"$base_branch\" && git pull"
