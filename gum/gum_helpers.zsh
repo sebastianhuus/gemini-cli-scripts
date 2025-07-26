@@ -7,7 +7,24 @@
 use_gum_confirm() {
     local prompt="$1"
     local default_yes="${2:-true}"
+    local dry_run="${3:-false}"
     
+    # Handle case where dry-run is passed as --dry-run flag
+    if [ "$default_yes" = "--dry-run" ]; then
+        default_yes=true
+        dry_run=true
+    elif [ "$dry_run" = "--dry-run" ]; then
+        dry_run=true
+    fi
+    
+    # Dry-run behavior - auto-accept based on default
+    if [ "$dry_run" = true ]; then
+        local response_text=$([ "$default_yes" = true ] && echo "Yes" || echo "No")
+        colored_status "🔍 DRY RUN: Auto-selecting '$response_text' for: $prompt" "info"
+        [ "$default_yes" = true ] && return 0 || return 1
+    fi
+    
+    # Normal interactive behavior
     if command -v gum &> /dev/null; then
         local result
         if [ "$default_yes" = true ]; then
@@ -45,8 +62,39 @@ use_gum_confirm() {
 use_gum_choose() {
     local prompt="$1"
     shift
-    local options=("$@")
+    local options=()
+    local dry_run=false
     
+    # Collect all arguments first
+    local all_args=("$@")
+    local last_arg="${all_args[-1]}"
+    
+    # Check if last argument is a dry-run flag
+    if [[ "$last_arg" == "true" || "$last_arg" == "false" || "$last_arg" == "--dry-run" ]]; then
+        if [[ "$last_arg" == "true" || "$last_arg" == "--dry-run" ]]; then
+            dry_run=true
+        fi
+        # Remove the last argument and use the rest as options
+        options=("${all_args[@]:0:${#all_args[@]}-1}")
+    else
+        # No dry-run flag, all arguments are options
+        options=("$@")
+    fi
+    
+    # Dry-run behavior - auto-select first option
+    if [ "$dry_run" = true ]; then
+        local selected="${options[1]}"  # First option (options[1] since options[0] might be empty)
+        if [ -n "$selected" ]; then
+            colored_status "🔍 DRY RUN: Auto-selecting '$selected' for: $prompt" "info"
+            echo "$selected"
+        else
+            colored_status "🔍 DRY RUN: No options available for: $prompt" "info"
+            echo ""
+        fi
+        return 0
+    fi
+    
+    # Normal interactive behavior
     if command -v gum &> /dev/null; then
         local result
         result=$(gum choose --header="$prompt" "${options[@]}")
@@ -301,4 +349,26 @@ wrap_quote_block_text() {
     done <<< "$text"
     
     echo "$result"
+}
+
+# Execute command with dry-run protection
+# Usage: dry_run_execute "description" "command" [dry_run_flag]
+dry_run_execute() {
+    local description="$1"
+    local command="$2"
+    local dry_run="${3:-false}"
+    
+    # Handle --dry-run flag
+    if [ "$dry_run" = "--dry-run" ]; then
+        dry_run=true
+    fi
+    
+    if [ "$dry_run" = true ]; then
+        colored_status "🔍 DRY RUN: Would execute: $description" "info"
+        echo "  ⎿ Command: $command"
+        return 0  # Simulate success
+    else
+        eval "$command"
+        return $?
+    fi
 }
