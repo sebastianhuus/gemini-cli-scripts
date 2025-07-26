@@ -39,6 +39,14 @@ else
     exit 1
 fi
 
+# Load LLM regeneration handler utility
+if [ -f "${script_dir}/utils/core/llm_regeneration_handler.zsh" ]; then
+    source "${script_dir}/utils/core/llm_regeneration_handler.zsh"
+else
+    echo "Error: Required LLM regeneration handler utility not found at ${script_dir}/utils/core/llm_regeneration_handler.zsh"
+    exit 1
+fi
+
 # GitHub Issue Management Assistant with Menu Interface
 # 
 # Usage:
@@ -224,6 +232,45 @@ get_validated_issue_number() {
     done
 }
 
+# Callback functions for edit operations
+_edit_generate_content() {
+    local prompt="$1"
+    echo "$prompt" | gemini -m "$(get_gemini_model)" --prompt "$prompt" | "$(get_utils_path)/core/gemini_clean.zsh"
+}
+
+_edit_display_content() {
+    local content="$1"
+    echo "Generated edit commands:"
+    echo "------------------------"
+    echo "$content"
+    echo "------------------------"
+}
+
+_edit_execute_content() {
+    local content="$1"
+    echo "Executing edit commands..."
+    echo "Running: $content"
+    escaped_command=$(echo "$content" | sed 's/`/\\`/g')
+    eval "$escaped_command"
+    if [ $? -eq 0 ]; then
+        echo "✓ Command executed successfully"
+        echo "Issue edit completed!"
+        return 0
+    else
+        echo "✗ Command failed"
+        return 1
+    fi
+}
+
+_edit_validate_content() {
+    local content="$1"
+    if ! validate_quotes "$content"; then
+        echo "Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands."
+        return 1
+    fi
+    return 0
+}
+
 # Function to handle issue editing
 edit_issue() {
     local issue_number="$1"
@@ -273,104 +320,44 @@ For body edits, if the user wants to append or prepend text, combine it with the
     
     echo "Generating edit commands with Gemini..."
     
-    # Initialize variables for regeneration loop
-    local user_feedback=""
-    local should_generate=true
-    
-    # Regeneration loop
-    while true; do
-        if [ "$should_generate" = true ]; then
-            # Rebuild prompt with feedback if provided
-            local final_prompt="$llm_prompt"
-            if [ -n "$user_feedback" ]; then
-                final_prompt+="
-
-User feedback for improvement:
-$user_feedback
-
-Please incorporate this feedback to improve the edit commands."
-            fi
-            
-            # Generate edit commands from Gemini
-            edit_commands=$(echo "$final_prompt" | gemini -m "$(get_gemini_model)" --prompt "$final_prompt" | "$(get_utils_path)/core/gemini_clean.zsh")
-            
-            if [ $? -ne 0 ] || [ -z "$edit_commands" ]; then
-                echo "Failed to generate edit commands. Please try again."
-                exit 1
-            fi
-            
-            should_generate=false
-        fi
-        
-        # Validate quotes in the entire command block before presenting to user
-        if ! validate_quotes "$edit_commands"; then
-            echo "⚠️  Validation failed: Generated commands contain unclosed quotes."
-            echo "Please regenerate the commands to fix this issue."
-            echo ""
-            
-            validation_choice=$(use_gum_choose "What would you like to do?" "Regenerate commands" "Quit")
-            
-            case "$validation_choice" in
-                "Regenerate commands" )
-                    echo "Regenerating edit commands..."
-                    user_feedback+="- Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands.\n"
-                    should_generate=true
-                    continue
-                    ;;
-                "Quit" )
-                    echo "Edit cancelled."
-                    return 1
-                    ;;
-                * )
-                    echo "Edit cancelled."
-                    return 1
-                    ;;
-            esac
-        fi
-
-        echo "Generated edit commands:"
-        echo "------------------------"
-        echo "$edit_commands"
-        echo "------------------------"
-        echo ""
-        response=$(use_gum_choose "Execute these commands?" "Yes" "Regenerate" "Quit")
-        
-        case "$response" in
-            "Yes" )
-                echo "Executing edit commands..."
-                # Execute the entire command block, escaping backticks like in create_issue_with_llm
-                echo "Running: $edit_commands"
-                escaped_command=$(echo "$edit_commands" | sed 's/`/\\`/g')
-                eval "$escaped_command"
-                if [ $? -eq 0 ]; then
-                    echo "✓ Command executed successfully"
-                else
-                    echo "✗ Command failed"
-                fi
-                echo "Issue edit completed!"
-                return 0
-                ;;
-            "Regenerate" )
-                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
-                if [ -n "$feedback_input" ]; then
-                    user_feedback+="- $feedback_input\n"
-                fi
-                echo "Regenerating edit commands..."
-                should_generate=true
-                continue
-                ;;
-            "Quit" )
-                echo "Edit cancelled."
-                return 1
-                ;;
-            * )
-                echo "Edit cancelled."
-                return 1
-                ;;
-        esac
-    done
+    # Use the generic regeneration handler
+    handle_llm_regeneration_with_feedback \
+        "$llm_prompt" \
+        "_edit_generate_content" \
+        "_edit_display_content" \
+        "_edit_execute_content" \
+        "edit commands" \
+        "_edit_validate_content"
 }
 
+
+# Callback functions for comment operations
+_comment_generate_content() {
+    local prompt="$1"
+    echo "$prompt" | gemini -m "$(get_gemini_model)" --prompt "$prompt" | "$(get_utils_path)/core/gemini_clean.zsh"
+}
+
+_comment_display_content() {
+    local content="$1"
+    echo "Generated comment:"
+    echo "=================="
+    echo "$content"
+    echo "=================="
+}
+
+_comment_execute_content() {
+    local content="$1"
+    # The issue_number is captured from the parent scope
+    echo "Posting comment to issue #$_comment_issue_number..."
+    gh issue comment "$_comment_issue_number" --body "$content"
+    if [ $? -eq 0 ]; then
+        echo "Comment posted successfully!"
+        return 0
+    else
+        echo "Failed to post comment."
+        return 1
+    fi
+}
 
 # Function to add comment to GitHub issue
 comment_issue() {
@@ -467,76 +454,17 @@ Only output the comment content, without any additional text or explanation."
             ;;
     esac
     
-    # Initialize variables for regeneration loop
-    local user_feedback=""
-    local should_generate=true
+    # Store issue number for callback function access
+    _comment_issue_number="$issue_number"
     
-    # Regeneration loop
-    while true; do
-        if [ "$should_generate" = true ]; then
-            # Rebuild prompt with feedback if provided
-            local final_prompt="$llm_prompt"
-            if [ -n "$user_feedback" ]; then
-                final_prompt+="
-
-User feedback for improvement:
-$user_feedback
-
-Please incorporate this feedback to improve the comment."
-            fi
-            
-            # Generate comment content from Gemini
-            local comment_content=$(echo "$final_prompt" | gemini -m "$(get_gemini_model)" --prompt "$final_prompt" | "$(get_utils_path)/core/gemini_clean.zsh")
-            
-            if [ $? -ne 0 ] || [ -z "$comment_content" ]; then
-                echo "Failed to generate comment. Please try again."
-                return 1
-            fi
-            
-            should_generate=false
-        fi
-        
-        # Use the comment content directly (attribution already included by prompt)
-        local final_comment="$comment_content"
-        
-        echo "Generated comment:"
-        echo "=================="
-        echo "$final_comment"
-        echo "=================="
-        echo ""
-        response=$(use_gum_choose "Post this comment?" "Yes" "Regenerate" "Quit")
-        
-        case "$response" in
-            "Yes" )
-                echo "Posting comment to issue #$issue_number..."
-                gh issue comment "$issue_number" --body "$final_comment"
-                if [ $? -eq 0 ]; then
-                    echo "Comment posted successfully!"
-                    return 0
-                else
-                    echo "Failed to post comment."
-                    return 1
-                fi
-                ;;
-            "Regenerate" )
-                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
-                if [ -n "$feedback_input" ]; then
-                    user_feedback+="- $feedback_input\n"
-                fi
-                echo "Regenerating comment..."
-                should_generate=true
-                continue
-                ;;
-            "Quit" )
-                echo "Comment cancelled."
-                return 1
-                ;;
-            * )
-                echo "Comment cancelled."
-                return 1
-                ;;
-        esac
-    done
+    # Use the generic regeneration handler (no validation needed for comments)
+    handle_llm_regeneration_with_feedback \
+        "$llm_prompt" \
+        "_comment_generate_content" \
+        "_comment_display_content" \
+        "_comment_execute_content" \
+        "comment" \
+        ""
 }
 
 # Function to handle LLM-controlled issue creation
