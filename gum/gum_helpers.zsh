@@ -118,6 +118,70 @@ use_gum_input() {
     fi
 }
 
+use_gum_write() {
+    local prompt="$1"
+    local placeholder="${2:-}"
+    local default_value="${3:-}"
+    
+    if command -v gum &> /dev/null; then
+        local result
+        
+        # Build gum write command with options
+        local gum_cmd="gum write --header=\"$prompt\""
+        if [ -n "$placeholder" ]; then
+            gum_cmd+=" --placeholder=\"$placeholder\""
+        fi
+        if [ -n "$default_value" ]; then
+            gum_cmd+=" --value=\"$default_value\""
+        fi
+        
+        # Execute the command
+        result=$(eval "$gum_cmd")
+        
+        # Echo the header to stderr for history visibility (like use_gum_input does)
+        echo "# $prompt" | gum format >&2
+        
+        # Show what was entered (truncated for display)
+        local display_result="$result"
+        if [ ${#display_result} -gt 60 ]; then
+            display_result="${display_result:0:60}..."
+        fi
+        # Replace newlines with spaces for display
+        display_result=$(echo "$display_result" | tr '\n' ' ')
+        gum style --faint "> $display_result" >&2
+        
+        echo "$result"
+    else
+        # Fallback to traditional multiline input
+        echo "$prompt"
+        if [ -n "$placeholder" ]; then
+            echo "(Tip: $placeholder)"
+        fi
+        if [ -n "$default_value" ]; then
+            echo "(Default: $default_value)"
+        fi
+        echo "Enter your text (press Ctrl+D when finished):"
+        
+        local response=""
+        local line=""
+        while IFS= read -r line; do
+            if [ -n "$response" ]; then
+                response+=$'\n'"$line"
+            else
+                response="$line"
+            fi
+        done
+        
+        # Use default if empty response
+        if [ -z "$response" ] && [ -n "$default_value" ]; then
+            response="$default_value"
+        fi
+        
+        echo "> [Multiline text entered]"
+        echo "$response"
+    fi
+}
+
 # Function to display colored status messages with optional markdown support
 colored_status() {
     local message=""

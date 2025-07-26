@@ -855,7 +855,7 @@ show_operation_menu() {
 handle_create_issue_flow() {
     colored_status "Creating a new issue..." "info"
     
-    local description=$(use_gum_input "Describe the issue you want to create:" "Enter issue description")
+    local description=$(use_gum_write "Describe the issue you want to create:" "Enter a detailed description of the issue, including any relevant context, steps to reproduce, expected behavior, etc.")
     
     if [ -z "$description" ]; then
         echo "Issue description is required."
@@ -885,7 +885,7 @@ handle_comment_issue_flow() {
         return 1
     fi
     
-    local comment=$(use_gum_input "Comment content:" "Enter your comment")
+    local comment=$(use_gum_write "Comment content:" "Enter your comment. You can include markdown formatting, code blocks, references to other issues, etc.")
     
     if [ -z "$comment" ]; then
         echo "Comment content is required."
