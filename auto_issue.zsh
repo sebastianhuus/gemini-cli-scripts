@@ -889,27 +889,27 @@ show_operation_menu() {
     
     case "$operation" in
         "Create new issue")
-            colored_status "Selected: **Create new issue**" "info"
+            colored_status "Selected: Create new issue" "info"
             handle_create_issue_flow
             ;;
         "Comment on existing issue")
-            colored_status "Selected: **Comment on existing issue**" "info"
+            colored_status "Selected: Comment on existing issue" "info"
             handle_comment_issue_flow
             ;;
         "Edit existing issue")
-            colored_status "Selected: **Edit existing issue**" "info"
+            colored_status "Selected: Edit existing issue" "info"
             handle_edit_issue_flow
             ;;
         "View existing issue")
-            colored_status "Selected: **View existing issue**" "info"
+            colored_status "Selected: View existing issue" "info"
             handle_view_issue_flow
             ;;
         "Close existing issue")
-            colored_status "Selected: **Close existing issue**" "info"
+            colored_status "Selected: Close existing issue" "info"
             handle_close_issue_flow
             ;;
         "Reopen existing issue")
-            colored_status "Selected: **Reopen existing issue**" "info"
+            colored_status "Selected: Reopen existing issue" "info"
             handle_reopen_issue_flow
             ;;
         "Quit"|"")
