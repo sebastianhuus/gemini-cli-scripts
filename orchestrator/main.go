@@ -5,8 +5,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -227,6 +229,7 @@ type model struct {
 	height             int
 	spinner            spinner.Model
 	isBuilding         bool
+	showExitConfirm    bool
 }
 
 func initialModel() model {
@@ -252,14 +255,38 @@ func initialModel() model {
 		height:             24,
 		spinner:            s,
 		isBuilding:         false,
+		showExitConfirm:    false,
 	}
 }
 
 type buildCompleteMsg struct{}
 type buildErrorMsg struct{ err error }
+type shutdownMsg struct{ signal os.Signal }
+type ctrlCTimeoutMsg struct{}
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return listenForSignals()
+}
+
+func listenForSignals() tea.Cmd {
+	return func() tea.Msg {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, 
+			syscall.SIGINT,  // Ctrl+C
+			syscall.SIGTERM, // Termination request
+			syscall.SIGHUP,  // Terminal disconnection
+			syscall.SIGQUIT, // Quit signal
+		)
+		
+		sig := <-sigChan
+		return shutdownMsg{signal: sig}
+	}
+}
+
+func ctrlCTimeoutCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return ctrlCTimeoutMsg{}
+	})
 }
 
 func (m *model) updateSuggestions() {
@@ -378,11 +405,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isBuilding = false
 		m.messages = append(m.messages, fmt.Sprintf("❌ Build failed: %v", msg.err))
 		return m, nil
+	case shutdownMsg:
+		// Graceful shutdown requested (for signals other than SIGINT)
+		if msg.signal != syscall.SIGINT {
+			return m, tea.Quit
+		}
+		// SIGINT (Ctrl+C) handling is done in KeyMsg section
+		return m, nil
+	case ctrlCTimeoutMsg:
+		// Timeout for Ctrl+C confirmation - hide the confirmation message
+		m.showExitConfirm = false
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
+		case tea.KeyCtrlC:
+			if m.showExitConfirm {
+				// Second Ctrl+C within timeout window - exit
+				return m, tea.Quit
+			} else {
+				// First Ctrl+C - show confirmation and start timeout
+				m.showExitConfirm = true
+				return m, ctrlCTimeoutCmd()
+			}
+		case tea.KeyEsc:
+			if m.showExitConfirm {
+				// Esc cancels the exit confirmation
+				m.showExitConfirm = false
+				return m, nil
+			}
 			return m, tea.Quit
 		case tea.KeyBackspace:
+			// Cancel exit confirmation if showing
+			if m.showExitConfirm {
+				m.showExitConfirm = false
+			}
 			// Exit modes when backspacing on empty input
 			if m.textInput.Value() == "" {
 				m.showHelp = false
@@ -391,6 +447,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case tea.KeyRunes:
+			// Cancel exit confirmation if showing
+			if m.showExitConfirm {
+				m.showExitConfirm = false
+			}
 			// Intercept ? character when input is empty
 			if len(msg.Runes) == 1 && string(msg.Runes[0]) == "?" && m.textInput.Value() == "" {
 				m.showHelp = !m.showHelp
@@ -399,13 +459,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case tea.KeyEnter:
+			// Cancel exit confirmation if showing
+			if m.showExitConfirm {
+				m.showExitConfirm = false
+			}
 			if m.showSuggestions && len(m.suggestions) > 0 {
-				// Auto-complete with selected suggestion + space
-				completed := m.suggestions[m.selectedSuggestion] + " "
-				m.textInput.SetValue(completed)
-				m.textInput.SetCursor(len(completed))
+				// Execute the selected suggestion immediately
+				inputValue := strings.TrimSpace(m.suggestions[m.selectedSuggestion])
+				m.textInput.SetValue(inputValue)
 				m.showSuggestions = false
-			} else if m.textInput.Value() != "" {
+				// Fall through to execute the command
+			}
+			
+			if m.textInput.Value() != "" {
 				inputValue := strings.TrimSpace(m.textInput.Value())
 				
 				// Handle /reload command
@@ -462,6 +528,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showHelp = false
 			}
 		case tea.KeyUp:
+			// Cancel exit confirmation if showing
+			if m.showExitConfirm {
+				m.showExitConfirm = false
+			}
 			if m.showSuggestions && len(m.suggestions) > 0 {
 				if m.selectedSuggestion > 0 {
 					m.selectedSuggestion--
@@ -469,6 +539,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case tea.KeyDown:
+			// Cancel exit confirmation if showing
+			if m.showExitConfirm {
+				m.showExitConfirm = false
+			}
 			if m.showSuggestions && len(m.suggestions) > 0 {
 				if m.selectedSuggestion < len(m.suggestions)-1 {
 					m.selectedSuggestion++
@@ -476,6 +550,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case tea.KeyTab:
+			// Cancel exit confirmation if showing
+			if m.showExitConfirm {
+				m.showExitConfirm = false
+			}
 			if m.showSuggestions && len(m.suggestions) > 0 {
 				// Tab to complete + space
 				completed := m.suggestions[m.selectedSuggestion] + " "
@@ -545,10 +623,13 @@ func (m model) View() string {
 	
 	view += renderInputBar(m)
 
-	// Only show suggestions and help if not building
+	// Only show UI elements if not building
 	if !m.isBuilding {
-		// Suggestions dropdown
-		if m.showSuggestions && len(m.suggestions) > 0 {
+		if m.showExitConfirm {
+			// Priority 1: Exit confirmation (overrides everything else)
+			view += helpTextStyle.Render("Press Ctrl+C again to exit (or Esc to cancel)")
+		} else if m.showSuggestions && len(m.suggestions) > 0 {
+			// Priority 2: Suggestions dropdown
 			view += "\n"
 			for i, suggestion := range m.suggestions {
 				if i == m.selectedSuggestion {
@@ -557,21 +638,17 @@ func (m model) View() string {
 					view += suggestionStyle.Render(suggestion) + "\n"
 				}
 			}
-		}
-
-		// Help shortcuts
-		if m.showHelp {
+			view += "\n"
+			view += blurredStyle.Render("↑/↓ to navigate • Tab to complete • Enter to execute")
+		} else if m.showHelp {
+			// Priority 3: Help shortcuts
 			view += "\n"
 			formattedShortcuts := distributeShortcuts(m.width)
 			for _, shortcut := range formattedShortcuts {
 				view += suggestionStyle.Render(shortcut) + "\n"
 			}
-		}
-
-		if m.showSuggestions {
-			view += "\n"
-			view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete")
-		} else if !m.showHelp {
+		} else {
+			// Priority 4: Default help prompt
 			view += helpTextStyle.Render("? for shortcuts")
 		}
 	}
@@ -593,6 +670,7 @@ func composeUI(m *model) {
 
 func main() {
 	clearConsole()
+	
 	p := tea.NewProgram(initialModel())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
