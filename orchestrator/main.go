@@ -466,7 +466,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				
 				// Handle /clear command
 				if inputValue == "/clear" {
-					// Clear all messages and reset to initial state (keep header)
+					// Clear entire display and reset to initial state
+					composeUI(&m)
 					m.messages = []string{"Display cleared."}
 					m.textInput.SetValue("")
 					m.showSuggestions = false
@@ -518,21 +519,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmd, textInputCmd)
 }
 
-func (m model) View() string {
-	var view string
+func renderHeader() string {
+	return titleStyle.Render("Gemini CLI Orchestrator") + "\n\n"
+}
 
-	// Title
-	view += titleStyle.Render("Gemini CLI Orchestrator")
-	view += "\n\n"
-
+func renderContent(m model) string {
+	var content string
+	
 	// Messages history
 	if len(m.messages) > 0 {
 		for _, msg := range m.messages {
-			view += messageStyle.Render(fmt.Sprintf("> %s", msg)) + "\n"
+			content += messageStyle.Render(fmt.Sprintf("> %s", msg)) + "\n"
 		}
-		view += "\n"
+		content += "\n"
 	}
+	
+	return content
+}
 
+func renderInputBar(m model) string {
+	var inputBar string
+	
+	// Only show input if not building or executing command
+	if !m.isBuilding && !m.isExecutingCommand {
+		// Input with full-width border
+		inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
+		inputBar += inputBox.Render(m.textInput.View())
+	}
+	
+	return inputBar
+}
+
+func (m model) View() string {
+	var view string
+
+	// Composable UI layout
+	view += renderHeader()
+	view += renderContent(m)
+	
 	// Show building spinner if building
 	if m.isBuilding {
 		view += suggestionStyle.Render(fmt.Sprintf("%s Building and reloading...", m.spinner.View())) + "\n\n"
@@ -542,13 +566,8 @@ func (m model) View() string {
 	if m.isExecutingCommand {
 		view += suggestionStyle.Render(fmt.Sprintf("%s Executing command...", m.spinner.View())) + "\n\n"
 	}
-
-	// Only show input if not building or executing command
-	if !m.isBuilding && !m.isExecutingCommand {
-		// Input with full-width border
-		inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
-		view += inputBox.Render(m.textInput.View())
-	}
+	
+	view += renderInputBar(m)
 
 	// Only show suggestions and help if not building or executing command
 	if !m.isBuilding && !m.isExecutingCommand {
@@ -589,6 +608,11 @@ func (m model) View() string {
 
 func clearConsole() {
 	fmt.Print("\033[2J\033[H")
+}
+
+func composeUI(m *model) {
+	// Reset UI state - Bubble Tea will handle the visual refresh automatically
+	// This is the recommended approach rather than direct console manipulation
 }
 
 func main() {
