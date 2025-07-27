@@ -43,11 +43,45 @@ var slashCommands = []string{
 	"/clear",
 }
 
-var shortcutDescriptions = []string{
-	"! for bash mode         double tap esc to clear input     ctrl + _ to undo",
-	"/ for commands          shift + tab to auto-accept edits  ctrl + z to suspend",
-	"@ for file paths        ctrl + r for verbose output",
-	"# to memorize           shift + e for newline",
+var shortcutRows = [][]string{
+	{"! for bash mode", "double tap esc to clear input", "ctrl + _ to undo"},
+	{"/ for commands", "shift + tab to auto-accept edits", "ctrl + z to suspend"},
+	{"@ for file paths", "ctrl + r for verbose output", ""},
+	{"# to memorize", "shift + e for newline", ""},
+}
+
+func formatShortcutRows(rows [][]string) []string {
+	if len(rows) == 0 {
+		return []string{}
+	}
+	
+	// Find max width for each column
+	maxWidths := make([]int, len(rows[0]))
+	for _, row := range rows {
+		for i, cell := range row {
+			if i < len(maxWidths) && len(cell) > maxWidths[i] {
+				maxWidths[i] = len(cell)
+			}
+		}
+	}
+	
+	// Format each row with proper spacing (8 spaces between columns)
+	var formatted []string
+	for _, row := range rows {
+		var line string
+		for i, cell := range row {
+			if i == 0 {
+				line = cell
+			} else if cell != "" {
+				// Add 8 spaces after the previous column's max width
+				padding := maxWidths[i-1] - len(row[i-1]) + 8
+				line += strings.Repeat(" ", padding) + cell
+			}
+		}
+		formatted = append(formatted, line)
+	}
+	
+	return formatted
 }
 
 type model struct {
@@ -225,7 +259,8 @@ func (m model) View() string {
 	// Help shortcuts
 	if m.showHelp {
 		view += "\n"
-		for _, shortcut := range shortcutDescriptions {
+		formattedShortcuts := formatShortcutRows(shortcutRows)
+		for _, shortcut := range formattedShortcuts {
 			view += suggestionStyle.Render(shortcut) + "\n"
 		}
 	}
