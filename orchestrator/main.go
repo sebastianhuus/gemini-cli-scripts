@@ -450,6 +450,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				
+				// Handle /clear command
+				if inputValue == "/clear" {
+					// Clear all messages and reset to initial state (keep header)
+					m.messages = []string{"Display cleared."}
+					m.textInput.SetValue("")
+					m.showSuggestions = false
+					m.showHelp = false
+					return m, nil
+				}
+				
 				m.messages = append(m.messages, m.textInput.Value())
 				m.textInput.SetValue("")
 				m.showSuggestions = false
