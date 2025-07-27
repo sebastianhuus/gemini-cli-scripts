@@ -28,6 +28,10 @@ var (
 			Background(lipgloss.Color("205")).
 			Foreground(lipgloss.Color("230")).
 			Padding(0, 1)
+	inputBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Padding(0, 1)
 )
 
 var slashCommands = []string{
@@ -44,6 +48,8 @@ type model struct {
 	suggestions       []string
 	selectedSuggestion int
 	showSuggestions   bool
+	width             int
+	height            int
 }
 
 func initialModel() model {
@@ -60,6 +66,8 @@ func initialModel() model {
 		suggestions:       []string{},
 		selectedSuggestion: 0,
 		showSuggestions:   false,
+		width:             80,
+		height:            24,
 	}
 }
 
@@ -109,6 +117,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.textInput.Width = msg.Width - 6 // Account for border and padding
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -172,9 +185,10 @@ func (m model) View() string {
 		view += "\n"
 	}
 	
-	// Input
+	// Input with full-width border
 	view += "Enter message:\n"
-	view += m.textInput.View()
+	inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
+	view += inputBox.Render(m.textInput.View())
 	
 	// Suggestions dropdown
 	if m.showSuggestions && len(m.suggestions) > 0 {
