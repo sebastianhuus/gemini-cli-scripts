@@ -455,7 +455,12 @@ func (m model) View() string {
 	return view
 }
 
+func clearConsole() {
+	fmt.Print("\033[2J\033[H")
+}
+
 func main() {
+	clearConsole()
 	p := tea.NewProgram(initialModel())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
