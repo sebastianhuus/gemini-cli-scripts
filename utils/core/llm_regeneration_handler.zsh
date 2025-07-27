@@ -6,7 +6,7 @@
 # Eliminates duplicated regeneration loop patterns across different operations.
 #
 # Usage:
-#   handle_llm_regeneration_with_feedback "$base_prompt" "$generate_func" "$display_func" "$execute_func" "$content_type" "$validate_func"
+#   handle_llm_regeneration_with_feedback "$base_prompt" "$generate_func" "$display_func" "$execute_func" "$content_type" "$validate_func" "$dry_run_flag"
 #
 # Parameters:
 #   $1: base_prompt - The initial LLM prompt
@@ -15,6 +15,7 @@
 #   $4: execute_func - Function name to call for content execution
 #   $5: content_type - Description for user messages (e.g., "edit commands", "comment")
 #   $6: validate_func - Optional function name for content validation (can be empty)
+#   $7: dry_run_flag - Boolean flag for dry run mode (true/false)
 #
 # Returns:
 #   0 on successful execution, 1 on cancellation or error
@@ -32,6 +33,7 @@ handle_llm_regeneration_with_feedback() {
     local execute_func="$4"
     local content_type="$5"
     local validate_func="$6"
+    local dry_run_flag="$7"
     
     # Validate required parameters
     if [ -z "$base_prompt" ] || [ -z "$generate_func" ] || [ -z "$display_func" ] || [ -z "$execute_func" ] || [ -z "$content_type" ]; then
@@ -57,7 +59,7 @@ Please incorporate this feedback to improve the $content_type."
             fi
             
             # Generate content using callback
-            generated_content=$($generate_func "$final_prompt")
+            generated_content=$($generate_func "$final_prompt" "$dry_run_flag")
             
             if [ $? -ne 0 ] || [ -z "$generated_content" ]; then
                 echo "Failed to generate $content_type. Please try again."
@@ -69,12 +71,12 @@ Please incorporate this feedback to improve the $content_type."
         
         # Optional validation
         if [ -n "$validate_func" ]; then
-            if ! $validate_func "$generated_content"; then
+            if ! $validate_func "$generated_content" "$dry_run_flag"; then
                 echo "⚠️  Validation failed for generated $content_type."
                 echo "Please regenerate to fix this issue."
                 echo ""
                 
-                validation_choice=$(use_gum_choose "What would you like to do?" "Regenerate $content_type" "Quit")
+                validation_choice=$(use_gum_choose "--dry-run=$dry_run_flag" "What would you like to do?" "Regenerate $content_type" "Quit")
                 
                 case "$validation_choice" in
                     "Regenerate $content_type" )
@@ -96,18 +98,18 @@ Please incorporate this feedback to improve the $content_type."
         fi
         
         # Display content using callback
-        $display_func "$generated_content"
+        $display_func "$generated_content" "$dry_run_flag"
         echo ""
         
-        response=$(use_gum_choose "Execute this $content_type?" "Yes" "Regenerate" "Quit")
+        response=$(use_gum_choose "--dry-run=$dry_run_flag" "Execute this $content_type?" "Yes" "Regenerate" "Quit")
         
         case "$response" in
             "Yes" )
-                $execute_func "$generated_content"
+                $execute_func "$generated_content" "$dry_run_flag"
                 return $?
                 ;;
             "Regenerate" )
-                feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
+                feedback_input=$(use_gum_input "--dry-run=$dry_run_flag" "Please provide feedback for improvement:" "Enter your feedback here")
                 if [ -n "$feedback_input" ]; then
                     user_feedback+="- $feedback_input\\n"
                 fi

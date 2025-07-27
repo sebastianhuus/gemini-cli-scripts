@@ -266,6 +266,7 @@ _edit_generate_content() {
 
 _edit_display_content() {
     local content="$1"
+    local local_dry_run="${2:-$dry_run}"  # Accept but don't use dry run parameter
     echo "Generated edit commands:"
     echo "------------------------"
     echo "$content"
@@ -290,6 +291,7 @@ _edit_execute_content() {
 
 _edit_validate_content() {
     local content="$1"
+    local local_dry_run="${2:-$dry_run}"  # Accept but don't use dry run parameter
     if ! validate_quotes "$content"; then
         echo "Generated commands contained unclosed quotes. Please ensure all quotes are properly closed in the commands."
         return 1
@@ -347,10 +349,6 @@ For body edits, if the user wants to append or prepend text, combine it with the
     
     echo "Generating edit commands with Gemini..."
     
-    # Temporarily set the global dry_run for callback access
-    local original_dry_run="$dry_run"
-    dry_run="$local_dry_run"
-    
     # Use the generic regeneration handler
     handle_llm_regeneration_with_feedback \
         "$llm_prompt" \
@@ -358,10 +356,8 @@ For body edits, if the user wants to append or prepend text, combine it with the
         "_edit_display_content" \
         "_edit_execute_content" \
         "edit commands" \
-        "_edit_validate_content"
-    
-    # Restore original dry_run value
-    dry_run="$original_dry_run"
+        "_edit_validate_content" \
+        "$local_dry_run"
 }
 
 
@@ -379,6 +375,7 @@ _comment_generate_content() {
 
 _comment_display_content() {
     local content="$1"
+    local local_dry_run="${2:-$dry_run}"  # Accept but don't use dry run parameter
     echo "Generated comment:"
     echo "=================="
     echo "$content"
@@ -497,10 +494,6 @@ Only output the comment content, without any additional text or explanation."
     # Store issue number for callback function access
     _comment_issue_number="$issue_number"
     
-    # Temporarily set the global dry_run for callback access
-    local original_dry_run="$dry_run"
-    dry_run="$local_dry_run"
-    
     # Use the generic regeneration handler (no validation needed for comments)
     handle_llm_regeneration_with_feedback \
         "$llm_prompt" \
@@ -508,10 +501,8 @@ Only output the comment content, without any additional text or explanation."
         "_comment_display_content" \
         "_comment_execute_content" \
         "comment" \
-        ""
-    
-    # Restore original dry_run value
-    dry_run="$original_dry_run"
+        "" \
+        "$local_dry_run"
 }
 
 # Function to handle LLM-controlled issue creation
