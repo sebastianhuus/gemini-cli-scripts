@@ -56,31 +56,52 @@ var shortcuts = []string{
 	"ctrl + z to suspend",
 }
 
-func distributeShortcuts(shortcuts []string) []string {
+func distributeShortcuts(shortcuts []string, terminalWidth int) []string {
 	if len(shortcuts) == 0 {
 		return []string{}
 	}
 	
-	// Calculate rows needed (divide by 3, round up)
-	numRows := (len(shortcuts) + 2) / 3 // +2 for ceiling division
+	// Try 3 columns first
+	formatted := tryDistribution(shortcuts, 3, terminalWidth)
+	if formatted != nil {
+		return formatted
+	}
+	
+	// Fallback to 2 columns if 3 doesn't fit
+	formatted = tryDistribution(shortcuts, 2, terminalWidth)
+	if formatted != nil {
+		return formatted
+	}
+	
+	// Fallback to 1 column if 2 doesn't fit
+	return tryDistribution(shortcuts, 1, terminalWidth)
+}
+
+func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []string {
+	if len(shortcuts) == 0 {
+		return []string{}
+	}
+	
+	// Calculate rows needed
+	numRows := (len(shortcuts) + numCols - 1) / numCols // ceiling division
 	
 	// Create 2D grid
 	grid := make([][]string, numRows)
 	for i := range grid {
-		grid[i] = make([]string, 3)
+		grid[i] = make([]string, numCols)
 	}
 	
 	// Fill grid column by column for even distribution
 	for i, shortcut := range shortcuts {
 		col := i / numRows
 		row := i % numRows
-		if col < 3 && row < numRows {
+		if col < numCols && row < numRows {
 			grid[row][col] = shortcut
 		}
 	}
 	
 	// Find max width for each column
-	maxWidths := make([]int, 3)
+	maxWidths := make([]int, numCols)
 	for _, row := range grid {
 		for i, cell := range row {
 			if len(cell) > maxWidths[i] {
@@ -89,7 +110,21 @@ func distributeShortcuts(shortcuts []string) []string {
 		}
 	}
 	
-	// Format each row with proper spacing (8 spaces between columns)
+	// Calculate total width needed (including 8 spaces between columns)
+	totalWidth := 0
+	for i, width := range maxWidths {
+		totalWidth += width
+		if i < len(maxWidths)-1 && maxWidths[i+1] > 0 {
+			totalWidth += 8 // spacing between columns
+		}
+	}
+	
+	// Check if it fits (leave some margin for padding)
+	if totalWidth > terminalWidth-10 {
+		return nil // Doesn't fit
+	}
+	
+	// Format each row with proper spacing
 	var formatted []string
 	for _, row := range grid {
 		var line string
@@ -286,7 +321,7 @@ func (m model) View() string {
 	// Help shortcuts
 	if m.showHelp {
 		view += "\n"
-		formattedShortcuts := distributeShortcuts(shortcuts)
+		formattedShortcuts := distributeShortcuts(shortcuts, m.width)
 		for _, shortcut := range formattedShortcuts {
 			view += suggestionStyle.Render(shortcut) + "\n"
 		}
