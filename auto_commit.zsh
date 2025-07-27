@@ -17,9 +17,10 @@ no_branch=false
 
 # Usage function
 usage() {
-    echo "Usage: $0 [-s|--stage] [-b|--branch] [--no-branch] [-pr|--pr] [-p|--push] [optional_context]"
+    echo "Usage: $0 [--dry-run] [-s|--stage] [-b|--branch] [--no-branch] [-pr|--pr] [-p|--push] [optional_context]"
     echo ""
     echo "Options:"
+    echo "  --dry-run        Show what would be executed without making changes"
     echo "  -s, --stage      Automatically stage all changes before generating commit"
     echo "  -b, --branch     Automatically create new branch without confirmation"
     echo "  --no-branch      Skip branch creation and commit directly to current branch"
@@ -34,9 +35,16 @@ usage() {
 # Save original arguments before parsing for potential re-execution
 original_args=("$@")
 
+# Initialize flags
+dry_run=false
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
         -s|--stage)
             auto_stage=true
             shift
@@ -181,10 +189,11 @@ check_existing_pr() {
 update_existing_pr() {
     local current_branch="$1"
     local optional_context="$2"
+    local dry_run_flag="${3:-false}"
     local pr_number="$EXISTING_PR_NUMBER"
     
     echo ""
-    local update_choice=$(use_gum_choose "Update existing PR #${pr_number} with new commits?" "Yes" "View PR" "Skip")
+    local update_choice=$(use_gum_choose "--dry-run=$dry_run" "Update existing PR #${pr_number} with new commits?" "Yes" "View PR" "Skip")
     
     case "$update_choice" in
         "Yes" )
@@ -242,18 +251,28 @@ except Exception:
                         # Display the updated PR content using utility function
                         display_pr_content "$new_title" "$new_body"
                         
-                        local confirm_choice=$(use_gum_choose "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
+                        local confirm_choice=$(use_gum_choose "--dry-run=$dry_run" "Update PR with this content?" "Yes" "Regenerate with feedback" "Skip")
                         
                         case "$confirm_choice" in
                             "Yes" )
                                 # Push new commits first
                                 colored_status "Pushing new commits..." "info"
-                                if simple_push_with_display "$current_branch"; then
+                                if simple_push_with_display "$current_branch" "$dry_run_flag"; then
                                     # Execute the generated PR edit command
                                     if command -v gh &> /dev/null; then
                                         # Execute the command (similar to auto_pr.zsh pattern)
                                         escaped_command=$(echo "$pr_edit_command" | sed 's/`/\\`/g')
-                                        eval "$escaped_command"
+                                        if [ "$dry_run_flag" = true ]; then
+                                            colored_status "🔍 DRY RUN: Would execute PR edit command" "info" >&2
+                                            if command -v gum &> /dev/null; then
+                                                echo "  ⎿ Command:" >&2
+                                                echo "$escaped_command" | gum format -t "code" -l "zsh" >&2
+                                            else
+                                                echo "  ⎿ Command: $escaped_command" >&2
+                                            fi
+                                        else
+                                            eval "$escaped_command"
+                                        fi
                                         
                                         if [ $? -eq 0 ]; then
                                             colored_status "PR #${pr_number} updated successfully!" "success"
@@ -313,7 +332,7 @@ should_auto_push() {
     if [[ "$auto_push" == true ]]; then
         return 0  # Yes, push automatically (no message, no interaction)
     else
-        if use_gum_confirm "$context_message"; then
+        if use_gum_confirm "--dry-run=$dry_run" "$context_message"; then
             return 0  # Yes, user confirmed
         else
             return 1  # No, user declined
@@ -376,7 +395,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$no
         if [[ "$auto_stage" == true ]]; then
             echo ""
             colored_status "Auto-staging all changes..." "info"
-            git add -A
+            dry_run_execute "--dry-run=$dry_run" "stage all changes" "git add -A"
             if ! git diff --cached --quiet; then
                 staged_diff=$(git diff --cached)
                 colored_status "Changes staged successfully." "success"
@@ -385,8 +404,8 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$no
                 exit 1
             fi
         else
-            if use_gum_confirm "Found unstaged changes. Stage all changes?"; then
-                git add -A
+            if use_gum_confirm "--dry-run=$dry_run" "Found unstaged changes. Stage all changes?"; then
+                dry_run_execute "--dry-run=$dry_run" "stage all changes" "git add -A"
                 if ! git diff --cached --quiet; then
                     staged_diff=$(git diff --cached)
                     colored_status "Changes staged successfully." "success"
@@ -403,10 +422,10 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$no
         fi
     else
         colored_status "No changes found (staged or unstaged)." "info"
-        if use_gum_confirm "Create empty branch anyway?"; then
+        if use_gum_confirm "--dry-run=$dry_run" "Create empty branch anyway?"; then
             manual_branch_name=$(use_gum_input "Enter branch name:" "feature/branch-name")
             if [ -n "$manual_branch_name" ]; then
-                if git switch -c "$manual_branch_name"; then
+                if dry_run_execute "--dry-run=$dry_run" "create and switch to branch" "git switch -c '$manual_branch_name'"; then
                     colored_status "Created and switched to branch '$manual_branch_name'" "info"
                     echo ""
                     exit 0
@@ -433,7 +452,7 @@ if [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$no
         colored_status "Auto-creating new branch..." "info"
         create_branch=true
     else
-        if use_gum_confirm "Create a new branch?"; then
+        if use_gum_confirm "--dry-run=$dry_run" "Create a new branch?"; then
             create_branch=true
         else
             create_branch=false
@@ -470,7 +489,12 @@ Current staged changes:
 $staged_diff"
         
         # Generate branch name with Gemini (using prompt embedding, not pipe)
-        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/core/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [ "$dry_run" = true ]; then
+            colored_status "🔍 DRY RUN: Would generate branch name with Gemini" "info" >&2
+            generated_branch_name="feat/dry-run-example-branch"
+        else
+            generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/core/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        fi
         
         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
             colored_status "Failed to generate branch name. Enter manually:" "info"
@@ -483,7 +507,7 @@ $staged_diff"
             # Auto-create branch without confirmation
             echo ""
             colored_status "Generated branch name: $generated_branch_name" "info"
-            if git switch -c "$generated_branch_name"; then
+            if dry_run_execute "--dry-run=$dry_run" "create and switch to branch" "git switch -c '$generated_branch_name'"; then
                 colored_status "Created and switched to branch '$generated_branch_name'" "info"
                 echo ""
             else
@@ -497,11 +521,11 @@ $staged_diff"
                 colored_status "Generated branch name: $generated_branch_name" "info"
                 echo ""
                 
-                branch_response=$(use_gum_choose "Create branch '$generated_branch_name'?" "Yes" "Edit" "Regenerate" "Quit")
+                branch_response=$(use_gum_choose "--dry-run=$dry_run" "Create branch '$generated_branch_name'?" "Yes" "Edit" "Regenerate" "Quit")
                 
                 case "$branch_response" in
                     "Yes" )
-                        if git switch -c "$generated_branch_name"; then
+                        if dry_run_execute "--dry-run=$dry_run" "create and switch to branch" "git switch -c '$generated_branch_name'"; then
                             colored_status "Created and switched to branch '$generated_branch_name'" "info"
                             echo ""
                         else
@@ -540,7 +564,12 @@ $gemini_context"
 Current staged changes:
 $staged_diff"
                         
-                        generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/core/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        if [ "$dry_run" = true ]; then
+                            colored_status "🔍 DRY RUN: Would regenerate branch name with Gemini" "info" >&2
+                            generated_branch_name="feat/dry-run-regenerated-branch"
+                        else
+                            generated_branch_name=$(gemini -m "$(get_gemini_model)" --prompt "$branch_name_prompt" | "${script_dir}/utils/core/gemini_clean.zsh" | tr -d '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                        fi
                         if [ $? -ne 0 ] || [ -z "$generated_branch_name" ]; then
                             colored_status "Failed to regenerate branch name." "error"
                         fi
@@ -573,7 +602,7 @@ elif [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$
         if [[ "$auto_stage" == true ]]; then
             echo ""
             colored_status "Auto-staging all changes..." "info"
-            git add -A
+            dry_run_execute "--dry-run=$dry_run" "stage all changes" "git add -A"
             if ! git diff --cached --quiet; then
                 colored_status "Changes staged successfully." "success"
             else
@@ -581,8 +610,8 @@ elif [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$
                 exit 1
             fi
         else
-            if use_gum_confirm "Found unstaged changes. Stage all changes?"; then
-                git add -A
+            if use_gum_confirm "--dry-run=$dry_run" "Found unstaged changes. Stage all changes?"; then
+                dry_run_execute "--dry-run=$dry_run" "stage all changes" "git add -A"
                 if ! git diff --cached --quiet; then
                     colored_status "Changes staged successfully." "success"
                 else
@@ -604,9 +633,9 @@ elif [[ "$current_branch" == "main" || "$current_branch" == "master" ]] && [[ "$
     # Add confirmation for safety when committing to main/master directly
     if [[ "$auto_stage" != true && "$auto_push" != true ]]; then
         echo ""
-        if ! use_gum_confirm "Commit directly to '$current_branch' branch?"; then
+        if ! use_gum_confirm "--dry-run=$dry_run" "Commit directly to '$current_branch' branch?"; then
             # Unstage changes if user cancels
-            if git reset HEAD >/dev/null 2>&1; then
+            if dry_run_execute "--dry-run=$dry_run" "unstage all changes" "git reset HEAD"; then
                 colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
             else
                 colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
@@ -639,8 +668,20 @@ if ! git diff --cached --quiet; then
             final_commit_msg="$GENERATED_COMMIT_MESSAGE"
             
             # Capture git commit output
-            commit_output=$(git commit -m "$final_commit_msg" 2>&1)
-            commit_exit_code=$?
+            if [ "$dry_run" = true ]; then
+                colored_status "🔍 DRY RUN: Would execute commit" "info" >&2
+                if command -v gum &> /dev/null; then
+                    echo "  ⎿ Command:" >&2
+                    echo "git commit -m '$final_commit_msg'" | gum format -t "code" -l "zsh" >&2
+                else
+                    echo "  ⎿ Command: git commit -m '$final_commit_msg'" >&2
+                fi
+                commit_exit_code=0  # Simulate success
+                commit_output="[main abc1234] 1 file changed, 5 insertions(+)"  # Simulate output
+            else
+                commit_output=$(git commit -m "$final_commit_msg" 2>&1)
+                commit_exit_code=$?
+            fi
             
             if [ $commit_exit_code -eq 0 ]; then
                 # Display minimalistic commit summary
@@ -681,7 +722,7 @@ if ! git diff --cached --quiet; then
                 current_branch=$(git branch --show-current)
                 
                 # Use shared smart push function
-                if simple_push_with_display "$current_branch"; then
+                if simple_push_with_display "$current_branch" "$dry_run"; then
                     # Display success message
                     colored_status "Changes pushed successfully!" "success"
                     
@@ -703,9 +744,9 @@ if ! git diff --cached --quiet; then
                                     if [[ "$auto_pr" == true ]]; then
                                         echo ""
                                         colored_status "Updating existing pull request automatically..." "info"
-                                        update_existing_pr "$current_branch" "$1"
+                                        update_existing_pr "$current_branch" "$1" "$dry_run"
                                     else
-                                        update_existing_pr "$current_branch" "$1"
+                                        update_existing_pr "$current_branch" "$1" "$dry_run"
                                     fi
                                     ;;
                                 1)
@@ -713,13 +754,33 @@ if ! git diff --cached --quiet; then
                                     if [[ "$auto_pr" == true ]]; then
                                         echo ""
                                         colored_status "Creating pull request automatically..." "info"
-                                        "${script_dir}/auto_pr.zsh" "$1"
+                                        if [ "$dry_run" = true ]; then
+                                            colored_status "🔍 DRY RUN: Would execute auto_pr.zsh" "info" >&2
+                                            if command -v gum &> /dev/null; then
+                                                echo "  ⎿ Command:" >&2
+                                                echo "${script_dir}/auto_pr.zsh '$1'" | gum format -t "code" -l "zsh" >&2
+                                            else
+                                                echo "  ⎿ Command: ${script_dir}/auto_pr.zsh '$1'" >&2
+                                            fi
+                                        else
+                                            "${script_dir}/auto_pr.zsh" "$1"
+                                        fi
                                     else
                                         echo ""
-                                        pr_choice=$(use_gum_choose "Create a pull request?" "Yes" "Yes with comment" "No")
+                                        pr_choice=$(use_gum_choose "--dry-run=$dry_run" "Create a pull request?" "Yes" "Yes with comment" "No")
                                         case "$pr_choice" in
                                             "Yes" )
-                                                "${script_dir}/auto_pr.zsh" "$1"
+                                                if [ "$dry_run" = true ]; then
+                                                    colored_status "🔍 DRY RUN: Would execute auto_pr.zsh" "info" >&2
+                                                    if command -v gum &> /dev/null; then
+                                                        echo "  ⎿ Command:" >&2
+                                                        echo "${script_dir}/auto_pr.zsh '$1'" | gum format -t "code" -l "zsh" >&2
+                                                    else
+                                                        echo "  ⎿ Command: ${script_dir}/auto_pr.zsh '$1'" >&2
+                                                    fi
+                                                else
+                                                    "${script_dir}/auto_pr.zsh" "$1"
+                                                fi
                                                 ;;
                                             "Yes with comment" )
                                                 pr_comment=$(use_gum_input "Enter additional context for PR generation:" "Additional context or requirements")
@@ -732,7 +793,17 @@ if ! git diff --cached --quiet; then
                                                         combined_context="$pr_comment"
                                                     fi
                                                 fi
-                                                "${script_dir}/auto_pr.zsh" "$combined_context"
+                                                if [ "$dry_run" = true ]; then
+                                                    colored_status "🔍 DRY RUN: Would execute auto_pr.zsh with context" "info" >&2
+                                                    if command -v gum &> /dev/null; then
+                                                        echo "  ⎿ Command:" >&2
+                                                        echo "${script_dir}/auto_pr.zsh '$combined_context'" | gum format -t "code" -l "zsh" >&2
+                                                    else
+                                                        echo "  ⎿ Command: ${script_dir}/auto_pr.zsh '$combined_context'" >&2
+                                                    fi
+                                                else
+                                                    "${script_dir}/auto_pr.zsh" "$combined_context"
+                                                fi
                                                 ;;
                                             "No"|* )
                                                 # Do nothing - no PR creation
@@ -758,7 +829,7 @@ if ! git diff --cached --quiet; then
         2)
             # User cancelled or quit
             # Unstage all staged changes before exiting
-            if git reset HEAD >/dev/null 2>&1; then
+            if dry_run_execute "--dry-run=$dry_run" "unstage all changes" "git reset HEAD"; then
                 colored_status "Commit cancelled. All staged changes have been unstaged." "cancel"
             else
                 colored_status "Commit cancelled. Warning: Failed to unstage changes." "error"
@@ -776,7 +847,7 @@ else
     if [[ "$auto_stage" == true ]]; then
         colored_status "No staged changes found." "info"
         colored_status "Auto-staging all changes..." "info"
-        git add -A
+        dry_run_execute "--dry-run=$dry_run" "stage all changes" "git add -A"
         if ! git diff --cached --quiet; then
             colored_status "All changes staged successfully." "success"
             # Re-run the script to proceed with commit message generation
@@ -801,7 +872,7 @@ else
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function with exit on failure
-                    if simple_push_with_display "$current_branch"; then
+                    if simple_push_with_display "$current_branch" "$dry_run"; then
                         # Display success message
                         colored_status "Changes pushed successfully!" "success"
                         exit 0
@@ -823,8 +894,8 @@ else
         # First check if there are any unstaged changes
         if [ -n "$(git status --porcelain)" ]; then
             # Has unstaged changes - offer to stage them
-            if use_gum_confirm "Do you want to stage all changes?"; then
-                git add -A
+            if use_gum_confirm "--dry-run=$dry_run" "Do you want to stage all changes?"; then
+                dry_run_execute "--dry-run=$dry_run" "stage all changes" "git add -A"
                 colored_status "All changes staged." "success"
                 # Re-run the script to proceed with commit message generation
                 exec "$0" "${original_args[@]}" --skip-env-info
@@ -848,7 +919,7 @@ else
                         current_branch=$(git branch --show-current)
                         
                         # Use shared smart push function
-                        if simple_push_with_display "$current_branch"; then
+                        if simple_push_with_display "$current_branch" "$dry_run"; then
                             # Display success message
                             colored_status "Changes pushed successfully!" "success"
                         else
@@ -882,7 +953,7 @@ else
                     current_branch=$(git branch --show-current)
                     
                     # Use shared smart push function
-                    if simple_push_with_display "$current_branch"; then
+                    if simple_push_with_display "$current_branch" "$dry_run"; then
                         # Display success message
                         colored_status "Changes pushed successfully!" "success"
                     else
