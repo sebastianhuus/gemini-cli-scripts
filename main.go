@@ -46,11 +46,14 @@ var slashCommands = []string{
 	"/clear",
 }
 
-var shortcuts = []string{
+var modeShortcuts = []string{
 	"! for bash mode",
 	"/ for commands",
 	"@ for file paths",
 	"# to memorize",
+}
+
+var generalShortcuts = []string{
 	"double tap esc to clear input",
 	"shift + tab to auto-accept edits",
 	"ctrl + r for verbose output",
@@ -59,52 +62,53 @@ var shortcuts = []string{
 	"ctrl + z to suspend",
 }
 
-func distributeShortcuts(shortcuts []string, terminalWidth int) []string {
-	if len(shortcuts) == 0 {
-		return []string{}
-	}
-
-	// Try 3 columns first
-	formatted := tryDistribution(shortcuts, 3, terminalWidth)
+func distributeShortcuts(terminalWidth int) []string {
+	// Try 3 columns first (modes + general shortcuts with different spacing)
+	formatted := tryThreeColumnLayout(terminalWidth)
 	if formatted != nil {
 		return formatted
 	}
 
-	// Fallback to 2 columns if 3 doesn't fit
-	formatted = tryDistribution(shortcuts, 2, terminalWidth)
+	// Fallback to 2 columns (modes | all general shortcuts)
+	formatted = tryTwoColumnLayout(terminalWidth)
 	if formatted != nil {
 		return formatted
 	}
 
-	// Fallback to 1 column if 2 doesn't fit
-	return tryDistribution(shortcuts, 1, terminalWidth)
+	// Fallback to 1 column (everything stacked)
+	return tryOneColumnLayout()
 }
 
-func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []string {
-	if len(shortcuts) == 0 {
-		return []string{}
+func tryThreeColumnLayout(terminalWidth int) []string {
+	// Mode shortcuts in column 1, general shortcuts distributed in columns 2&3
+	maxRows := len(modeShortcuts)
+	generalPerCol := (len(generalShortcuts) + 1) / 2 // Split general shortcuts across 2 columns
+	if generalPerCol > maxRows {
+		maxRows = generalPerCol
 	}
 
-	// Calculate rows needed
-	numRows := (len(shortcuts) + numCols - 1) / numCols // ceiling division
-
-	// Create 2D grid
-	grid := make([][]string, numRows)
+	// Create grid
+	grid := make([][]string, maxRows)
 	for i := range grid {
-		grid[i] = make([]string, numCols)
+		grid[i] = make([]string, 3)
 	}
 
-	// Fill grid column by column for even distribution
-	for i, shortcut := range shortcuts {
-		col := i / numRows
-		row := i % numRows
-		if col < numCols && row < numRows {
+	// Fill column 1 with mode shortcuts
+	for i, shortcut := range modeShortcuts {
+		grid[i][0] = shortcut
+	}
+
+	// Fill columns 2&3 with general shortcuts
+	for i, shortcut := range generalShortcuts {
+		col := 1 + (i / generalPerCol)
+		row := i % generalPerCol
+		if col < 3 && row < maxRows {
 			grid[row][col] = shortcut
 		}
 	}
 
-	// Find max width for each column
-	maxWidths := make([]int, numCols)
+	// Calculate widths: mode column uses 8 spaces, general columns use 4 spaces
+	maxWidths := make([]int, 3)
 	for _, row := range grid {
 		for i, cell := range row {
 			if len(cell) > maxWidths[i] {
@@ -113,21 +117,13 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 		}
 	}
 
-	// Calculate total width needed (including 8 spaces between columns)
-	totalWidth := 0
-	for i, width := range maxWidths {
-		totalWidth += width
-		if i < len(maxWidths)-1 && maxWidths[i+1] > 0 {
-			totalWidth += 8 // spacing between columns
-		}
-	}
-
-	// Check if it fits (leave some margin for padding)
+	// Calculate total width with mixed spacing
+	totalWidth := maxWidths[0] + 8 + maxWidths[1] + 4 + maxWidths[2]
 	if totalWidth > terminalWidth-10 {
 		return nil // Doesn't fit
 	}
 
-	// Format each row with proper spacing
+	// Format with mixed spacing
 	var formatted []string
 	for _, row := range grid {
 		var line string
@@ -135,17 +131,84 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 			if i == 0 {
 				line = cell
 			} else if cell != "" {
-				// Add 8 spaces after the previous column's max width
-				padding := maxWidths[i-1] - len(row[i-1]) + 8
+				spacing := 8 // Default to 8 spaces
+				if i == 2 {
+					spacing = 4 // 4 spaces between general columns
+				}
+				padding := maxWidths[i-1] - len(row[i-1]) + spacing
 				line += strings.Repeat(" ", padding) + cell
 			}
 		}
-		// Only add non-empty lines
 		if strings.TrimSpace(line) != "" {
 			formatted = append(formatted, line)
 		}
 	}
 
+	return formatted
+}
+
+func tryTwoColumnLayout(terminalWidth int) []string {
+	// Mode shortcuts in column 1, all general shortcuts in column 2
+	maxRows := len(modeShortcuts)
+	if len(generalShortcuts) > maxRows {
+		maxRows = len(generalShortcuts)
+	}
+
+	// Create grid
+	grid := make([][]string, maxRows)
+	for i := range grid {
+		grid[i] = make([]string, 2)
+	}
+
+	// Fill columns
+	for i, shortcut := range modeShortcuts {
+		grid[i][0] = shortcut
+	}
+	for i, shortcut := range generalShortcuts {
+		grid[i][1] = shortcut
+	}
+
+	// Calculate widths
+	maxWidths := make([]int, 2)
+	for _, row := range grid {
+		for i, cell := range row {
+			if len(cell) > maxWidths[i] {
+				maxWidths[i] = len(cell)
+			}
+		}
+	}
+
+	// Check if it fits
+	totalWidth := maxWidths[0] + 8 + maxWidths[1]
+	if totalWidth > terminalWidth-10 {
+		return nil
+	}
+
+	// Format
+	var formatted []string
+	for _, row := range grid {
+		var line string
+		for i, cell := range row {
+			if i == 0 {
+				line = cell
+			} else if cell != "" {
+				padding := maxWidths[i-1] - len(row[i-1]) + 8
+				line += strings.Repeat(" ", padding) + cell
+			}
+		}
+		if strings.TrimSpace(line) != "" {
+			formatted = append(formatted, line)
+		}
+	}
+
+	return formatted
+}
+
+func tryOneColumnLayout() []string {
+	// Stack everything in one column
+	var formatted []string
+	formatted = append(formatted, modeShortcuts...)
+	formatted = append(formatted, generalShortcuts...)
 	return formatted
 }
 
@@ -322,7 +385,7 @@ func (m model) View() string {
 	// Help shortcuts
 	if m.showHelp {
 		view += "\n"
-		formattedShortcuts := distributeShortcuts(shortcuts, m.width)
+		formattedShortcuts := distributeShortcuts(m.width)
 		for _, shortcut := range formattedShortcuts {
 			view += suggestionStyle.Render(shortcut) + "\n"
 		}
