@@ -1,0 +1,63 @@
+package commands
+
+import (
+	"strings"
+
+	"gemini-orchestrator/internal/models"
+	"gemini-orchestrator/internal/ui"
+	"gemini-orchestrator/internal/utils"
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+func HandleCommand(inputValue string, m *models.Model) tea.Cmd {
+	// Handle /reload command
+	if inputValue == "/reload" {
+		// Start building process
+		m.IsBuilding = true
+		m.TextInput.SetValue("")
+		m.ShowSuggestions = false
+		m.ShowHelp = false
+		return tea.Batch(m.Spinner.Tick, utils.BuildAndReloadCmd())
+	}
+
+	// Handle /commit command
+	if strings.HasPrefix(inputValue, "/commit") {
+		m.Messages = append(m.Messages, "⚠️ /commit command not yet implemented")
+		resetInput(m)
+		return nil
+	}
+
+	// Handle /pr command
+	if strings.HasPrefix(inputValue, "/pr") {
+		m.Messages = append(m.Messages, "⚠️ /pr command not yet implemented")
+		resetInput(m)
+		return nil
+	}
+
+	// Handle /issue command
+	if inputValue == "/issue" {
+		m.Messages = append(m.Messages, "⚠️ /issue command not yet implemented")
+		resetInput(m)
+		return nil
+	}
+
+	// Handle /clear command
+	if inputValue == "/clear" {
+		// Clear entire display and reset to initial state
+		ui.ComposeUI(m)
+		m.Messages = []string{"Display cleared."}
+		resetInput(m)
+		return nil
+	}
+
+	// Default: add message to history
+	m.Messages = append(m.Messages, m.TextInput.Value())
+	resetInput(m)
+	return nil
+}
+
+func resetInput(m *models.Model) {
+	m.TextInput.SetValue("")
+	m.ShowSuggestions = false
+	m.ShowHelp = false
+}
