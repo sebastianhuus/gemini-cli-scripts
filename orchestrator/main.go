@@ -227,6 +227,7 @@ type model struct {
 	height             int
 	spinner            spinner.Model
 	isBuilding         bool
+	isExecutingCommand bool
 }
 
 func initialModel() model {
@@ -252,11 +253,14 @@ func initialModel() model {
 		height:             24,
 		spinner:            s,
 		isBuilding:         false,
+		isExecutingCommand: false,
 	}
 }
 
 type buildCompleteMsg struct{}
 type buildErrorMsg struct{ err error }
+type commandCompleteMsg struct{}
+type commandErrorMsg struct{ err error }
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -343,33 +347,27 @@ func reloadOrchestrator() error {
 	return syscall.Exec(execPath, append([]string{execPath}, args...), env)
 }
 
-func executeZshCommand(command string, args string, m *model) {
-	// Build the full command
-	var cmd *exec.Cmd
-	if args != "" {
-		cmd = exec.Command("zsh", "-c", fmt.Sprintf("%s %s", command, args))
-	} else {
-		cmd = exec.Command("zsh", "-c", command)
-	}
-	
-	// Set up to capture output
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	
-	// Add status message
-	if args != "" {
-		m.messages = append(m.messages, fmt.Sprintf("🔄 Running: %s %s", command, args))
-	} else {
-		m.messages = append(m.messages, fmt.Sprintf("🔄 Running: %s", command))
-	}
-	
-	// Execute the command
-	err := cmd.Run()
-	if err != nil {
-		m.messages = append(m.messages, fmt.Sprintf("❌ Command failed: %v", err))
-	} else {
-		m.messages = append(m.messages, fmt.Sprintf("✅ Command completed successfully"))
+func executeZshCommandCmd(command string, args string) tea.Cmd {
+	return func() tea.Msg {
+		// Build the full command
+		var cmd *exec.Cmd
+		if args != "" {
+			cmd = exec.Command("zsh", "-c", fmt.Sprintf("%s %s", command, args))
+		} else {
+			cmd = exec.Command("zsh", "-c", command)
+		}
+		
+		// Set up to capture output
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		
+		// Execute the command
+		err := cmd.Run()
+		if err != nil {
+			return commandErrorMsg{err: err}
+		}
+		return commandCompleteMsg{}
 	}
 }
 
@@ -393,6 +391,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Build failed
 		m.isBuilding = false
 		m.messages = append(m.messages, fmt.Sprintf("❌ Build failed: %v", msg.err))
+		return m, nil
+	case commandCompleteMsg:
+		// Command completed successfully
+		m.isExecutingCommand = false
+		m.messages = append(m.messages, "✅ Command completed successfully")
+		return m, nil
+	case commandErrorMsg:
+		// Command failed
+		m.isExecutingCommand = false
+		m.messages = append(m.messages, fmt.Sprintf("❌ Command failed: %v", msg.err))
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -438,16 +446,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if strings.HasPrefix(inputValue, "/commit") {
 					// Extract everything after /commit as a single parameter
 					commitMsg := strings.TrimSpace(strings.TrimPrefix(inputValue, "/commit"))
+					
+					// Set executing state and add status message
+					m.isExecutingCommand = true
 					if commitMsg != "" {
+						m.messages = append(m.messages, fmt.Sprintf("🔄 Running: auto-commit \"%s\"", commitMsg))
 						// Quote the message to handle spaces and special characters
-						executeZshCommand("auto-commit", fmt.Sprintf(`"%s"`, commitMsg), &m)
+						cmd = executeZshCommandCmd("auto-commit", fmt.Sprintf(`"%s"`, commitMsg))
 					} else {
-						executeZshCommand("auto-commit", "", &m)
+						m.messages = append(m.messages, "🔄 Running: auto-commit")
+						cmd = executeZshCommandCmd("auto-commit", "")
 					}
+					
 					m.textInput.SetValue("")
 					m.showSuggestions = false
 					m.showHelp = false
-					return m, nil
+					return m, cmd
 				}
 				
 				// Handle /clear command
@@ -491,8 +505,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Update spinner if building
-	if m.isBuilding {
+	// Update spinner if building or executing command
+	if m.isBuilding || m.isExecutingCommand {
 		var spinnerCmd tea.Cmd
 		m.spinner, spinnerCmd = m.spinner.Update(msg)
 		cmd = tea.Batch(cmd, spinnerCmd)
@@ -524,36 +538,47 @@ func (m model) View() string {
 		view += suggestionStyle.Render(fmt.Sprintf("%s Building and reloading...", m.spinner.View())) + "\n\n"
 	}
 
-	// Input with full-width border
-	inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
-	view += inputBox.Render(m.textInput.View())
+	// Show executing spinner if executing command
+	if m.isExecutingCommand {
+		view += suggestionStyle.Render(fmt.Sprintf("%s Executing command...", m.spinner.View())) + "\n\n"
+	}
 
-	// Suggestions dropdown
-	if m.showSuggestions && len(m.suggestions) > 0 {
-		view += "\n"
-		for i, suggestion := range m.suggestions {
-			if i == m.selectedSuggestion {
-				view += selectedSuggestionStyle.Render(suggestion) + "\n"
-			} else {
-				view += suggestionStyle.Render(suggestion) + "\n"
+	// Only show input if not building or executing command
+	if !m.isBuilding && !m.isExecutingCommand {
+		// Input with full-width border
+		inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
+		view += inputBox.Render(m.textInput.View())
+	}
+
+	// Only show suggestions and help if not building or executing command
+	if !m.isBuilding && !m.isExecutingCommand {
+		// Suggestions dropdown
+		if m.showSuggestions && len(m.suggestions) > 0 {
+			view += "\n"
+			for i, suggestion := range m.suggestions {
+				if i == m.selectedSuggestion {
+					view += selectedSuggestionStyle.Render(suggestion) + "\n"
+				} else {
+					view += suggestionStyle.Render(suggestion) + "\n"
+				}
 			}
 		}
-	}
 
-	// Help shortcuts
-	if m.showHelp {
-		view += "\n"
-		formattedShortcuts := distributeShortcuts(m.width)
-		for _, shortcut := range formattedShortcuts {
-			view += suggestionStyle.Render(shortcut) + "\n"
+		// Help shortcuts
+		if m.showHelp {
+			view += "\n"
+			formattedShortcuts := distributeShortcuts(m.width)
+			for _, shortcut := range formattedShortcuts {
+				view += suggestionStyle.Render(shortcut) + "\n"
+			}
 		}
-	}
 
-	if m.showSuggestions {
-		view += "\n"
-		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete")
-	} else if !m.showHelp {
-		view += helpTextStyle.Render("? for shortcuts")
+		if m.showSuggestions {
+			view += "\n"
+			view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete")
+		} else if !m.showHelp {
+			view += helpTextStyle.Render("? for shortcuts")
+		}
 	}
 
 	view += "\n"
