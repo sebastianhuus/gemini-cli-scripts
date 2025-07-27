@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -44,6 +46,7 @@ var slashCommands = []string{
 	"/issue",
 	"/help",
 	"/clear",
+	"/reload",
 }
 
 var modeShortcuts = []string{
@@ -286,6 +289,21 @@ func slicesEqual(a, b []string) bool {
 	return true
 }
 
+func reloadOrchestrator() error {
+	// Get the current executable path
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Prepare arguments (skip program name)
+	args := os.Args[1:]
+
+	// Use syscall.Exec to replace the current process
+	env := os.Environ()
+	return syscall.Exec(execPath, append([]string{execPath}, args...), env)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -323,6 +341,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetCursor(len(completed))
 				m.showSuggestions = false
 			} else if m.textInput.Value() != "" {
+				inputValue := strings.TrimSpace(m.textInput.Value())
+				
+				// Handle /reload command
+				if inputValue == "/reload" {
+					// Add message to show we're reloading
+					m.messages = append(m.messages, "🔄 Reloading orchestrator...")
+					
+					// Exit the TUI and reload
+					return m, tea.Batch(tea.Quit, func() tea.Msg {
+						// Small delay to show the message, then reload
+						if err := reloadOrchestrator(); err != nil {
+							log.Printf("Failed to reload: %v", err)
+							// Fallback: try to restart with exec.Command
+							cmd := exec.Command(os.Args[0], os.Args[1:]...)
+							cmd.Stdin = os.Stdin
+							cmd.Stdout = os.Stdout
+							cmd.Stderr = os.Stderr
+							if err := cmd.Start(); err != nil {
+								log.Printf("Failed to restart: %v", err)
+							}
+						}
+						return nil
+					})
+				}
+				
 				m.messages = append(m.messages, m.textInput.Value())
 				m.textInput.SetValue("")
 				m.showSuggestions = false
