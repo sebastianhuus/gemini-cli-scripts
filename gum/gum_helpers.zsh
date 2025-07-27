@@ -119,9 +119,33 @@ use_gum_choose() {
 }
 
 use_gum_input() {
+    local dry_run=false
+    
+    # Check if first argument is dry-run flag
+    if [[ "$1" =~ ^--dry-run= ]]; then
+        local dry_run_value="${1#--dry-run=}"
+        [[ "$dry_run_value" == "true" ]] && dry_run=true
+        shift  # Remove the flag
+    fi
+    
     local prompt="$1"
     local placeholder="${2:-}"
     local default_value="${3:-}"
+    
+    # Dry-run behavior - return placeholder or default content
+    if [ "$dry_run" = true ]; then
+        local content=""
+        if [ -n "$default_value" ]; then
+            content="$default_value"
+        elif [ -n "$placeholder" ]; then
+            content="$placeholder"
+        else
+            content="dry-run-input"
+        fi
+        colored_status "🔍 DRY RUN: Auto-providing input for: $prompt" "info" >&2
+        echo "$content"
+        return 0
+    fi
     
     if command -v gum &> /dev/null; then
         local result
@@ -159,9 +183,33 @@ use_gum_input() {
 }
 
 use_gum_write() {
+    local dry_run=false
+    
+    # Check if first argument is dry-run flag
+    if [[ "$1" =~ ^--dry-run= ]]; then
+        local dry_run_value="${1#--dry-run=}"
+        [[ "$dry_run_value" == "true" ]] && dry_run=true
+        shift  # Remove the flag
+    fi
+    
     local prompt="$1"
     local placeholder="${2:-}"
     local default_value="${3:-}"
+    
+    # Dry-run behavior - return placeholder or default content
+    if [ "$dry_run" = true ]; then
+        local content=""
+        if [ -n "$default_value" ]; then
+            content="$default_value"
+        elif [ -n "$placeholder" ]; then
+            content="$placeholder"
+        else
+            content="Sample content for dry-run mode. This would be user-entered text."
+        fi
+        colored_status "🔍 DRY RUN: Auto-providing content for: $prompt" "info" >&2
+        echo "$content"
+        return 0
+    fi
     
     if command -v gum &> /dev/null; then
         local result
