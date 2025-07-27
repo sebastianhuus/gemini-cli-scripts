@@ -22,17 +22,18 @@ var (
 			MarginBottom(1)
 	suggestionStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#CBC8C6")).
-			Padding(0, 1)
+			Padding(0, 2)
 	selectedSuggestionStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#4E5EDE")).
-				Padding(0, 1)
+				Padding(0, 2)
 	inputBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#CBC8C6")).
 			Padding(0, 1)
 	helpTextStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#CBC8C6")).
-			MarginTop(1)
+			MarginTop(1).
+			Padding(0, 2)
 	messageStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#CBC8C6"))
 )
@@ -330,7 +331,7 @@ func (m model) View() string {
 	if m.showSuggestions {
 		view += "\n"
 		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete")
-	} else {
+	} else if !m.showHelp {
 		view += helpTextStyle.Render("? for shortcuts")
 	}
 
