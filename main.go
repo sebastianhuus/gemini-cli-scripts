@@ -30,6 +30,9 @@ var (
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("#CBC8C6")).
 			Padding(0, 1)
+	helpTextStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#CBC8C6")).
+			MarginTop(1)
 )
 
 var slashCommands = []string{
@@ -46,6 +49,7 @@ type model struct {
 	suggestions        []string
 	selectedSuggestion int
 	showSuggestions    bool
+	showHelp           bool
 	width              int
 	height             int
 }
@@ -64,6 +68,7 @@ func initialModel() model {
 		suggestions:        []string{},
 		selectedSuggestion: 0,
 		showSuggestions:    false,
+		showHelp:           false,
 		width:              80,
 		height:             24,
 	}
@@ -76,7 +81,12 @@ func (m model) Init() tea.Cmd {
 func (m *model) updateSuggestions() {
 	input := m.textInput.Value()
 
-	if strings.HasPrefix(input, "/") {
+	if input == "?" {
+		m.showHelp = true
+		m.showSuggestions = false
+		m.suggestions = []string{}
+	} else if strings.HasPrefix(input, "/") {
+		m.showHelp = false
 		oldSuggestions := m.suggestions
 		m.suggestions = []string{}
 		for _, cmd := range slashCommands {
@@ -94,6 +104,7 @@ func (m *model) updateSuggestions() {
 			m.selectedSuggestion = len(m.suggestions) - 1
 		}
 	} else {
+		m.showHelp = false
 		m.showSuggestions = false
 		m.suggestions = []string{}
 	}
@@ -200,11 +211,22 @@ func (m model) View() string {
 		}
 	}
 
+	// Help shortcuts
+	if m.showHelp {
+		view += "\n"
+		view += suggestionStyle.Render("! for bash mode         double tap esc to clear input     ctrl + _ to undo") + "\n"
+		view += suggestionStyle.Render("/ for commands          shift + tab to auto-accept edits  ctrl + z to suspend") + "\n"
+		view += suggestionStyle.Render("@ for file paths        ctrl + r for verbose output") + "\n"
+		view += suggestionStyle.Render("# to memorize           shift + e for newline") + "\n"
+	}
+
 	view += "\n\n"
 	if m.showSuggestions {
 		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete • Ctrl+C to quit")
+	} else if m.showHelp {
+		view += blurredStyle.Render("Clear input to exit help • Ctrl+C to quit")
 	} else {
-		view += blurredStyle.Render("Type / for commands • Ctrl+C or Esc to quit")
+		view += helpTextStyle.Render("? for shortcuts")
 	}
 
 	return view
