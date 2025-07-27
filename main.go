@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,11 +19,30 @@ var (
 			Foreground(lipgloss.Color("230")).
 			Padding(0, 1).
 			MarginBottom(1)
+	suggestionStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("236")).
+			Foreground(lipgloss.Color("250")).
+			Padding(0, 1)
+	selectedSuggestionStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("205")).
+			Foreground(lipgloss.Color("230")).
+			Padding(0, 1)
 )
 
+var slashCommands = []string{
+	"/commit",
+	"/pr",
+	"/issue",
+	"/help",
+	"/clear",
+}
+
 type model struct {
-	textInput textinput.Model
-	messages  []string
+	textInput         textinput.Model
+	messages          []string
+	suggestions       []string
+	selectedSuggestion int
+	showSuggestions   bool
 }
 
 func initialModel() model {
@@ -33,13 +53,54 @@ func initialModel() model {
 	ti.Width = 50
 
 	return model{
-		textInput: ti,
-		messages:  []string{},
+		textInput:         ti,
+		messages:          []string{},
+		suggestions:       []string{},
+		selectedSuggestion: 0,
+		showSuggestions:   false,
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	return textinput.Blink
+}
+
+func (m *model) updateSuggestions() {
+	input := m.textInput.Value()
+	
+	if strings.HasPrefix(input, "/") {
+		oldSuggestions := m.suggestions
+		m.suggestions = []string{}
+		for _, cmd := range slashCommands {
+			if strings.HasPrefix(cmd, input) {
+				m.suggestions = append(m.suggestions, cmd)
+			}
+		}
+		m.showSuggestions = len(m.suggestions) > 0
+		
+		// Only reset selection if suggestions changed or if we had no suggestions before
+		if len(oldSuggestions) == 0 || !slicesEqual(oldSuggestions, m.suggestions) {
+			m.selectedSuggestion = 0
+		} else if m.selectedSuggestion >= len(m.suggestions) {
+			// Clamp selection if it's out of bounds
+			m.selectedSuggestion = len(m.suggestions) - 1
+		}
+	} else {
+		m.showSuggestions = false
+		m.suggestions = []string{}
+	}
+}
+
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -51,14 +112,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			if m.textInput.Value() != "" {
+			if m.showSuggestions && len(m.suggestions) > 0 {
+				// Auto-complete with selected suggestion + space
+				m.textInput.SetValue(m.suggestions[m.selectedSuggestion] + " ")
+				m.showSuggestions = false
+			} else if m.textInput.Value() != "" {
 				m.messages = append(m.messages, m.textInput.Value())
 				m.textInput.SetValue("")
+				m.showSuggestions = false
+			}
+		case tea.KeyUp:
+			if m.showSuggestions && len(m.suggestions) > 0 {
+				if m.selectedSuggestion > 0 {
+					m.selectedSuggestion--
+				}
+				return m, nil
+			}
+		case tea.KeyDown:
+			if m.showSuggestions && len(m.suggestions) > 0 {
+				if m.selectedSuggestion < len(m.suggestions)-1 {
+					m.selectedSuggestion++
+				}
+				return m, nil
+			}
+		case tea.KeyTab:
+			if m.showSuggestions && len(m.suggestions) > 0 {
+				// Tab to complete + space
+				m.textInput.SetValue(m.suggestions[m.selectedSuggestion] + " ")
+				m.showSuggestions = false
+				return m, nil
 			}
 		}
 	}
 
 	m.textInput, cmd = m.textInput.Update(msg)
+	m.updateSuggestions()
 	return m, cmd
 }
 
@@ -81,8 +169,25 @@ func (m model) View() string {
 	// Input
 	view += "Enter message:\n"
 	view += m.textInput.View()
+	
+	// Suggestions dropdown
+	if m.showSuggestions && len(m.suggestions) > 0 {
+		view += "\n"
+		for i, suggestion := range m.suggestions {
+			if i == m.selectedSuggestion {
+				view += selectedSuggestionStyle.Render(suggestion) + "\n"
+			} else {
+				view += suggestionStyle.Render(suggestion) + "\n"
+			}
+		}
+	}
+	
 	view += "\n\n"
-	view += blurredStyle.Render("Press Ctrl+C or Esc to quit")
+	if m.showSuggestions {
+		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete • Ctrl+C to quit")
+	} else {
+		view += blurredStyle.Render("Type / for commands • Ctrl+C or Esc to quit")
+	}
 	
 	return view
 }
