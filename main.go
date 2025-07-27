@@ -33,6 +33,8 @@ var (
 	helpTextStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#CBC8C6")).
 			MarginTop(1)
+	messageStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#CBC8C6"))
 )
 
 var slashCommands = []string{
@@ -45,7 +47,7 @@ var slashCommands = []string{
 
 var shortcuts = []string{
 	"! for bash mode",
-	"/ for commands", 
+	"/ for commands",
 	"@ for file paths",
 	"# to memorize",
 	"double tap esc to clear input",
@@ -60,19 +62,19 @@ func distributeShortcuts(shortcuts []string, terminalWidth int) []string {
 	if len(shortcuts) == 0 {
 		return []string{}
 	}
-	
+
 	// Try 3 columns first
 	formatted := tryDistribution(shortcuts, 3, terminalWidth)
 	if formatted != nil {
 		return formatted
 	}
-	
+
 	// Fallback to 2 columns if 3 doesn't fit
 	formatted = tryDistribution(shortcuts, 2, terminalWidth)
 	if formatted != nil {
 		return formatted
 	}
-	
+
 	// Fallback to 1 column if 2 doesn't fit
 	return tryDistribution(shortcuts, 1, terminalWidth)
 }
@@ -81,16 +83,16 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 	if len(shortcuts) == 0 {
 		return []string{}
 	}
-	
+
 	// Calculate rows needed
 	numRows := (len(shortcuts) + numCols - 1) / numCols // ceiling division
-	
+
 	// Create 2D grid
 	grid := make([][]string, numRows)
 	for i := range grid {
 		grid[i] = make([]string, numCols)
 	}
-	
+
 	// Fill grid column by column for even distribution
 	for i, shortcut := range shortcuts {
 		col := i / numRows
@@ -99,7 +101,7 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 			grid[row][col] = shortcut
 		}
 	}
-	
+
 	// Find max width for each column
 	maxWidths := make([]int, numCols)
 	for _, row := range grid {
@@ -109,7 +111,7 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 			}
 		}
 	}
-	
+
 	// Calculate total width needed (including 8 spaces between columns)
 	totalWidth := 0
 	for i, width := range maxWidths {
@@ -118,12 +120,12 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 			totalWidth += 8 // spacing between columns
 		}
 	}
-	
+
 	// Check if it fits (leave some margin for padding)
 	if totalWidth > terminalWidth-10 {
 		return nil // Doesn't fit
 	}
-	
+
 	// Format each row with proper spacing
 	var formatted []string
 	for _, row := range grid {
@@ -142,7 +144,7 @@ func tryDistribution(shortcuts []string, numCols int, terminalWidth int) []strin
 			formatted = append(formatted, line)
 		}
 	}
-	
+
 	return formatted
 }
 
@@ -294,15 +296,13 @@ func (m model) View() string {
 
 	// Messages history
 	if len(m.messages) > 0 {
-		view += "Messages:\n"
 		for _, msg := range m.messages {
-			view += fmt.Sprintf("• %s\n", msg)
+			view += messageStyle.Render(fmt.Sprintf("> %s", msg)) + "\n"
 		}
 		view += "\n"
 	}
 
 	// Input with full-width border
-	view += "Enter message:\n"
 	inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
 	view += inputBox.Render(m.textInput.View())
 
@@ -327,14 +327,15 @@ func (m model) View() string {
 		}
 	}
 
-	view += "\n\n"
 	if m.showSuggestions {
-		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete • Ctrl+C to quit")
-	} else if m.showHelp {
-		view += blurredStyle.Render("Clear input to exit help • Ctrl+C to quit")
+		view += "\n"
+		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete")
 	} else {
 		view += helpTextStyle.Render("? for shortcuts")
 	}
+
+	view += "\n"
+	view += "\n"
 
 	return view
 }
