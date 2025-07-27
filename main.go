@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -51,6 +52,7 @@ func initialModel() model {
 	ti.Focus()
 	ti.CharLimit = 200
 	ti.Width = 50
+	ti.Cursor.SetMode(cursor.CursorStatic)
 
 	return model{
 		textInput:         ti,
@@ -62,7 +64,7 @@ func initialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return nil
 }
 
 func (m *model) updateSuggestions() {
