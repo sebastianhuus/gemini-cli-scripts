@@ -96,29 +96,49 @@ fi
 # - Individual operation functions: Handle specific GitHub operations
 # - LLM integration: Uses Gemini CLI for content generation
 
-# Check for help flag
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    echo "GitHub Issue Management Assistant with Menu Interface"
-    echo ""
-    echo "Usage:"
-    echo "  $0                                         # Interactive menu mode"
-    echo "  $0 --help                                  # Show this help"
-    echo ""
-    echo "Interactive menu features:"
-    echo "  - Menu-driven interface for GitHub issue operations"
-    echo "  - Supports create, edit, comment, view, close, and reopen operations"
-    echo "  - Input validation and user-friendly prompts"
-    echo "  - LLM-powered content generation"
-    echo ""
-    echo "Operations available:"
-    echo "  - Create new issue with optional labels, assignees, and milestone"
-    echo "  - Comment on existing issue with contextual content"
-    echo "  - Edit existing issue (title, body, labels, etc.)"
-    echo "  - View existing issue details"
-    echo "  - Close existing issue with optional reason"
-    echo "  - Reopen existing issue with optional reason"
-    exit 0
-fi
+# Initialize flags
+dry_run=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
+        -h|--help)
+            echo "GitHub Issue Management Assistant with Menu Interface"
+            echo ""
+            echo "Usage:"
+            echo "  $0 [--dry-run]                             # Interactive menu mode"
+            echo "  $0 --help                                  # Show this help"
+            echo ""
+            echo "Options:"
+            echo "  --dry-run        Show what would be executed without making changes"
+            echo "  -h, --help       Show this help message"
+            echo ""
+            echo "Interactive menu features:"
+            echo "  - Menu-driven interface for GitHub issue operations"
+            echo "  - Supports create, edit, comment, view, close, and reopen operations"
+            echo "  - Input validation and user-friendly prompts"
+            echo "  - LLM-powered content generation"
+            echo ""
+            echo "Operations available:"
+            echo "  - Create new issue with optional labels, assignees, and milestone"
+            echo "  - Comment on existing issue with contextual content"
+            echo "  - Edit existing issue (title, body, labels, etc.)"
+            echo "  - View existing issue details"
+            echo "  - Close existing issue with optional reason"
+            echo "  - Reopen existing issue with optional reason"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information."
+            exit 1
+            ;;
+    esac
+done
 
 # Check if gh is installed first
 if ! command -v gh &> /dev/null; then
@@ -205,7 +225,7 @@ get_validated_issue_number() {
     local placeholder="$2"
     
     while true; do
-        local issue_number=$(use_gum_input "$prompt" "$placeholder")
+        local issue_number=$(use_gum_input "--dry-run=$dry_run" "$prompt" "$placeholder")
         
         if [ -z "$issue_number" ]; then
             echo "Issue number is required." >&2
@@ -225,7 +245,7 @@ get_validated_issue_number() {
             return 0
         else
             echo "Issue #$issue_number not found or not accessible. Please check the issue number." >&2
-            if ! use_gum_confirm "Try again?"; then
+            if ! use_gum_confirm "--dry-run=$dry_run" "Try again?"; then
                 return 1
             fi
         fi
@@ -235,7 +255,13 @@ get_validated_issue_number() {
 # Callback functions for edit operations
 _edit_generate_content() {
     local prompt="$1"
-    echo "$prompt" | gemini -m "$(get_gemini_model)" --prompt "$prompt" | "$(get_utils_path)/core/gemini_clean.zsh"
+    local local_dry_run="${2:-$dry_run}"
+    if [ "$local_dry_run" = true ]; then
+        colored_status "🔍 DRY RUN: Would generate edit commands with Gemini" "info" >&2
+        echo "gh issue edit 42 --title \"Updated Issue Title\" --body \"Updated issue body with more details\""
+    else
+        echo "$prompt" | gemini -m "$(get_gemini_model)" --prompt "$prompt" | "$(get_utils_path)/core/gemini_clean.zsh"
+    fi
 }
 
 _edit_display_content() {
@@ -248,11 +274,11 @@ _edit_display_content() {
 
 _edit_execute_content() {
     local content="$1"
+    local local_dry_run="${2:-$dry_run}"
     echo "Executing edit commands..."
     echo "Running: $content"
     escaped_command=$(echo "$content" | sed 's/`/\\`/g')
-    eval "$escaped_command"
-    if [ $? -eq 0 ]; then
+    if dry_run_execute "--dry-run=$local_dry_run" "execute issue edit command" "$escaped_command"; then
         echo "✓ Command executed successfully"
         echo "Issue edit completed!"
         return 0
@@ -275,6 +301,7 @@ _edit_validate_content() {
 edit_issue() {
     local issue_number="$1"
     local edit_prompt="$2"
+    local local_dry_run="${3:-$dry_run}"
     
     if [ -z "$issue_number" ] || [ -z "$edit_prompt" ]; then
         echo "Usage: $0 edit <issue_number> <edit_prompt>"
@@ -320,6 +347,10 @@ For body edits, if the user wants to append or prepend text, combine it with the
     
     echo "Generating edit commands with Gemini..."
     
+    # Temporarily set the global dry_run for callback access
+    local original_dry_run="$dry_run"
+    dry_run="$local_dry_run"
+    
     # Use the generic regeneration handler
     handle_llm_regeneration_with_feedback \
         "$llm_prompt" \
@@ -328,13 +359,22 @@ For body edits, if the user wants to append or prepend text, combine it with the
         "_edit_execute_content" \
         "edit commands" \
         "_edit_validate_content"
+    
+    # Restore original dry_run value
+    dry_run="$original_dry_run"
 }
 
 
 # Callback functions for comment operations
 _comment_generate_content() {
     local prompt="$1"
-    echo "$prompt" | gemini -m "$(get_gemini_model)" --prompt "$prompt" | "$(get_utils_path)/core/gemini_clean.zsh"
+    local local_dry_run="${2:-$dry_run}"
+    if [ "$local_dry_run" = true ]; then
+        colored_status "🔍 DRY RUN: Would generate comment content with Gemini" "info" >&2
+        echo "This is a sample comment generated in dry-run mode. It would address the user's request with appropriate context and professional tone."
+    else
+        echo "$prompt" | gemini -m "$(get_gemini_model)" --prompt "$prompt" | "$(get_utils_path)/core/gemini_clean.zsh"
+    fi
 }
 
 _comment_display_content() {
@@ -347,10 +387,10 @@ _comment_display_content() {
 
 _comment_execute_content() {
     local content="$1"
+    local local_dry_run="${2:-$dry_run}"
     # The issue_number is captured from the parent scope
     echo "Posting comment to issue #$_comment_issue_number..."
-    gh issue comment "$_comment_issue_number" --body "$content"
-    if [ $? -eq 0 ]; then
+    if dry_run_execute "--dry-run=$local_dry_run" "post comment to issue #$_comment_issue_number" "gh issue comment \"$_comment_issue_number\" --body \"$content\""; then
         echo "Comment posted successfully!"
         return 0
     else
@@ -365,6 +405,7 @@ comment_issue() {
     local comment_prompt="$2"
     local tone_preference="$3"
     local special_instructions="$4"
+    local local_dry_run="${5:-$dry_run}"
     
     if [ -z "$issue_number" ] || [ -z "$comment_prompt" ]; then
         echo "Usage: comment_issue <issue_number> <comment_prompt>"
@@ -431,13 +472,12 @@ Only output the comment content, without any additional text or explanation."
     
     # Ask user if they want AI refinement or to post as-is
     echo "How would you like to proceed with your comment?"
-    local refinement_choice=$(use_gum_choose "Choose an option:" "Refine with AI" "Post as-is")
+    local refinement_choice=$(use_gum_choose "--dry-run=$local_dry_run" "Choose an option:" "Refine with AI" "Post as-is")
     
     case "$refinement_choice" in
         "Post as-is" )
             echo "Posting comment as-is to issue #$issue_number..."
-            gh issue comment "$issue_number" --body "$comment_prompt"
-            if [ $? -eq 0 ]; then
+            if dry_run_execute "--dry-run=$local_dry_run" "post comment to issue #$issue_number" "gh issue comment \"$issue_number\" --body \"$comment_prompt\""; then
                 echo "Comment posted successfully!"
                 return 0
             else
@@ -457,6 +497,10 @@ Only output the comment content, without any additional text or explanation."
     # Store issue number for callback function access
     _comment_issue_number="$issue_number"
     
+    # Temporarily set the global dry_run for callback access
+    local original_dry_run="$dry_run"
+    dry_run="$local_dry_run"
+    
     # Use the generic regeneration handler (no validation needed for comments)
     handle_llm_regeneration_with_feedback \
         "$llm_prompt" \
@@ -465,6 +509,9 @@ Only output the comment content, without any additional text or explanation."
         "_comment_execute_content" \
         "comment" \
         ""
+    
+    # Restore original dry_run value
+    dry_run="$original_dry_run"
 }
 
 # Function to handle LLM-controlled issue creation
@@ -478,6 +525,7 @@ create_issue_with_llm() {
     local special_instructions="$7"
     local user_feedback="$8"
     local last_command="$9"
+    local local_dry_run="${10:-$dry_run}"
     
     # Fetch repository context to help LLM make better parameter choices
     echo "Fetching repository context..."
@@ -609,11 +657,27 @@ Make sure to include appropriate labels and assignees based on the issue type an
     echo "Generating issue creation command with Gemini..."
     
     # Generate create command from Gemini
-    create_command=$(echo "$full_prompt" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "$(get_utils_path)/core/gemini_clean.zsh")
-    
-    if [ $? -ne 0 ] || [ -z "$create_command" ]; then
-        echo "Failed to generate create command. Please try again."
-        return 1
+    if [ "$local_dry_run" = true ]; then
+        colored_status "🔍 DRY RUN: Would generate issue creation command with Gemini" "info" >&2
+        create_command='gh issue create --title "Bug: Sample issue for dry-run" --body "## Description
+This is a sample issue created in dry-run mode.
+
+## Steps to Reproduce
+1. Run the script with --dry-run flag
+2. Select create issue option
+3. Observe simulated behavior
+
+## Expected Behavior
+Commands should be simulated without actual execution
+
+🤖 Generated with [Gemini CLI](https://github.com/google-gemini/gemini-cli)" --label "bug" --assignee "example-user"'
+    else
+        create_command=$(echo "$full_prompt" | gemini -m "$(get_gemini_model)" --prompt "$full_prompt" | "$(get_utils_path)/core/gemini_clean.zsh")
+        
+        if [ $? -ne 0 ] || [ -z "$create_command" ]; then
+            echo "Failed to generate create command. Please try again."
+            return 1
+        fi
     fi
     
     # The LLM now includes attribution directly in the body, so no post-processing needed
@@ -637,7 +701,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
         fi
     fi
     echo ""
-    response=$(use_gum_choose "Execute this command?" "Yes" "Regenerate with feedback" "Quit")
+    response=$(use_gum_choose "--dry-run=$dry_run" "Execute this command?" "Yes" "Regenerate with feedback" "Quit")
     
     case "$response" in
         "Yes" )
@@ -648,8 +712,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
                 echo "Command validation failed - unsafe quotes detected"
                 return 1
             fi
-            eval "$escaped_command"
-            if [ $? -eq 0 ]; then
+            if dry_run_execute "--dry-run=$dry_run" "create GitHub issue" "$escaped_command"; then
                 echo "Issue created successfully!"
                 return 0
             else
@@ -658,11 +721,11 @@ Make sure to include appropriate labels and assignees based on the issue type an
             fi
             ;;
         "Regenerate with feedback" )
-            feedback_input=$(use_gum_input "Please provide feedback for improvement:" "Enter your feedback here")
+            feedback_input=$(use_gum_input "--dry-run=$local_dry_run" "Please provide feedback for improvement:" "Enter your feedback here")
             if [ -n "$feedback_input" ]; then
-                create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "$feedback_input" "$create_command"
+                create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "$feedback_input" "$create_command" "$dry_run"
             else
-                create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "" "$create_command"
+                create_issue_with_llm "$user_description" "$requested_labels" "$requested_assignees" "$requested_milestone" "$priority_indicators" "$tone_preference" "$special_instructions" "" "$create_command" "$dry_run"
             fi
             ;;
         "Quit" )
@@ -680,6 +743,7 @@ Make sure to include appropriate labels and assignees based on the issue type an
 close_issue() {
     local issue_number="$1"
     local close_reason="$2"
+    local local_dry_run="${3:-$dry_run}"
     
     if [ -z "$issue_number" ]; then
         echo "Usage: close_issue <issue_number> [close_reason]"
@@ -698,13 +762,16 @@ close_issue() {
         echo "Closing issue #$issue_number"
     fi
     
-    if use_gum_confirm "Are you sure you want to close this issue?"; then
+    if use_gum_confirm "--dry-run=$local_dry_run" "Are you sure you want to close this issue?"; then
         if [ -n "$close_reason" ]; then
             # Add a comment with the close reason, then close
-            gh issue comment "$issue_number" --body "Closing: $close_reason"
-            gh issue close "$issue_number"
+            if dry_run_execute "--dry-run=$local_dry_run" "add closing comment to issue #$issue_number" "gh issue comment \"$issue_number\" --body \"Closing: $close_reason\""; then
+                dry_run_execute "--dry-run=$local_dry_run" "close issue #$issue_number" "gh issue close \"$issue_number\""
+            else
+                return 1
+            fi
         else
-            gh issue close "$issue_number"
+            dry_run_execute "--dry-run=$local_dry_run" "close issue #$issue_number" "gh issue close \"$issue_number\""
         fi
         
         if [ $? -eq 0 ]; then
@@ -724,6 +791,7 @@ close_issue() {
 reopen_issue() {
     local issue_number="$1"
     local reopen_reason="$2"
+    local local_dry_run="${3:-$dry_run}"
     
     if [ -z "$issue_number" ]; then
         echo "Usage: reopen_issue <issue_number> [reopen_reason]"
@@ -742,13 +810,16 @@ reopen_issue() {
         echo "Reopening issue #$issue_number"
     fi
     
-    if use_gum_confirm "Are you sure you want to reopen this issue?"; then
+    if use_gum_confirm "--dry-run=$local_dry_run" "Are you sure you want to reopen this issue?"; then
         if [ -n "$reopen_reason" ]; then
             # Reopen first, then add a comment with the reason
-            gh issue reopen "$issue_number"
-            gh issue comment "$issue_number" --body "Reopening: $reopen_reason"
+            if dry_run_execute "--dry-run=$local_dry_run" "reopen issue #$issue_number" "gh issue reopen \"$issue_number\""; then
+                dry_run_execute "--dry-run=$local_dry_run" "add reopening comment to issue #$issue_number" "gh issue comment \"$issue_number\" --body \"Reopening: $reopen_reason\""
+            else
+                return 1
+            fi
         else
-            gh issue reopen "$issue_number"
+            dry_run_execute "--dry-run=$local_dry_run" "reopen issue #$issue_number" "gh issue reopen \"$issue_number\""
         fi
         
         if [ $? -eq 0 ]; then
@@ -775,23 +846,23 @@ execute_operation() {
     
     case "$operation" in
         "comment")
-            comment_issue "$issue_number" "$content" "" ""
+            comment_issue "$issue_number" "$content" "" "" "$dry_run"
             ;;
         "edit")
-            edit_issue "$issue_number" "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "" ""
+            edit_issue "$issue_number" "$content" "$dry_run"
             ;;
         "create")
-            create_issue_with_llm "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "" "" ""
+            create_issue_with_llm "$content" "$requested_labels" "$requested_assignees" "$requested_milestone" "" "" "" "" "" "$dry_run"
             ;;
         "view")
             echo "Viewing issue #$issue_number:"
-            gh issue view "$issue_number"
+            dry_run_execute "--dry-run=$dry_run" "view issue #$issue_number" "gh issue view \"$issue_number\""
             ;;
         "close")
-            close_issue "$issue_number" "$content"
+            close_issue "$issue_number" "$content" "$dry_run"
             ;;
         "reopen")
-            reopen_issue "$issue_number" "$content"
+            reopen_issue "$issue_number" "$content" "$dry_run"
             ;;
         *)
             echo "Unsupported operation: $operation"
@@ -806,7 +877,7 @@ show_operation_menu() {
     # Display repository information
     display_env_info
     
-    local operation=$(use_gum_choose "What would you like to do?" \
+    local operation=$(use_gum_choose "--dry-run=$dry_run" "What would you like to do?" \
         "Create new issue" \
         "Comment on existing issue" \
         "Edit existing issue" \
@@ -855,7 +926,7 @@ show_operation_menu() {
 handle_create_issue_flow() {
     colored_status "Creating a new issue..." "info"
     
-    local description=$(use_gum_write "Describe the issue you want to create:" "Enter a detailed description of the issue, including any relevant context, steps to reproduce, expected behavior, etc.")
+    local description=$(use_gum_write "--dry-run=$dry_run" "Describe the issue you want to create:" "Enter a detailed description of the issue, including any relevant context, steps to reproduce, expected behavior, etc.")
     
     if [ -z "$description" ]; then
         echo "Issue description is required."
@@ -863,10 +934,10 @@ handle_create_issue_flow() {
     fi
     
     # Ask if user wants to add optional parameters
-    if use_gum_confirm "Would you like to specify labels, assignees, or milestone?"; then
-        local labels=$(use_gum_input "Labels (comma-separated, leave empty for none):" "bug,enhancement")
-        local assignees=$(use_gum_input "Assignees (comma-separated, leave empty for none):" "username")
-        local milestone=$(use_gum_input "Milestone (leave empty for none):" "v1.0")
+    if use_gum_confirm "--dry-run=$dry_run" "Would you like to specify labels, assignees, or milestone?"; then
+        local labels=$(use_gum_input "--dry-run=$dry_run" "Labels (comma-separated, leave empty for none):" "bug,enhancement")
+        local assignees=$(use_gum_input "--dry-run=$dry_run" "Assignees (comma-separated, leave empty for none):" "username")
+        local milestone=$(use_gum_input "--dry-run=$dry_run" "Milestone (leave empty for none):" "v1.0")
         
         execute_operation "create" "" "$description" "$labels" "$assignees" "$milestone"
     else
@@ -885,7 +956,7 @@ handle_comment_issue_flow() {
         return 1
     fi
     
-    local comment=$(use_gum_write "Comment content:" "Enter your comment. You can include markdown formatting, code blocks, references to other issues, etc.")
+    local comment=$(use_gum_write "--dry-run=$dry_run" "Comment content:" "Enter your comment. You can include markdown formatting, code blocks, references to other issues, etc.")
     
     if [ -z "$comment" ]; then
         echo "Comment content is required."
@@ -906,7 +977,7 @@ handle_edit_issue_flow() {
         return 1
     fi
     
-    local edit_instruction=$(use_gum_input "What would you like to edit?" "change title to 'Bug: Login timeout'")
+    local edit_instruction=$(use_gum_input "--dry-run=$dry_run" "What would you like to edit?" "change title to 'Bug: Login timeout'")
     
     if [ -z "$edit_instruction" ]; then
         echo "Edit instruction is required."
@@ -942,7 +1013,7 @@ handle_close_issue_flow() {
     fi
     
     # Optional close reason
-    local close_reason=$(use_gum_input "Close reason (optional):" "Fixed, duplicate, etc.")
+    local close_reason=$(use_gum_input "--dry-run=$dry_run" "Close reason (optional):" "Fixed, duplicate, etc.")
     
     execute_operation "close" "$issue_number" "$close_reason" "" "" ""
 }
@@ -959,7 +1030,7 @@ handle_reopen_issue_flow() {
     fi
     
     # Optional reopen reason
-    local reopen_reason=$(use_gum_input "Reopen reason (optional):" "Need to revisit, etc.")
+    local reopen_reason=$(use_gum_input "--dry-run=$dry_run" "Reopen reason (optional):" "Need to revisit, etc.")
     
     execute_operation "reopen" "$issue_number" "$reopen_reason" "" "" ""
 }
