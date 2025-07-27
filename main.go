@@ -21,12 +21,10 @@ var (
 			Padding(0, 1).
 			MarginBottom(1)
 	suggestionStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("236")).
-			Foreground(lipgloss.Color("250")).
+			Foreground(lipgloss.Color("#CBC8C6")).
 			Padding(0, 1)
 	selectedSuggestionStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("205")).
-				Foreground(lipgloss.Color("230")).
+				Foreground(lipgloss.Color("#4E5EDE")).
 				Padding(0, 1)
 	inputBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
