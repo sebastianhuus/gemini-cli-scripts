@@ -25,12 +25,12 @@ var (
 			Foreground(lipgloss.Color("250")).
 			Padding(0, 1)
 	selectedSuggestionStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("205")).
-			Foreground(lipgloss.Color("230")).
-			Padding(0, 1)
+				Background(lipgloss.Color("205")).
+				Foreground(lipgloss.Color("230")).
+				Padding(0, 1)
 	inputBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("8")).
+			BorderForeground(lipgloss.Color("#CBC8C6")).
 			Padding(0, 1)
 )
 
@@ -43,13 +43,13 @@ var slashCommands = []string{
 }
 
 type model struct {
-	textInput         textinput.Model
-	messages          []string
-	suggestions       []string
+	textInput          textinput.Model
+	messages           []string
+	suggestions        []string
 	selectedSuggestion int
-	showSuggestions   bool
-	width             int
-	height            int
+	showSuggestions    bool
+	width              int
+	height             int
 }
 
 func initialModel() model {
@@ -61,13 +61,13 @@ func initialModel() model {
 	ti.Cursor.SetMode(cursor.CursorStatic)
 
 	return model{
-		textInput:         ti,
-		messages:          []string{},
-		suggestions:       []string{},
+		textInput:          ti,
+		messages:           []string{},
+		suggestions:        []string{},
 		selectedSuggestion: 0,
-		showSuggestions:   false,
-		width:             80,
-		height:            24,
+		showSuggestions:    false,
+		width:              80,
+		height:             24,
 	}
 }
 
@@ -77,7 +77,7 @@ func (m model) Init() tea.Cmd {
 
 func (m *model) updateSuggestions() {
 	input := m.textInput.Value()
-	
+
 	if strings.HasPrefix(input, "/") {
 		oldSuggestions := m.suggestions
 		m.suggestions = []string{}
@@ -87,7 +87,7 @@ func (m *model) updateSuggestions() {
 			}
 		}
 		m.showSuggestions = len(m.suggestions) > 0
-		
+
 		// Only reset selection if suggestions changed or if we had no suggestions before
 		if len(oldSuggestions) == 0 || !slicesEqual(oldSuggestions, m.suggestions) {
 			m.selectedSuggestion = 0
@@ -171,11 +171,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var view string
-	
+
 	// Title
 	view += titleStyle.Render("Gemini CLI Orchestrator")
 	view += "\n\n"
-	
+
 	// Messages history
 	if len(m.messages) > 0 {
 		view += "Messages:\n"
@@ -184,12 +184,12 @@ func (m model) View() string {
 		}
 		view += "\n"
 	}
-	
+
 	// Input with full-width border
 	view += "Enter message:\n"
 	inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
 	view += inputBox.Render(m.textInput.View())
-	
+
 	// Suggestions dropdown
 	if m.showSuggestions && len(m.suggestions) > 0 {
 		view += "\n"
@@ -201,14 +201,14 @@ func (m model) View() string {
 			}
 		}
 	}
-	
+
 	view += "\n\n"
 	if m.showSuggestions {
 		view += blurredStyle.Render("↑/↓ to navigate • Tab/Enter to complete • Ctrl+C to quit")
 	} else {
 		view += blurredStyle.Render("Type / for commands • Ctrl+C or Esc to quit")
 	}
-	
+
 	return view
 }
 
