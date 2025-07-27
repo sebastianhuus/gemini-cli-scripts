@@ -43,6 +43,13 @@ var slashCommands = []string{
 	"/clear",
 }
 
+var shortcutDescriptions = []string{
+	"! for bash mode         double tap esc to clear input     ctrl + _ to undo",
+	"/ for commands          shift + tab to auto-accept edits  ctrl + z to suspend",
+	"@ for file paths        ctrl + r for verbose output",
+	"# to memorize           shift + e for newline",
+}
+
 type model struct {
 	textInput          textinput.Model
 	messages           []string
@@ -81,11 +88,7 @@ func (m model) Init() tea.Cmd {
 func (m *model) updateSuggestions() {
 	input := m.textInput.Value()
 
-	if input == "?" {
-		m.showHelp = true
-		m.showSuggestions = false
-		m.suggestions = []string{}
-	} else if strings.HasPrefix(input, "/") {
+	if strings.HasPrefix(input, "/") {
 		m.showHelp = false
 		oldSuggestions := m.suggestions
 		m.suggestions = []string{}
@@ -104,7 +107,6 @@ func (m *model) updateSuggestions() {
 			m.selectedSuggestion = len(m.suggestions) - 1
 		}
 	} else {
-		m.showHelp = false
 		m.showSuggestions = false
 		m.suggestions = []string{}
 	}
@@ -135,6 +137,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+		case tea.KeyRunes:
+			// Intercept ? character when input is empty
+			if len(msg.Runes) == 1 && string(msg.Runes[0]) == "?" && m.textInput.Value() == "" {
+				m.showHelp = !m.showHelp
+				m.showSuggestions = false
+				m.suggestions = []string{}
+				return m, nil
+			}
 		case tea.KeyEnter:
 			if m.showSuggestions && len(m.suggestions) > 0 {
 				// Auto-complete with selected suggestion + space
@@ -146,6 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.messages = append(m.messages, m.textInput.Value())
 				m.textInput.SetValue("")
 				m.showSuggestions = false
+				m.showHelp = false
 			}
 		case tea.KeyUp:
 			if m.showSuggestions && len(m.suggestions) > 0 {
@@ -214,10 +225,9 @@ func (m model) View() string {
 	// Help shortcuts
 	if m.showHelp {
 		view += "\n"
-		view += suggestionStyle.Render("! for bash mode         double tap esc to clear input     ctrl + _ to undo") + "\n"
-		view += suggestionStyle.Render("/ for commands          shift + tab to auto-accept edits  ctrl + z to suspend") + "\n"
-		view += suggestionStyle.Render("@ for file paths        ctrl + r for verbose output") + "\n"
-		view += suggestionStyle.Render("# to memorize           shift + e for newline") + "\n"
+		for _, shortcut := range shortcutDescriptions {
+			view += suggestionStyle.Render(shortcut) + "\n"
+		}
 	}
 
 	view += "\n\n"
