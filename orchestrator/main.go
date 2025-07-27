@@ -43,7 +43,7 @@ var (
 
 var slashCommands = []string{
 	"/commit",
-	"/pr",
+	"/pr", 
 	"/issue",
 	"/help",
 	"/clear",
@@ -227,7 +227,6 @@ type model struct {
 	height             int
 	spinner            spinner.Model
 	isBuilding         bool
-	isExecutingCommand bool
 }
 
 func initialModel() model {
@@ -253,14 +252,11 @@ func initialModel() model {
 		height:             24,
 		spinner:            s,
 		isBuilding:         false,
-		isExecutingCommand: false,
 	}
 }
 
 type buildCompleteMsg struct{}
 type buildErrorMsg struct{ err error }
-type commandCompleteMsg struct{}
-type commandErrorMsg struct{ err error }
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -359,29 +355,7 @@ func reloadOrchestrator() error {
 	return syscall.Exec(execPath, append([]string{execPath}, args...), env)
 }
 
-func executeZshCommandCmd(command string, args string) tea.Cmd {
-	return func() tea.Msg {
-		// Build the full command
-		var cmd *exec.Cmd
-		if args != "" {
-			cmd = exec.Command("zsh", "-c", fmt.Sprintf("%s %s", command, args))
-		} else {
-			cmd = exec.Command("zsh", "-c", command)
-		}
-		
-		// Set up to capture output
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-		
-		// Execute the command
-		err := cmd.Run()
-		if err != nil {
-			return commandErrorMsg{err: err}
-		}
-		return commandCompleteMsg{}
-	}
-}
+
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -403,16 +377,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Build failed
 		m.isBuilding = false
 		m.messages = append(m.messages, fmt.Sprintf("❌ Build failed: %v", msg.err))
-		return m, nil
-	case commandCompleteMsg:
-		// Command completed successfully
-		m.isExecutingCommand = false
-		m.messages = append(m.messages, "✅ Command completed successfully")
-		return m, nil
-	case commandErrorMsg:
-		// Command failed
-		m.isExecutingCommand = false
-		m.messages = append(m.messages, fmt.Sprintf("❌ Command failed: %v", msg.err))
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -456,24 +420,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				
 				// Handle /commit command
 				if strings.HasPrefix(inputValue, "/commit") {
-					// Extract everything after /commit as a single parameter
-					commitMsg := strings.TrimSpace(strings.TrimPrefix(inputValue, "/commit"))
-					
-					// Set executing state and add status message
-					m.isExecutingCommand = true
-					if commitMsg != "" {
-						m.messages = append(m.messages, fmt.Sprintf("🔄 Running: auto-commit \"%s\"", commitMsg))
-						// Quote the message to handle spaces and special characters
-						cmd = executeZshCommandCmd("auto-commit", fmt.Sprintf(`"%s"`, commitMsg))
-					} else {
-						m.messages = append(m.messages, "🔄 Running: auto-commit")
-						cmd = executeZshCommandCmd("auto-commit", "")
-					}
-					
+					m.messages = append(m.messages, "⚠️ /commit command not yet implemented")
 					m.textInput.SetValue("")
 					m.showSuggestions = false
 					m.showHelp = false
-					return m, cmd
+					return m, nil
+				}
+				
+				// Handle /pr command
+				if strings.HasPrefix(inputValue, "/pr") {
+					m.messages = append(m.messages, "⚠️ /pr command not yet implemented")
+					m.textInput.SetValue("")
+					m.showSuggestions = false
+					m.showHelp = false
+					return m, nil
+				}
+				
+				// Handle /issue command
+				if inputValue == "/issue" {
+					m.messages = append(m.messages, "⚠️ /issue command not yet implemented")
+					m.textInput.SetValue("")
+					m.showSuggestions = false
+					m.showHelp = false
+					return m, nil
 				}
 				
 				// Handle /clear command
@@ -518,8 +487,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Update spinner if building or executing command
-	if m.isBuilding || m.isExecutingCommand {
+	// Update spinner if building
+	if m.isBuilding {
 		var spinnerCmd tea.Cmd
 		m.spinner, spinnerCmd = m.spinner.Update(msg)
 		cmd = tea.Batch(cmd, spinnerCmd)
@@ -552,8 +521,8 @@ func renderContent(m model) string {
 func renderInputBar(m model) string {
 	var inputBar string
 	
-	// Only show input if not building or executing command
-	if !m.isBuilding && !m.isExecutingCommand {
+	// Only show input if not building
+	if !m.isBuilding {
 		// Input with full-width border
 		inputBox := inputBoxStyle.Width(m.width - 2) // Full width minus small margin
 		inputBar += inputBox.Render(m.textInput.View())
@@ -573,16 +542,11 @@ func (m model) View() string {
 	if m.isBuilding {
 		view += suggestionStyle.Render(fmt.Sprintf("%s Building and reloading...", m.spinner.View())) + "\n\n"
 	}
-
-	// Show executing spinner if executing command
-	if m.isExecutingCommand {
-		view += suggestionStyle.Render(fmt.Sprintf("%s Executing command...", m.spinner.View())) + "\n\n"
-	}
 	
 	view += renderInputBar(m)
 
-	// Only show suggestions and help if not building or executing command
-	if !m.isBuilding && !m.isExecutingCommand {
+	// Only show suggestions and help if not building
+	if !m.isBuilding {
 		// Suggestions dropdown
 		if m.showSuggestions && len(m.suggestions) > 0 {
 			view += "\n"
