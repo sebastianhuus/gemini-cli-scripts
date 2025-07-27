@@ -20,14 +20,19 @@ Automated commit message generation using Gemini CLI with feedback loops:
 - Environment context display for user verification
 - Optional branch creation, pushing, and PR creation
 - Smart text wrapping for terminal-aware display
+- Configuration system integration with defaults
+- Unpushed commits detection and handling
+- Existing PR update functionality
 
 **PATH-compatible usage:**
-- `auto-commit [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]`
-- `./auto_commit.zsh [-s|--stage] [-b|--branch] [-pr|--pr] [-p|--push] [optional_context]` (local execution)
+- `auto-commit [--dry-run] [-s|--stage] [-b|--branch] [--no-branch] [-pr|--pr] [-p|--push] [optional_context]`
+- `./auto_commit.zsh [--dry-run] [-s|--stage] [-b|--branch] [--no-branch] [-pr|--pr] [-p|--push] [optional_context]` (local execution)
 
 Options:
+- `--dry-run`: Show what would be executed without making changes
 - `-s, --stage`: Automatically stage all changes before generating commit
 - `-b, --branch`: Automatically create new branch without confirmation  
+- `--no-branch`: Skip branch creation and commit directly to current branch
 - `-pr, --pr`: Automatically create pull request after successful commit
 - `-p, --push`: Automatically push changes after successful commit
 
@@ -37,22 +42,34 @@ Pull request creation automation:
 - Generates PR titles and descriptions
 - Extracts issue references from commit messages
 - Integrates with GitHub CLI for PR creation
+- Configuration system integration
+- Post-PR branch switching and pull functionality
+- Existing PR detection and prevention
 
 **PATH-compatible usage:**
-- `auto-pr [optional_context]`
-- `./auto_pr.zsh [optional_context]` (local execution)
+- `auto-pr [--dry-run] [optional_context]`
+- `./auto_pr.zsh [--dry-run] [optional_context]` (local execution)
+
+Options:
+- `--dry-run`: Show what would be executed without making changes
 
 #### auto_issue.zsh
-Natural language GitHub issue management:
-- Two-stage processing: question conversion → intent parsing
-- Supports create, edit, comment, view operations
+Menu-driven GitHub issue management interface:
+- Interactive menu system using gum for user-friendly operation
+- Supports create, edit, comment, view, close, and reopen operations
 - LLM-enhanced content generation for issue bodies and comments
 - Repository context awareness (labels, milestones, collaborators)
-- Priority label support for visual issue urgency indication
+- Configuration system integration
+- Input validation and confirmation workflows
 
 **PATH-compatible usage:**
-- `auto-issue "natural language request"`
-- `./auto_issue.zsh "natural language request"` (local execution)
+- `auto-issue [--dry-run]`
+- `./auto_issue.zsh [--dry-run]` (local execution)
+
+Options:
+- `--dry-run`: Show what would be executed without making changes
+
+**Note:** This script now uses a menu-driven interface instead of natural language processing. Run without arguments to access the interactive menu.
 
 ### Utility Scripts (utils/)
 
@@ -66,8 +83,7 @@ utils/
 │   └── config_generator.zsh # Interactive configuration
 ├── generators/              # Content generation utilities
 │   ├── commit_message_generator.zsh
-│   ├── pr_content_generator.zsh
-│   └── parse_intent.zsh     # Natural language parsing
+│   └── pr_content_generator.zsh
 ├── ui/                      # User interface and display utilities
 │   ├── commit_display.zsh   # Commit message formatting
 │   ├── issue_display.zsh    # Issue content display
@@ -120,12 +136,6 @@ Specialized pull request content generation:
 - Context-aware content generation based on commit history
 - Regeneration with user feedback support
 
-**utils/generators/parse_intent.zsh**
-Enhanced natural language parsing for GitHub issue operations:
-- Extracts structured intent from conversational language
-- Advanced parameter extraction (labels, assignees, milestones)
-- Priority detection and tone preference analysis
-- Confidence scoring for parsed intent
 
 #### UI Utilities (utils/ui/)
 
@@ -197,7 +207,7 @@ Based on the utils refactor and PATH compatibility work:
 
 1. **Choose Appropriate Directory**:
    - `core/`: System utilities, configuration, AI response processing
-   - `generators/`: Content generation utilities (commits, PRs, intent parsing)
+   - `generators/`: Content generation utilities (commits, PRs)
    - `ui/`: Display formatting, gum integration, text enhancement
    - `git/`: Git and GitHub CLI integration utilities
 
@@ -208,6 +218,13 @@ Based on the utils refactor and PATH compatibility work:
    - Include proper function documentation
 
 ## Architecture
+
+### Configuration System
+The scripts now include a configuration system located in the `config/` directory:
+- **config_loader.zsh**: Main configuration loading system
+- **Configuration options**: Auto-stage, auto-PR, auto-branch, auto-push defaults
+- **User preferences**: Stored in `.gemini-config` files
+- **Environment integration**: Automatic loading and application of user settings
 
 ### PATH Compatibility
 The scripts now support both traditional git submodule usage and system-wide PATH installation:
@@ -239,16 +256,20 @@ script_dir="$(dirname "${0:A}")"
 - PATH-aware utility sourcing for cross-platform compatibility
 
 ### Key Functions in auto_issue.zsh
-- `convert_question_to_command()`: Converts conversational requests to direct commands
-- `parse_intent()`: Extracts structured data (operation, issue number, content) from natural language
-- `confirm_operation()`: Validates and confirms operations before execution
-- `dispatch_operation()`: Routes to appropriate handler functions
+- `show_operation_menu()`: Main menu interface using gum
+- `handle_*_issue_flow()`: Operation-specific input flows for each operation type
+- `execute_operation()`: Routes to appropriate handler functions
 - `create_issue_with_llm()`: LLM-controlled issue creation with repository context
 - `edit_issue()` / `comment_issue()`: Issue modification operations
+- `close_issue()` / `reopen_issue()`: Issue state management operations
+- `get_validated_issue_number()`: Input validation with existence checking
+- `fetch_and_display_issue()`: Consistent issue display formatting
 
-### Two-Stage Processing in auto_issue.zsh
-1. **Question Detection & Conversion**: Handles polite/conversational requests
-2. **Intent Parsing**: Extracts structured operation data from direct commands
+### Menu-Driven Interface in auto_issue.zsh
+1. **Interactive Menu**: Gum-powered selection interface for operation types
+2. **Input Validation**: Validates issue numbers, user input, and repository context
+3. **LLM Integration**: Uses Gemini for content generation with feedback loops
+4. **Confirmation Workflows**: Multi-step confirmation before executing operations
 
 ## Dependencies
 
@@ -258,6 +279,11 @@ Required tools:
 - Gemini CLI (`gemini` command)
 - GitHub CLI (`gh` command)
 - Charmbracelet Gum (`gum` command) - For enhanced UI and interactive prompts
+
+Required directories:
+- `config/` - Configuration system with `config_loader.zsh`
+- `gum/` - Gum helper functions and environment display utilities
+- `utils/` - Utility scripts organized by function
 
 ## UI Features
 
@@ -284,15 +310,19 @@ Since this is a shell script repository without build systems:
 ```bash
 # Test with PATH installation (recommended)
 auto-commit "fix login bug"
+auto-commit --dry-run -s -b -pr "implement new feature"
 auto-pr "resolves #123"
-auto-issue "create issue about dark mode"
-auto-issue "comment on issue 5 that this is resolved"
+auto-pr --dry-run "add new functionality"
+auto-issue  # Opens interactive menu
+auto-issue --dry-run  # Opens menu with dry-run mode
 
 # Test with local execution (git submodule)
 ./auto_commit.zsh "fix login bug"
+./auto_commit.zsh --dry-run --no-branch "hotfix"
 ./auto_pr.zsh "resolves #123"
-./auto_issue.zsh "create issue about dark mode"
-./auto_issue.zsh "comment on issue 5 that this is resolved"
+./auto_pr.zsh --dry-run "feature implementation"
+./auto_issue.zsh  # Opens interactive menu
+./auto_issue.zsh --dry-run  # Opens menu with dry-run mode
 ```
 
 ### Development Testing Tools
@@ -334,11 +364,11 @@ Traditional project-specific installation.
 ## Development Notes
 
 ### Adding New Operations to auto_issue.zsh
-1. Update `parse_intent()` function with new operation types
-2. Add validation in `confirm_operation()` function  
-3. Create new operation handler function following existing patterns
-4. Update `dispatch_operation()` with new case
-5. Update help documentation
+1. Add new option to `show_operation_menu()` function with menu choice
+2. Create new `handle_*_issue_flow()` function for user input collection
+3. Create new operation function following existing patterns (like `close_issue()`, `reopen_issue()`)
+4. Update `execute_operation()` function with new case
+5. Update help documentation and menu options
 
 ### Gum UI Patterns
 - Use `colored_status()` function for consistent status messaging with color codes
