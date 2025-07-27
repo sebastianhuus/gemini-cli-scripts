@@ -114,7 +114,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if m.showSuggestions && len(m.suggestions) > 0 {
 				// Auto-complete with selected suggestion + space
-				m.textInput.SetValue(m.suggestions[m.selectedSuggestion] + " ")
+				completed := m.suggestions[m.selectedSuggestion] + " "
+				m.textInput.SetValue(completed)
+				m.textInput.SetCursor(len(completed))
 				m.showSuggestions = false
 			} else if m.textInput.Value() != "" {
 				m.messages = append(m.messages, m.textInput.Value())
@@ -138,7 +140,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyTab:
 			if m.showSuggestions && len(m.suggestions) > 0 {
 				// Tab to complete + space
-				m.textInput.SetValue(m.suggestions[m.selectedSuggestion] + " ")
+				completed := m.suggestions[m.selectedSuggestion] + " "
+				m.textInput.SetValue(completed)
+				m.textInput.SetCursor(len(completed))
 				m.showSuggestions = false
 				return m, nil
 			}
