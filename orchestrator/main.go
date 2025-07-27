@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -224,6 +225,8 @@ type model struct {
 	showHelp           bool
 	width              int
 	height             int
+	spinner            spinner.Model
+	isBuilding         bool
 }
 
 func initialModel() model {
@@ -234,6 +237,10 @@ func initialModel() model {
 	ti.Width = 50
 	ti.Cursor.SetMode(cursor.CursorStatic)
 
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	return model{
 		textInput:          ti,
 		messages:           []string{},
@@ -243,8 +250,13 @@ func initialModel() model {
 		showHelp:           false,
 		width:              80,
 		height:             24,
+		spinner:            s,
+		isBuilding:         false,
 	}
 }
+
+type buildCompleteMsg struct{}
+type buildErrorMsg struct{ err error }
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -289,17 +301,44 @@ func slicesEqual(a, b []string) bool {
 	return true
 }
 
+func buildAndReloadCmd() tea.Cmd {
+	return func() tea.Msg {
+		// Get the current working directory to find go.mod
+		wd, err := os.Getwd()
+		if err != nil {
+			return buildErrorMsg{err: fmt.Errorf("failed to get working directory: %w", err)}
+		}
+
+		// Get the current executable path and name
+		execPath, err := os.Executable()
+		if err != nil {
+			return buildErrorMsg{err: fmt.Errorf("failed to get executable path: %w", err)}
+		}
+
+		// Build the new binary
+		buildCmd := exec.Command("go", "build", "-o", execPath, "main.go")
+		buildCmd.Dir = wd
+		
+		if err := buildCmd.Run(); err != nil {
+			return buildErrorMsg{err: fmt.Errorf("failed to build: %w", err)}
+		}
+
+		// Signal build completion
+		return buildCompleteMsg{}
+	}
+}
+
 func reloadOrchestrator() error {
+	// Prepare arguments (skip program name)
+	args := os.Args[1:]
+
 	// Get the current executable path
 	execPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)
 	}
 
-	// Prepare arguments (skip program name)
-	args := os.Args[1:]
-
-	// Use syscall.Exec to replace the current process
+	// Use syscall.Exec to replace the current process with the newly built binary
 	env := os.Environ()
 	return syscall.Exec(execPath, append([]string{execPath}, args...), env)
 }
@@ -312,6 +351,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.textInput.Width = msg.Width - 6 // Account for border and padding
+		return m, nil
+	case buildCompleteMsg:
+		// Build completed successfully, now reload
+		m.isBuilding = false
+		if err := reloadOrchestrator(); err != nil {
+			m.messages = append(m.messages, fmt.Sprintf("❌ Failed to reload: %v", err))
+		}
+		return m, nil
+	case buildErrorMsg:
+		// Build failed
+		m.isBuilding = false
+		m.messages = append(m.messages, fmt.Sprintf("❌ Build failed: %v", msg.err))
 		return m, nil
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -345,25 +396,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				
 				// Handle /reload command
 				if inputValue == "/reload" {
-					// Add message to show we're reloading
-					m.messages = append(m.messages, "🔄 Reloading orchestrator...")
-					
-					// Exit the TUI and reload
-					return m, tea.Batch(tea.Quit, func() tea.Msg {
-						// Small delay to show the message, then reload
-						if err := reloadOrchestrator(); err != nil {
-							log.Printf("Failed to reload: %v", err)
-							// Fallback: try to restart with exec.Command
-							cmd := exec.Command(os.Args[0], os.Args[1:]...)
-							cmd.Stdin = os.Stdin
-							cmd.Stdout = os.Stdout
-							cmd.Stderr = os.Stderr
-							if err := cmd.Start(); err != nil {
-								log.Printf("Failed to restart: %v", err)
-							}
-						}
-						return nil
-					})
+					// Start building process
+					m.isBuilding = true
+					m.textInput.SetValue("")
+					m.showSuggestions = false
+					m.showHelp = false
+					return m, tea.Batch(m.spinner.Tick, buildAndReloadCmd())
 				}
 				
 				m.messages = append(m.messages, m.textInput.Value())
@@ -397,9 +435,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.textInput, cmd = m.textInput.Update(msg)
+	// Update spinner if building
+	if m.isBuilding {
+		var spinnerCmd tea.Cmd
+		m.spinner, spinnerCmd = m.spinner.Update(msg)
+		cmd = tea.Batch(cmd, spinnerCmd)
+	}
+
+	var textInputCmd tea.Cmd
+	m.textInput, textInputCmd = m.textInput.Update(msg)
 	m.updateSuggestions()
-	return m, cmd
+	return m, tea.Batch(cmd, textInputCmd)
 }
 
 func (m model) View() string {
@@ -415,6 +461,11 @@ func (m model) View() string {
 			view += messageStyle.Render(fmt.Sprintf("> %s", msg)) + "\n"
 		}
 		view += "\n"
+	}
+
+	// Show building spinner if building
+	if m.isBuilding {
+		view += suggestionStyle.Render(fmt.Sprintf("%s Building and reloading...", m.spinner.View())) + "\n\n"
 	}
 
 	// Input with full-width border
