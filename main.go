@@ -43,23 +43,47 @@ var slashCommands = []string{
 	"/clear",
 }
 
-var shortcutRows = [][]string{
-	{"! for bash mode", "double tap esc to clear input", "ctrl + _ to undo"},
-	{"/ for commands", "shift + tab to auto-accept edits", "ctrl + z to suspend"},
-	{"@ for file paths", "ctrl + r for verbose output", ""},
-	{"# to memorize", "shift + e for newline", ""},
+var shortcuts = []string{
+	"! for bash mode",
+	"/ for commands", 
+	"@ for file paths",
+	"# to memorize",
+	"double tap esc to clear input",
+	"shift + tab to auto-accept edits",
+	"ctrl + r for verbose output",
+	"shift + e for newline",
+	"ctrl + _ to undo",
+	"ctrl + z to suspend",
 }
 
-func formatShortcutRows(rows [][]string) []string {
-	if len(rows) == 0 {
+func distributeShortcuts(shortcuts []string) []string {
+	if len(shortcuts) == 0 {
 		return []string{}
 	}
 	
+	// Calculate rows needed (divide by 3, round up)
+	numRows := (len(shortcuts) + 2) / 3 // +2 for ceiling division
+	
+	// Create 2D grid
+	grid := make([][]string, numRows)
+	for i := range grid {
+		grid[i] = make([]string, 3)
+	}
+	
+	// Fill grid column by column for even distribution
+	for i, shortcut := range shortcuts {
+		col := i / numRows
+		row := i % numRows
+		if col < 3 && row < numRows {
+			grid[row][col] = shortcut
+		}
+	}
+	
 	// Find max width for each column
-	maxWidths := make([]int, len(rows[0]))
-	for _, row := range rows {
+	maxWidths := make([]int, 3)
+	for _, row := range grid {
 		for i, cell := range row {
-			if i < len(maxWidths) && len(cell) > maxWidths[i] {
+			if len(cell) > maxWidths[i] {
 				maxWidths[i] = len(cell)
 			}
 		}
@@ -67,7 +91,7 @@ func formatShortcutRows(rows [][]string) []string {
 	
 	// Format each row with proper spacing (8 spaces between columns)
 	var formatted []string
-	for _, row := range rows {
+	for _, row := range grid {
 		var line string
 		for i, cell := range row {
 			if i == 0 {
@@ -78,7 +102,10 @@ func formatShortcutRows(rows [][]string) []string {
 				line += strings.Repeat(" ", padding) + cell
 			}
 		}
-		formatted = append(formatted, line)
+		// Only add non-empty lines
+		if strings.TrimSpace(line) != "" {
+			formatted = append(formatted, line)
+		}
 	}
 	
 	return formatted
@@ -259,7 +286,7 @@ func (m model) View() string {
 	// Help shortcuts
 	if m.showHelp {
 		view += "\n"
-		formattedShortcuts := formatShortcutRows(shortcutRows)
+		formattedShortcuts := distributeShortcuts(shortcuts)
 		for _, shortcut := range formattedShortcuts {
 			view += suggestionStyle.Render(shortcut) + "\n"
 		}
