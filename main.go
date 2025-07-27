@@ -30,7 +30,7 @@ var (
 			Padding(0, 1)
 	inputBoxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("240")).
+			BorderForeground(lipgloss.Color("8")).
 			Padding(0, 1)
 )
 
