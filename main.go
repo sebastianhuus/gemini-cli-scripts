@@ -299,6 +299,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+		case tea.KeyBackspace:
+			// Exit modes when backspacing on empty input
+			if m.textInput.Value() == "" {
+				m.showHelp = false
+				m.showSuggestions = false
+				m.suggestions = []string{}
+				return m, nil
+			}
 		case tea.KeyRunes:
 			// Intercept ? character when input is empty
 			if len(msg.Runes) == 1 && string(msg.Runes[0]) == "?" && m.textInput.Value() == "" {
