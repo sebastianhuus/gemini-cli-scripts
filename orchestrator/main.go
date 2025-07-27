@@ -307,21 +307,33 @@ func slicesEqual(a, b []string) bool {
 
 func buildAndReloadCmd() tea.Cmd {
 	return func() tea.Msg {
-		// Get the current working directory to find go.mod
-		wd, err := os.Getwd()
-		if err != nil {
-			return buildErrorMsg{err: fmt.Errorf("failed to get working directory: %w", err)}
-		}
-
-		// Get the current executable path and name
+		// Get the current executable path
 		execPath, err := os.Executable()
 		if err != nil {
 			return buildErrorMsg{err: fmt.Errorf("failed to get executable path: %w", err)}
 		}
 
+		// Get the source directory (where main.go is located)
+		// This handles symlinks by getting the directory of the actual binary
+		sourceDir := execPath
+		if info, err := os.Lstat(execPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			// It's a symlink, resolve it
+			if realPath, err := os.Readlink(execPath); err == nil {
+				if !strings.HasPrefix(realPath, "/") {
+					// Relative symlink, make it absolute
+					sourceDir = execPath[:strings.LastIndex(execPath, "/")+1] + realPath
+				} else {
+					sourceDir = realPath
+				}
+			}
+		}
+		
+		// Get the directory containing the executable (where main.go should be)
+		sourceDir = sourceDir[:strings.LastIndex(sourceDir, "/")]
+
 		// Build the new binary
 		buildCmd := exec.Command("go", "build", "-o", execPath, "main.go")
-		buildCmd.Dir = wd
+		buildCmd.Dir = sourceDir
 		
 		if err := buildCmd.Run(); err != nil {
 			return buildErrorMsg{err: fmt.Errorf("failed to build: %w", err)}
