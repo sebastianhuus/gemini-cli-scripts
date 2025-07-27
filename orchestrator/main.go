@@ -343,6 +343,36 @@ func reloadOrchestrator() error {
 	return syscall.Exec(execPath, append([]string{execPath}, args...), env)
 }
 
+func executeZshCommand(command string, args string, m *model) {
+	// Build the full command
+	var cmd *exec.Cmd
+	if args != "" {
+		cmd = exec.Command("zsh", "-c", fmt.Sprintf("%s %s", command, args))
+	} else {
+		cmd = exec.Command("zsh", "-c", command)
+	}
+	
+	// Set up to capture output
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	
+	// Add status message
+	if args != "" {
+		m.messages = append(m.messages, fmt.Sprintf("🔄 Running: %s %s", command, args))
+	} else {
+		m.messages = append(m.messages, fmt.Sprintf("🔄 Running: %s", command))
+	}
+	
+	// Execute the command
+	err := cmd.Run()
+	if err != nil {
+		m.messages = append(m.messages, fmt.Sprintf("❌ Command failed: %v", err))
+	} else {
+		m.messages = append(m.messages, fmt.Sprintf("✅ Command completed successfully"))
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -402,6 +432,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.showSuggestions = false
 					m.showHelp = false
 					return m, tea.Batch(m.spinner.Tick, buildAndReloadCmd())
+				}
+				
+				// Handle /commit command
+				if strings.HasPrefix(inputValue, "/commit") {
+					// Extract everything after /commit as a single parameter
+					commitMsg := strings.TrimSpace(strings.TrimPrefix(inputValue, "/commit"))
+					if commitMsg != "" {
+						// Quote the message to handle spaces and special characters
+						executeZshCommand("auto-commit", fmt.Sprintf(`"%s"`, commitMsg), &m)
+					} else {
+						executeZshCommand("auto-commit", "", &m)
+					}
+					m.textInput.SetValue("")
+					m.showSuggestions = false
+					m.showHelp = false
+					return m, nil
 				}
 				
 				m.messages = append(m.messages, m.textInput.Value())
