@@ -75,6 +75,7 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 	case tea.KeyBackspace:
+		// Regular backspace handling
 		if m.ShowExitConfirm {
 			m.ShowExitConfirm = false
 		}
@@ -89,6 +90,65 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.UpdateSuggestions()
 		}
 		return m, textInputCmd
+	case tea.KeyCtrlW:
+		// Handle Ctrl+W as alternative to Option+Backspace (delete previous word)
+		if m.ShowExitConfirm {
+			m.ShowExitConfirm = false
+		}
+		
+		currentValue := m.TextInput.Value()
+		cursor := m.TextInput.Position()
+		
+		if cursor > 0 {
+			// Find the start of the current word
+			runes := []rune(currentValue)
+			wordStart := cursor - 1
+			
+			// Skip trailing spaces
+			for wordStart >= 0 && runes[wordStart] == ' ' {
+				wordStart--
+			}
+			
+			// Find the beginning of the word
+			for wordStart >= 0 && runes[wordStart] != ' ' {
+				wordStart--
+			}
+			wordStart++ // Move to the first character of the word
+			
+			// Create new value without the word
+			newValue := string(runes[:wordStart]) + string(runes[cursor:])
+			m.TextInput.SetValue(newValue)
+			m.TextInput.SetCursor(wordStart)
+		}
+		
+		if m.TextInput.Value() == "" {
+			m.ShowHelp = false
+			m.ShowSuggestions = false
+			m.Suggestions = []string{}
+		} else {
+			m.UpdateSuggestions()
+		}
+		return m, nil
+	case tea.KeyCtrlU:
+		if m.ShowExitConfirm {
+			m.ShowExitConfirm = false
+		}
+		// Clear entire input (Ctrl + U)
+		m.TextInput.SetValue("")
+		m.TextInput.SetCursor(0)
+		m.ShowHelp = false
+		m.ShowSuggestions = false
+		m.Suggestions = []string{}
+		return m, nil
+	case tea.KeySpace:
+		if m.ShowExitConfirm {
+			m.ShowExitConfirm = false
+		}
+		// Allow space to pass through to text input
+		var textInputCmd tea.Cmd
+		m.TextInput, textInputCmd = m.TextInput.Update(msg)
+		m.UpdateSuggestions()
+		return m, textInputCmd
 	case tea.KeyRunes:
 		if m.ShowExitConfirm {
 			m.ShowExitConfirm = false
@@ -97,18 +157,17 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.ShowHelp = !m.ShowHelp
 			m.ShowSuggestions = false
 			m.Suggestions = []string{}
+			// Clear zsh mode when entering help mode
+			m.ZshMode = false
 			return m, nil
 		}
 		// Handle zsh mode toggle with "!"
 		if len(msg.Runes) == 1 && string(msg.Runes[0]) == "!" && m.TextInput.Value() == "" {
 			m.ZshMode = !m.ZshMode
+			// Clear other modes when entering zsh mode
 			m.ShowSuggestions = false
 			m.ShowHelp = false
-			if m.ZshMode {
-				m.Messages = append(m.Messages, "! Zsh mode enabled")
-			} else {
-				m.Messages = append(m.Messages, "! Zsh mode disabled")
-			}
+			// Don't add any messages to chat history
 			return m, nil
 		}
 		// Allow normal text input to pass through
@@ -124,6 +183,48 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleNavigationKey(false)
 	case tea.KeyTab:
 		return m.handleTabKey()
+	default:
+		// Debug: Check for Alt modifier on any key
+		if msg.Alt && msg.Type == tea.KeyBackspace {
+			// Handle Option + Backspace (delete entire previous word)
+			if m.ShowExitConfirm {
+				m.ShowExitConfirm = false
+			}
+			
+			currentValue := m.TextInput.Value()
+			cursor := m.TextInput.Position()
+			
+			if cursor > 0 {
+				// Find the start of the current word
+				runes := []rune(currentValue)
+				wordStart := cursor - 1
+				
+				// Skip trailing spaces
+				for wordStart >= 0 && runes[wordStart] == ' ' {
+					wordStart--
+				}
+				
+				// Find the beginning of the word
+				for wordStart >= 0 && runes[wordStart] != ' ' {
+					wordStart--
+				}
+				wordStart++ // Move to the first character of the word
+				
+				// Create new value without the word
+				newValue := string(runes[:wordStart]) + string(runes[cursor:])
+				m.TextInput.SetValue(newValue)
+				m.TextInput.SetCursor(wordStart)
+			}
+			
+			if m.TextInput.Value() == "" {
+				m.ShowHelp = false
+				m.ShowSuggestions = false
+				m.Suggestions = []string{}
+			} else {
+				m.UpdateSuggestions()
+			}
+			return m, nil
+		}
 	}
 	return m, nil
 }

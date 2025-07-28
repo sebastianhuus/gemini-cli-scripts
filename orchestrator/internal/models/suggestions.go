@@ -16,6 +16,7 @@ func (m *Model) UpdateSuggestions() {
 
 	if strings.HasPrefix(input, "/") {
 		m.ShowHelp = false
+		m.ZshMode = false // Clear zsh mode when typing slash commands
 		oldSuggestions := m.Suggestions
 		m.Suggestions = []string{}
 		for _, cmd := range SlashCommands {
