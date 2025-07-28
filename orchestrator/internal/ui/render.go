@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gemini-orchestrator/internal/models"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -37,12 +38,12 @@ func RenderInputBar(m models.Model) string {
 		} else {
 			inputBox = InputBoxStyle.Width(m.Width - 2)
 		}
-		
+
 		inputBar += inputBox.Render(m.TextInput.View())
-		
+
 		// Add zsh mode indicator
 		if m.ZshMode {
-			inputBar += "\n" + ZshModeIndicatorStyle.Render("! Currently in zsh mode")
+			inputBar += ZshModeIndicatorStyle.Render("! Currently in zsh mode")
 		}
 	}
 
@@ -87,8 +88,8 @@ func RenderView(m models.Model) string {
 			for _, shortcut := range formattedShortcuts {
 				view += SuggestionStyle.Render(shortcut) + "\n"
 			}
-		} else {
-			// Priority 4: Default help prompt
+		} else if !m.ZshMode {
+			// Priority 4: Default help prompt (only when not in zsh mode)
 			view += HelpTextStyle.Render("? for shortcuts")
 		}
 	}

@@ -28,10 +28,10 @@ var (
 			Foreground(lipgloss.Color("#CBC8C6"))
 	ZshModeInputBoxStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("196")). // Red border
+				BorderForeground(lipgloss.Color("#FE7BBD")). // Red border
 				Padding(0, 1)
 	ZshModeIndicatorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("196")). // Red text
+				Foreground(lipgloss.Color("#D10B73")). // Red text
 				MarginTop(1).
 				Padding(0, 2)
 )
