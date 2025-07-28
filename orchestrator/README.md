@@ -1,6 +1,6 @@
 # Gemini CLI Orchestrator
 
-Go/Bubble Tea interface for seamless integration with Gemini CLI automation scripts (`auto-commit`, `auto-pr`, `auto-issue`). Features state persistence and clean TUI separation.
+Go/Bubble Tea interface for seamless integration with Gemini CLI automation scripts (`auto-commit`, `auto-pr`, `auto-issue`). Features natural script execution and conversation history preservation.
 
 ## Usage
 
@@ -13,13 +13,13 @@ go build -o gemini-orchestrator && ./gemini-orchestrator
 **Slash Commands:** `/commit fix bug`, `/pr resolves #123`, `/issue`  
 **Zsh Mode:** Press `!` then run `auto-commit fix bug`, `auto-pr`, etc.
 
-Both methods maintain conversation history across script executions.
+Scripts execute naturally with `tea.ExecProcess` - the orchestrator suspends during execution and automatically resumes with conversation history intact.
 
 ## Controls
 
 - `?` - Help | `!` - Zsh mode | `/` - Slash commands
 - `↑/↓` - Navigate | `Tab/Enter` - Select | `Backspace` - Exit mode
-- `Ctrl+C/Esc` - Quit
+- `Ctrl+C` twice - Quit
 
 ## Dependencies
 
@@ -30,7 +30,13 @@ Both methods maintain conversation history across script executions.
 
 ## Architecture
 
-The app uses the Elm Architecture pattern:
-- **Model** - Application state (input, messages, suggestions, help mode)
-- **Update** - Event handling (key presses, window resizing)
-- **View** - Rendering the UI with responsive layout
+**Simplified Design:**
+- Single process throughout session - no complex state persistence needed
+- `tea.ExecProcess` handles script execution naturally
+- Conversation history preserved in memory across script runs
+- Clean exit handling with double Ctrl+C confirmation
+
+**Elm Architecture Pattern:**
+- **Model** - Application state (input, messages, suggestions, modes)
+- **Update** - Event handling (key presses, commands, script execution)
+- **View** - Responsive UI rendering with dynamic layout

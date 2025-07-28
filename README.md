@@ -98,6 +98,39 @@ When creating issues or comments, the system:
 
 This approach ensures accuracy while maintaining the convenience of natural language interaction.
 
+## Orchestrator Integration
+
+The `orchestrator/` directory contains a Go/Bubble Tea TUI that provides a unified interface for all Gemini CLI scripts. It offers a chat-like experience where you can execute scripts without leaving the interface.
+
+### Features
+
+- **Unified Interface**: Single TUI for all automation scripts (`auto-commit`, `auto-pr`, `auto-issue`)
+- **Natural Script Execution**: Uses `tea.ExecProcess` for seamless script integration
+- **Conversation History**: Maintains chat history across script executions in memory
+- **Dual Input Modes**:
+  - **Slash Commands**: `/commit fix bug`, `/pr resolves #123`, `/issue`
+  - **Zsh Mode**: Press `!` then run any shell command
+- **Clean Exit**: Double Ctrl+C for graceful shutdown
+
+### Usage
+
+```bash
+cd orchestrator
+go build -o gemini-orchestrator
+./gemini-orchestrator
+```
+
+### Architecture
+
+The orchestrator follows a **simplified single-process design**:
+
+- **No State Persistence**: Conversation history stays in memory during script execution
+- **Natural Resume**: `tea.ExecProcess` suspends the orchestrator during script runs and automatically resumes when complete
+- **Memory Preservation**: No complex state saving/loading - the original process maintains all context
+- **Clean Process Model**: Single PID throughout the session eliminates dual-process complexity
+
+This design proves that sophisticated script integration doesn't require complex state management - the Bubble Tea framework handles everything naturally.
+
 ## Configuration System
 
 The Gemini CLI scripts include a sophisticated configuration system that allows you to customize default behaviors, avoid repetitive command-line flags, and maintain consistent settings across projects and team members.

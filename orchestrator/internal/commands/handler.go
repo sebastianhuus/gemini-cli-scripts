@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -32,18 +31,12 @@ func HandleCommand(inputValue string, m *models.Model) tea.Cmd {
 		m.Messages = append(m.Messages, inputValue)
 		resetInput(m)
 		
-		// Save state before executing command
-		if err := m.SaveState(); err != nil {
-			// If state save fails, add error message but continue
-			m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
-		}
-		
 		// Execute auto-commit with context
 		command := "auto-commit"
 		if context != "" {
 			command += " " + context
 		}
-		return executeZshCommandAndRelaunch(command)
+		return executeZshCommand(command)
 	}
 
 	// Handle /pr command
@@ -55,18 +48,12 @@ func HandleCommand(inputValue string, m *models.Model) tea.Cmd {
 		m.Messages = append(m.Messages, inputValue)
 		resetInput(m)
 		
-		// Save state before executing command
-		if err := m.SaveState(); err != nil {
-			// If state save fails, add error message but continue
-			m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
-		}
-		
 		// Execute auto-pr with context
 		command := "auto-pr"
 		if context != "" {
 			command += " " + context
 		}
-		return executeZshCommandAndRelaunch(command)
+		return executeZshCommand(command)
 	}
 
 	// Handle /issue command
@@ -75,14 +62,8 @@ func HandleCommand(inputValue string, m *models.Model) tea.Cmd {
 		m.Messages = append(m.Messages, inputValue)
 		resetInput(m)
 		
-		// Save state before executing command
-		if err := m.SaveState(); err != nil {
-			// If state save fails, add error message but continue
-			m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
-		}
-		
 		// Execute auto-issue
-		return executeZshCommandAndRelaunch("auto-issue")
+		return executeZshCommand("auto-issue")
 	}
 
 	// Handle /clear command
@@ -105,31 +86,20 @@ func HandleZshCommand(inputValue string, m *models.Model) tea.Cmd {
 	m.Messages = append(m.Messages, fmt.Sprintf("$ %s", inputValue))
 	resetInput(m)
 	
-	// Save state before executing command
-	if err := m.SaveState(); err != nil {
-		// If state save fails, add error message but continue
-		m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
-	}
-	
-	// Execute the zsh command and relaunch
-	return executeZshCommandAndRelaunch(inputValue)
+	// Execute the zsh command
+	return executeZshCommand(inputValue)
 }
 
-func executeZshCommandAndRelaunch(command string) tea.Cmd {
-	// Get the current executable path for relaunching
-	execPath, err := os.Executable()
-	if err != nil {
-		execPath = os.Args[0] // Fallback to original command
-	}
-	
-	// Create the command chain: clear && reset && [command] && clear && exec [orchestrator-path] --restore
+func executeZshCommand(command string) tea.Cmd {
+	// Create the command chain: clear && reset && [command] && clear
 	cmdString := fmt.Sprintf(`
 		clear
 		reset
 		%s
 		clear
-		exec %s --restore
-	`, command, execPath)
+		echo "Script completed. Returning to orchestrator..."
+		sleep 1
+	`, command)
 	
 	return tea.ExecProcess(exec.Command("zsh", "-c", cmdString), nil)
 }
