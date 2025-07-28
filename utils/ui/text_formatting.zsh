@@ -21,7 +21,7 @@ make_issue_refs_bold() {
 import re
 import sys
 text = sys.stdin.read().rstrip()
-result = re.sub(r'#(\d+)', r'**#\1**', text)
+result = re.sub(r'#(\d+)\b', r'**#\1**', text)
 print(result)
 "
 }
