@@ -60,9 +60,18 @@ for script_file command_name in ${(kv)SCRIPTS}; do
         continue
     fi
     
-    # Remove existing symlink/file if it exists
-    if [[ -L "$TARGET_PATH" ]] || [[ -f "$TARGET_PATH" ]]; then
-        echo "🗑️  Removing existing $command_name..."
+    # Check if symlink already points to the correct source
+    if [[ -L "$TARGET_PATH" ]]; then
+        existing_target=$(readlink "$TARGET_PATH")
+        if [[ "$existing_target" == "$SOURCE_PATH" ]]; then
+            echo "✅ $command_name already points to correct source, skipping"
+            continue
+        else
+            echo "🗑️  Removing existing $command_name (points to different source)..."
+            sudo rm -f "$TARGET_PATH"
+        fi
+    elif [[ -f "$TARGET_PATH" ]]; then
+        echo "🗑️  Removing existing $command_name (not a symlink)..."
         sudo rm -f "$TARGET_PATH"
     fi
     
