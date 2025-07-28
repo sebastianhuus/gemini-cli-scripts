@@ -18,6 +18,17 @@ declare -A SCRIPTS=(
     ["auto_issue.zsh"]="auto-issue"
 )
 
+# Build orchestrator if Go project exists
+if [[ -d "$SCRIPT_DIR/orchestrator" ]] && [[ -f "$SCRIPT_DIR/orchestrator/go.mod" ]]; then
+    echo "🔨 Building orchestrator..."
+    if (cd "$SCRIPT_DIR/orchestrator" && go build -o gemini-orchestrator .); then
+        echo "   ✅ Orchestrator built successfully"
+        SCRIPTS[orchestrator/gemini-orchestrator]="gemini-orchestrator"
+    else
+        echo "   ⚠️  Failed to build orchestrator, skipping"
+    fi
+fi
+
 echo "🔧 Installing gemini-cli-scripts to PATH..."
 echo "   Source: $SCRIPT_DIR"
 echo "   Target: $INSTALL_DIR"
@@ -72,5 +83,8 @@ echo "You can now use these commands from anywhere:"
 echo "   auto-commit \"your commit message\""
 echo "   auto-pr \"resolves #123\""
 echo "   auto-issue \"create issue about dark mode\""
+if [[ -n "${SCRIPTS[orchestrator/gemini-orchestrator]}" ]]; then
+    echo "   gemini-orchestrator"
+fi
 echo ""
 echo "💡 Tip: These are symlinks, so they'll automatically get updates when you git pull this repository."
