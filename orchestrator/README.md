@@ -1,29 +1,24 @@
 # Gemini CLI Orchestrator
 
-A terminal-based chat interface built with Go and Bubble Tea, designed to orchestrate the existing Gemini CLI automation scripts.
-
-## Features
-
-- **Chat input** with non-blinking cursor
-- **Slash command autocomplete** (`/commit`, `/pr`, `/issue`, `/help`, `/clear`)
-- **Interactive help system** (press `?` to view keyboard shortcuts)
-- **Responsive layout** that adapts to terminal width
-- **Message history** with quote-style formatting
+Go/Bubble Tea interface for seamless integration with Gemini CLI automation scripts (`auto-commit`, `auto-pr`, `auto-issue`). Features state persistence and clean TUI separation.
 
 ## Usage
 
 ```bash
-cd orchestrator
-go run main.go
+go build -o gemini-orchestrator && ./gemini-orchestrator
 ```
 
-## Keyboard Shortcuts
+## Script Integration
 
-- `?` - Show/hide help
-- `/` - Show slash command autocomplete
-- `↑/↓` - Navigate suggestions
-- `Tab/Enter` - Complete selected command
-- `Backspace` (on empty input) - Exit current mode
+**Slash Commands:** `/commit fix bug`, `/pr resolves #123`, `/issue`  
+**Zsh Mode:** Press `!` then run `auto-commit fix bug`, `auto-pr`, etc.
+
+Both methods maintain conversation history across script executions.
+
+## Controls
+
+- `?` - Help | `!` - Zsh mode | `/` - Slash commands
+- `↑/↓` - Navigate | `Tab/Enter` - Select | `Backspace` - Exit mode
 - `Ctrl+C/Esc` - Quit
 
 ## Dependencies
