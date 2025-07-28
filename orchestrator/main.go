@@ -88,6 +88,7 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Suggestions = []string{}
 			// Exit zsh mode when backspace is pressed in empty text field
 			m.ZshMode = false
+			m.UpdatePromptForZshMode()
 		} else {
 			m.UpdateSuggestions()
 		}
@@ -165,11 +166,13 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Suggestions = []string{}
 			// Clear zsh mode when entering help mode
 			m.ZshMode = false
+			m.UpdatePromptForZshMode()
 			return m, nil
 		}
 		// Handle zsh mode toggle with "!"
 		if len(msg.Runes) == 1 && string(msg.Runes[0]) == "!" && m.TextInput.Value() == "" {
 			m.ZshMode = !m.ZshMode
+			m.UpdatePromptForZshMode()
 			// Clear other modes when entering zsh mode
 			m.ShowSuggestions = false
 			m.ShowHelp = false
