@@ -25,23 +25,64 @@ func HandleCommand(inputValue string, m *models.Model) tea.Cmd {
 
 	// Handle /commit command
 	if strings.HasPrefix(inputValue, "/commit") {
-		m.Messages = append(m.Messages, "⚠️ /commit command not yet implemented")
+		context := strings.TrimPrefix(inputValue, "/commit")
+		context = strings.TrimSpace(context)
+		
+		// Add command to history
+		m.Messages = append(m.Messages, inputValue)
 		resetInput(m)
-		return nil
+		
+		// Save state before executing command
+		if err := m.SaveState(); err != nil {
+			// If state save fails, add error message but continue
+			m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
+		}
+		
+		// Execute auto-commit with context
+		command := "auto-commit"
+		if context != "" {
+			command += " " + context
+		}
+		return executeZshCommandAndRelaunch(command)
 	}
 
 	// Handle /pr command
 	if strings.HasPrefix(inputValue, "/pr") {
-		m.Messages = append(m.Messages, "⚠️ /pr command not yet implemented")
+		context := strings.TrimPrefix(inputValue, "/pr")
+		context = strings.TrimSpace(context)
+		
+		// Add command to history
+		m.Messages = append(m.Messages, inputValue)
 		resetInput(m)
-		return nil
+		
+		// Save state before executing command
+		if err := m.SaveState(); err != nil {
+			// If state save fails, add error message but continue
+			m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
+		}
+		
+		// Execute auto-pr with context
+		command := "auto-pr"
+		if context != "" {
+			command += " " + context
+		}
+		return executeZshCommandAndRelaunch(command)
 	}
 
 	// Handle /issue command
 	if inputValue == "/issue" {
-		m.Messages = append(m.Messages, "⚠️ /issue command not yet implemented")
+		// Add command to history
+		m.Messages = append(m.Messages, inputValue)
 		resetInput(m)
-		return nil
+		
+		// Save state before executing command
+		if err := m.SaveState(); err != nil {
+			// If state save fails, add error message but continue
+			m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
+		}
+		
+		// Execute auto-issue
+		return executeZshCommandAndRelaunch("auto-issue")
 	}
 
 	// Handle /clear command
