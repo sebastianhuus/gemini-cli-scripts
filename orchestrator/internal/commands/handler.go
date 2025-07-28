@@ -45,7 +45,7 @@ func HandleCommand(inputValue string, m *models.Model) tea.Cmd {
 	if inputValue == "/clear" {
 		// Clear entire display and reset to initial state
 		ui.ComposeUI(m)
-		m.Messages = []string{"Display cleared."}
+		m.Messages = []string{"/clear\n  ⎿  (no content)"}
 		resetInput(m)
 		return nil
 	}

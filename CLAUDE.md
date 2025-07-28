@@ -388,3 +388,4 @@ All generated content includes attribution footer for transparency and complianc
 
 ## Zsh Scripting Tips
 - If you are going to use ``` inside of zsh scripts, remember to escape it like \``` so that it doesnt accidentally open a quote block
+- Do not use "timeout" for zsh commands

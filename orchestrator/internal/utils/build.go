@@ -41,8 +41,9 @@ func BuildAndReloadCmd() tea.Cmd {
 		buildCmd := exec.Command("go", "build", "-o", execPath, "main.go")
 		buildCmd.Dir = sourceDir
 
-		if err := buildCmd.Run(); err != nil {
-			return models.BuildErrorMsg{Err: fmt.Errorf("failed to build: %w", err)}
+		output, err := buildCmd.CombinedOutput()
+		if err != nil {
+			return models.BuildErrorMsg{Err: fmt.Errorf("failed to build: %w\nOutput: %s", err, string(output))}
 		}
 
 		// Signal build completion

@@ -9,7 +9,6 @@ import (
 	"gemini-orchestrator/internal/commands"
 	"gemini-orchestrator/internal/models"
 	"gemini-orchestrator/internal/ui"
-	"gemini-orchestrator/internal/utils"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -32,9 +31,7 @@ func (m orchestratorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case models.BuildCompleteMsg:
 		m.IsBuilding = false
-		if err := utils.ReloadOrchestrator(); err != nil {
-			m.Messages = append(m.Messages, fmt.Sprintf("❌ Failed to reload: %v", err))
-		}
+		m.Messages = append(m.Messages, "✅ Build successful! Relaunch app to get new update?")
 		return m, nil
 	case models.BuildErrorMsg:
 		m.IsBuilding = false
@@ -81,12 +78,17 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.ShowExitConfirm {
 			m.ShowExitConfirm = false
 		}
+		// Handle backspace in text input
+		var textInputCmd tea.Cmd
+		m.TextInput, textInputCmd = m.TextInput.Update(msg)
 		if m.TextInput.Value() == "" {
 			m.ShowHelp = false
 			m.ShowSuggestions = false
 			m.Suggestions = []string{}
-			return m, nil
+		} else {
+			m.UpdateSuggestions()
 		}
+		return m, textInputCmd
 	case tea.KeyRunes:
 		if m.ShowExitConfirm {
 			m.ShowExitConfirm = false
@@ -97,6 +99,11 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Suggestions = []string{}
 			return m, nil
 		}
+		// Allow normal text input to pass through
+		var textInputCmd tea.Cmd
+		m.TextInput, textInputCmd = m.TextInput.Update(msg)
+		m.UpdateSuggestions()
+		return m, textInputCmd
 	case tea.KeyEnter:
 		return m.handleEnterKey()
 	case tea.KeyUp:
