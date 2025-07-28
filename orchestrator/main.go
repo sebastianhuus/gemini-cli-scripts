@@ -9,6 +9,7 @@ import (
 	"gemini-orchestrator/internal/commands"
 	"gemini-orchestrator/internal/models"
 	"gemini-orchestrator/internal/ui"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -98,32 +99,32 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.ShowExitConfirm {
 			m.ShowExitConfirm = false
 		}
-		
+
 		currentValue := m.TextInput.Value()
 		cursor := m.TextInput.Position()
-		
+
 		if cursor > 0 {
 			// Find the start of the current word
 			runes := []rune(currentValue)
 			wordStart := cursor - 1
-			
+
 			// Skip trailing spaces
 			for wordStart >= 0 && runes[wordStart] == ' ' {
 				wordStart--
 			}
-			
+
 			// Find the beginning of the word
 			for wordStart >= 0 && runes[wordStart] != ' ' {
 				wordStart--
 			}
 			wordStart++ // Move to the first character of the word
-			
+
 			// Create new value without the word
 			newValue := string(runes[:wordStart]) + string(runes[cursor:])
 			m.TextInput.SetValue(newValue)
 			m.TextInput.SetCursor(wordStart)
 		}
-		
+
 		if m.TextInput.Value() == "" {
 			m.ShowHelp = false
 			m.ShowSuggestions = false
@@ -144,9 +145,11 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.Suggestions = []string{}
 		return m, nil
 	case tea.KeyCtrlA:
+		// This is equivalent to CMD + Left Arrow
 		m.TextInput.SetCursor(0)
 		return m, nil
 	case tea.KeyCtrlE:
+		// This is equivalent to CMD + Right Arrow
 		m.TextInput.SetCursor(len(m.TextInput.Value()))
 		return m, nil
 	case tea.KeySpace:
@@ -209,32 +212,32 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.ShowExitConfirm {
 				m.ShowExitConfirm = false
 			}
-			
+
 			currentValue := m.TextInput.Value()
 			cursor := m.TextInput.Position()
-			
+
 			if cursor > 0 {
 				// Find the start of the current word
 				runes := []rune(currentValue)
 				wordStart := cursor - 1
-				
+
 				// Skip trailing spaces
 				for wordStart >= 0 && runes[wordStart] == ' ' {
 					wordStart--
 				}
-				
+
 				// Find the beginning of the word
 				for wordStart >= 0 && runes[wordStart] != ' ' {
 					wordStart--
 				}
 				wordStart++ // Move to the first character of the word
-				
+
 				// Create new value without the word
 				newValue := string(runes[:wordStart]) + string(runes[cursor:])
 				m.TextInput.SetValue(newValue)
 				m.TextInput.SetCursor(wordStart)
 			}
-			
+
 			if m.TextInput.Value() == "" {
 				m.ShowHelp = false
 				m.ShowSuggestions = false
@@ -260,12 +263,12 @@ func (m orchestratorModel) handleEnterKey() (tea.Model, tea.Cmd) {
 
 	if m.TextInput.Value() != "" {
 		inputValue := strings.TrimSpace(m.TextInput.Value())
-		
+
 		// Handle zsh mode commands
 		if m.ZshMode {
 			return m, commands.HandleZshCommand(inputValue, &m.Model)
 		}
-		
+
 		return m, commands.HandleCommand(inputValue, &m.Model)
 	}
 	return m, nil
