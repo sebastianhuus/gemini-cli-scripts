@@ -9,23 +9,24 @@ Implement a Quit → Clear → Run Script → Clear → Relaunch loop with state
 - Nesting TUI applications causes formatting conflicts and broken layouts
 - Solution: NEVER embed them inside each other
 
-## Implementation Status: ✅ PARTIALLY COMPLETE
+## Implementation Status: ✅ MOSTLY COMPLETE
 
-The orchestrator has been implemented with a **Zsh mode** that provides the quit/clear/run/relaunch pattern, but without state persistence. Current implementation uses a simpler approach that still achieves clean TUI separation.
+The orchestrator has been successfully implemented with **Zsh mode** and **state persistence**. The quit/clear/run/relaunch pattern works beautifully with full state restoration.
 
-### ✅ Implemented Components
+### ✅ Fully Implemented Components
 
-1. **Zsh Mode Toggle**: Users can enter Zsh mode by typing `!` on empty input
-2. **Command Execution Pattern**: `executeZshCommandAndRelaunch()` in `commands/handler.go:71-88`
+1. **Zsh Mode Toggle**: Users can enter Zsh mode by typing `!` on empty input, exit with backspace
+2. **Command Execution Pattern**: `executeZshCommandAndRelaunch()` in `commands/handler.go:77-94`
 3. **Clean Terminal Handoff**: Clear → Reset → Command → Clear → Relaunch pattern
-4. **TUI State Management**: ZshMode field in `models.Model` struct
-5. **UI Indicators**: Visual feedback when in Zsh mode
+4. **State Persistence**: Complete JSON-based state saving/loading using `os.UserConfigDir()`
+5. **Restore Flag**: `--restore` flag support in `main.go:308-316`
+6. **TUI State Management**: ZshMode field in `models.Model` struct with persistence
+7. **UI Indicators**: Visual feedback when in Zsh mode
+8. **Cross-Platform Storage**: Uses standard directories (`~/.config/gemini-orchestrator/` on Linux/Unix)
 
-### ❌ Missing Components (Original Plan)
+### ❌ Remaining Component
 
-1. **State Persistence**: No `.orchestrator-state.json` file system
-2. **Restore Flag**: No `--restore` flag in main.go
-3. **Script-Specific Commands**: `/commit`, `/pr`, `/issue` commands show "not yet implemented"
+1. **Script-Specific Commands**: `/commit`, `/pr`, `/issue` commands show "not yet implemented" in `commands/handler.go:27-44`
 
 ## Current Architecture: Zsh Mode Implementation
 
@@ -201,7 +202,7 @@ func main() {
 }
 ```
 
-## Current Flow Diagram (Zsh Mode - Working)
+## Current Flow Diagram (Zsh Mode with State Persistence - ✅ Working)
 
 ```
 User types "!" to enter Zsh mode
@@ -209,7 +210,9 @@ User types "!" to enter Zsh mode
 User types "auto-commit fix bug"
     ↓
 Message added to history: "$ auto-commit fix bug"
-    ↓  
+    ↓
+State saved to ~/.config/gemini-orchestrator/session-state.json  
+    ↓
 Orchestrator quits
     ↓
 Terminal clears + resets
@@ -218,17 +221,21 @@ auto-commit "fix bug" runs (full Gum UI)
     ↓
 Terminal clears again  
     ↓
-Orchestrator relaunches automatically
+Orchestrator relaunches with --restore flag
     ↓
-User returns to clean orchestrator interface
+State loads from session-state.json
+    ↓
+User returns to Zsh mode with conversation history + "✅ Script completed"
+    ↓
+State file automatically cleaned up
 ```
 
-## Planned Flow Diagram (State Persistence - Not Implemented)
+## Planned Flow Diagram (Slash Commands - Not Yet Implemented)
 
 ```
 User types "/commit fix bug"
     ↓
-Orchestrator saves state to .orchestrator-state.json
+State saved to ~/.config/gemini-orchestrator/session-state.json
     ↓  
 Orchestrator quits
     ↓
@@ -240,9 +247,11 @@ Terminal clears again
     ↓
 Orchestrator relaunches with --restore flag
     ↓
-State loads from .orchestrator-state.json
+State loads from session-state.json
     ↓
 User sees their message history + "✅ Script completed"
+    ↓
+State file automatically cleaned up
 ```
 
 ## Benefits
@@ -253,15 +262,14 @@ User sees their message history + "✅ Script completed"
 ✅ **Minimal development effort** - just orchestration logic  
 ✅ **Maintains proven functionality** - scripts work exactly as designed  
 ✅ **No risk of introducing bugs** from porting/refactoring  
-🔄 **Current UX**: Clean transition but no state persistence
-🔄 **Planned UX**: Seamless conversation flow with state persistence
+✅ **Seamless UX**: Full conversation flow with state persistence
+✅ **Cross-platform storage**: Uses standard config directories
+✅ **Atomic state operations**: Safe file writes with cleanup
+✅ **Graceful error handling**: Fallback to clean start if state loading fails
 
-## Next Steps to Complete Original Plan
+## Final Step to Complete Integration
 
-1. **Add State Persistence**: Implement `SaveState()` and `LoadState()` methods in `models/app.go`
-2. **Add Restore Flag**: Update `main.go` to handle `--restore` flag and load state
-3. **Enable Script Commands**: Replace "not yet implemented" messages in `/commit`, `/pr`, `/issue` handlers
-4. **State Management**: Add success messages and cleanup logic for state files
+1. **Enable Slash Commands**: Replace "not yet implemented" messages in `/commit`, `/pr`, `/issue` handlers in `commands/handler.go:27-44` to call `SaveState()` and `executeZshCommandAndRelaunch()` with appropriate script names
 
 ## Current Implementation Notes
 
@@ -273,12 +281,11 @@ User sees their message history + "✅ Script completed"
 
 ## Why This Approach is Most Elegant
 
-| Approach | Development Effort | Risk | UX Quality | Maintains Existing Scripts |
-|----------|-------------------|------|------------|----------------------------|
-| **Current (Zsh Mode)** | **Low** | **Low** | **High** | **✅ Yes** |
-| **Quit/Relaunch + State** | **Medium** | **Low** | **Very High** | **✅ Yes** |
-| Port to Go | High | High | Medium | ❌ No |  
-| Headless mode | Medium | Medium | Low | ❌ Loses Gum |
-| Extract to libraries | High | Medium | High | ❌ Requires rewrite |
+| Approach | Development Effort | Risk | UX Quality | Maintains Existing Scripts | Status |
+|----------|-------------------|------|------------|----------------------------|---------|
+| **Quit/Relaunch + State** | **Low** | **Low** | **Very High** | **✅ Yes** | **✅ Complete** |
+| Port to Go | High | High | Medium | ❌ No | ❌ Not needed |
+| Headless mode | Medium | Medium | Low | ❌ Loses Gum | ❌ Not needed |
+| Extract to libraries | High | Medium | High | ❌ Requires rewrite | ❌ Not needed |
 
-The current implementation successfully demonstrates the core principle: "NEVER embed TUI applications inside each other" while providing clean user experience. State persistence would enhance continuity but is not required for functional integration.
+The implementation successfully demonstrates the core principle: "NEVER embed TUI applications inside each other" while providing seamless user experience through intelligent state management. The approach works beautifully in practice!
