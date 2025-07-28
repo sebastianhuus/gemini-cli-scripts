@@ -20,6 +20,7 @@ type Model struct {
 	Spinner            spinner.Model
 	IsBuilding         bool
 	ShowExitConfirm    bool
+	ZshMode            bool
 }
 
 func InitialModel() Model {
@@ -29,6 +30,7 @@ func InitialModel() Model {
 	ti.CharLimit = 200
 	ti.Width = 50
 	ti.Cursor.SetMode(cursor.CursorStatic)
+	ti.Prompt = "> " // Default prompt
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -46,11 +48,25 @@ func InitialModel() Model {
 		Spinner:            s,
 		IsBuilding:         false,
 		ShowExitConfirm:    false,
+		ZshMode:            false,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
 	return nil
+}
+
+// UpdatePromptForZshMode updates the text input prompt based on Zsh mode
+func (m *Model) UpdatePromptForZshMode() {
+	if m.ZshMode {
+		m.TextInput.Prompt = "! "
+		// Apply pink styling to the prompt
+		m.TextInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FE8BC4"))
+	} else {
+		m.TextInput.Prompt = "> "
+		// Reset to default styling
+		m.TextInput.PromptStyle = lipgloss.NewStyle()
+	}
 }
 
 func slicesEqual(a, b []string) bool {
@@ -64,3 +80,4 @@ func slicesEqual(a, b []string) bool {
 	}
 	return true
 }
+
