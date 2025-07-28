@@ -20,6 +20,7 @@ type Model struct {
 	Spinner            spinner.Model
 	IsBuilding         bool
 	ShowExitConfirm    bool
+	ZshMode            bool
 }
 
 func InitialModel() Model {
@@ -46,6 +47,7 @@ func InitialModel() Model {
 		Spinner:            s,
 		IsBuilding:         false,
 		ShowExitConfirm:    false,
+		ZshMode:            false,
 	}
 }
 

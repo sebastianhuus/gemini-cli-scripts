@@ -99,6 +99,18 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.Suggestions = []string{}
 			return m, nil
 		}
+		// Handle zsh mode toggle with "!"
+		if len(msg.Runes) == 1 && string(msg.Runes[0]) == "!" && m.TextInput.Value() == "" {
+			m.ZshMode = !m.ZshMode
+			m.ShowSuggestions = false
+			m.ShowHelp = false
+			if m.ZshMode {
+				m.Messages = append(m.Messages, "! Zsh mode enabled")
+			} else {
+				m.Messages = append(m.Messages, "! Zsh mode disabled")
+			}
+			return m, nil
+		}
 		// Allow normal text input to pass through
 		var textInputCmd tea.Cmd
 		m.TextInput, textInputCmd = m.TextInput.Update(msg)
@@ -128,6 +140,12 @@ func (m orchestratorModel) handleEnterKey() (tea.Model, tea.Cmd) {
 
 	if m.TextInput.Value() != "" {
 		inputValue := strings.TrimSpace(m.TextInput.Value())
+		
+		// Handle zsh mode commands
+		if m.ZshMode {
+			return m, commands.HandleZshCommand(inputValue, &m.Model)
+		}
+		
 		return m, commands.HandleCommand(inputValue, &m.Model)
 	}
 	return m, nil
