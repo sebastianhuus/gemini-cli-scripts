@@ -64,6 +64,12 @@ func HandleZshCommand(inputValue string, m *models.Model) tea.Cmd {
 	m.Messages = append(m.Messages, fmt.Sprintf("$ %s", inputValue))
 	resetInput(m)
 	
+	// Save state before executing command
+	if err := m.SaveState(); err != nil {
+		// If state save fails, add error message but continue
+		m.Messages = append(m.Messages, fmt.Sprintf("⚠️ Failed to save state: %v", err))
+	}
+	
 	// Execute the zsh command and relaunch
 	return executeZshCommandAndRelaunch(inputValue)
 }
@@ -75,13 +81,13 @@ func executeZshCommandAndRelaunch(command string) tea.Cmd {
 		execPath = os.Args[0] // Fallback to original command
 	}
 	
-	// Create the command chain: clear && reset && [command] && clear && exec [orchestrator-path]
+	// Create the command chain: clear && reset && [command] && clear && exec [orchestrator-path] --restore
 	cmdString := fmt.Sprintf(`
 		clear
 		reset
 		%s
 		clear
-		exec %s
+		exec %s --restore
 	`, command, execPath)
 	
 	return tea.ExecProcess(exec.Command("zsh", "-c", cmdString), nil)

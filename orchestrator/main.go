@@ -303,6 +303,18 @@ func main() {
 	ui.ClearConsole()
 
 	initialModel := models.InitialModel()
+	
+	// Check for --restore flag
+	if len(os.Args) > 1 && os.Args[1] == "--restore" {
+		if err := initialModel.LoadState(); err != nil {
+			// If state loading fails, log but continue with clean state
+			fmt.Fprintf(os.Stderr, "Warning: Failed to restore state: %v\n", err)
+		} else {
+			// Clean up state file after successful restore
+			models.CleanupStateFile()
+		}
+	}
+	
 	wrappedModel := orchestratorModel{Model: initialModel}
 
 	p := tea.NewProgram(wrappedModel)
