@@ -144,9 +144,6 @@ func (m *Model) LoadState() error {
 	m.Messages = state.Messages
 	m.ZshMode = state.ZshMode
 	
-	// Add success message about script execution
-	m.Messages = append(m.Messages, "✅ Script completed successfully")
-	
 	return nil
 }
 
