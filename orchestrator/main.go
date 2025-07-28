@@ -143,6 +143,12 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.ShowSuggestions = false
 		m.Suggestions = []string{}
 		return m, nil
+	case tea.KeyCtrlA:
+		m.TextInput.SetCursor(0)
+		return m, nil
+	case tea.KeyCtrlE:
+		m.TextInput.SetCursor(len(m.TextInput.Value()))
+		return m, nil
 	case tea.KeySpace:
 		if m.ShowExitConfirm {
 			m.ShowExitConfirm = false
