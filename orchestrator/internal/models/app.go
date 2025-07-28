@@ -4,8 +4,8 @@ import (
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/lipgloss"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
@@ -24,7 +24,7 @@ type Model struct {
 
 func InitialModel() Model {
 	ti := textinput.New()
-	ti.Placeholder = "Type your message..."
+	ti.Placeholder = ""
 	ti.Focus()
 	ti.CharLimit = 200
 	ti.Width = 50
