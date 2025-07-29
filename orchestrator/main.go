@@ -74,7 +74,8 @@ func (m orchestratorModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.ShowExitConfirm = false
 			return m, nil
 		}
-		return m, tea.Quit
+		// Escape key no longer closes the app - only Ctrl+C does
+		return m, nil
 	case tea.KeyBackspace:
 		// Regular backspace handling
 		if m.ShowExitConfirm {
